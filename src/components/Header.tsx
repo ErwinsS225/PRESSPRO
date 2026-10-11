@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Plus, RefreshCw, Terminal, ArrowRightLeft } from 'lucide-react';
+import { Menu, Plus, ArrowRightLeft } from 'lucide-react';
 import { ViewMode, Tenant, HealthCheckResult, User } from '../types';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -40,8 +40,6 @@ export const Header: React.FC<HeaderProps> = ({
         return 'SuperAdmin — Plateforme & Abonnements';
       case 'system-health':
         return 'Diagnostics Serveur, JWT & PostgreSQL';
-      case 'docs':
-        return 'Guide technique Mac & Architecture';
       default:
         return 'Tableau de bord';
     }
@@ -68,27 +66,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Zone 2: Navigation meta info & Live API status */}
-      <div className="hidden lg:flex items-center gap-4 text-xs">
+      {/* Zone 2: Navigation meta info */}
+      <div className="hidden lg:flex items-center gap-3 text-xs">
         <div className="flex items-center gap-2 text-neutral-600 bg-neutral-50 px-2.5 py-1 rounded-md border border-neutral-200/60 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-400">
-          <Terminal className="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-400" />
-          <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">JWT Auth + Chi</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">Session active</span>
           <span className="text-neutral-300 dark:text-neutral-700">·</span>
-          <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">Rôle: {currentUser.role}</span>
+          <span className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium capitalize">Rôle : {currentUser.role}</span>
         </div>
-
-        <button
-          onClick={onRefreshHealth}
-          disabled={isChecking}
-          title="Tester la connexion à l'API Go"
-          className="flex items-center gap-1.5 text-[11px] text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3 w-3 ${isChecking ? 'animate-spin text-neutral-900 dark:text-neutral-100' : ''}`} />
-          <span>{isChecking ? 'Vérification...' : 'Sonder l’API'}</span>
-          {health?.latencyMs !== undefined && (
-            <span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-500">({health.latencyMs}ms)</span>
-          )}
-        </button>
       </div>
 
       {/* Zone 3: Primary action + Theme toggle + User switcher */}

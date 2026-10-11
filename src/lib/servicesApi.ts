@@ -80,11 +80,19 @@ export async function fetchServices(token?: string): Promise<{ services: Service
         const mapped: ServiceItem[] = data.map((d: any) => ({
           id: d.id,
           name: d.name,
-          category: d.category || 'Lavage & Repassage',
+          article: d.article || d.name,
+          treatment: d.treatment || 'Lavage & Soin',
+          category: d.category || 'Vêtements du quotidien',
           price: Number(d.unit_price) || 0,
           unit: d.unit || 'pièce',
+          pricingModel: d.pricing_model || 'piece',
           durationHours: Number(d.estimated_hours) || 24,
           isActive: d.is_active !== false,
+          isExpressAvailable: d.is_express_available === true,
+          expressSurcharge: Number(d.express_surcharge) || 0,
+          isPickupAvailable: d.is_pickup_available !== false,
+          isOutsourced: d.is_outsourced === true,
+          requiresQuote: d.requires_quote === true,
           description: d.description || '',
         }));
 
@@ -122,11 +130,20 @@ export async function createServiceOnBackend(
       headers: getAuthHeader(token),
       body: JSON.stringify({
         name: newService.name,
+        article: newService.article || newService.name,
+        treatment: newService.treatment || 'Lavage & Soin',
         category: newService.category,
         unit_price: Number(newService.price),
         unit: newService.unit,
+        pricing_model: newService.pricingModel || 'piece',
         estimated_hours: Number(newService.durationHours),
         is_active: newService.isActive !== false,
+        is_express_available: newService.isExpressAvailable === true,
+        express_surcharge: Number(newService.expressSurcharge) || 0,
+        is_pickup_available: newService.isPickupAvailable !== false,
+        is_outsourced: newService.isOutsourced === true,
+        requires_quote: newService.requiresQuote === true,
+        description: newService.description,
       }),
     });
 
@@ -135,12 +152,20 @@ export async function createServiceOnBackend(
       const confirmedItem: ServiceItem = {
         id: data.id || tempId,
         name: data.name || newService.name,
+        article: data.article || newService.article || newService.name,
+        treatment: data.treatment || newService.treatment || 'Lavage & Soin',
         category: data.category || newService.category,
         price: Number(data.unit_price) || newService.price,
         unit: data.unit || newService.unit,
+        pricingModel: data.pricing_model || newService.pricingModel || 'piece',
         durationHours: Number(data.estimated_hours) || newService.durationHours,
         isActive: data.is_active !== false,
-        description: newService.description,
+        isExpressAvailable: data.is_express_available === true,
+        expressSurcharge: Number(data.express_surcharge) || 0,
+        isPickupAvailable: data.is_pickup_available !== false,
+        isOutsourced: data.is_outsourced === true,
+        requiresQuote: data.requires_quote === true,
+        description: data.description || newService.description,
       };
 
       // Mettre à jour le cache local
@@ -176,11 +201,20 @@ export async function updateServiceOnBackend(
       headers: getAuthHeader(token),
       body: JSON.stringify({
         name: service.name,
+        article: service.article,
+        treatment: service.treatment,
         category: service.category,
         unit_price: Number(service.price),
         unit: service.unit,
+        pricing_model: service.pricingModel || 'piece',
         estimated_hours: Number(service.durationHours),
         is_active: service.isActive !== false,
+        is_express_available: service.isExpressAvailable === true,
+        express_surcharge: Number(service.expressSurcharge) || 0,
+        is_pickup_available: service.isPickupAvailable !== false,
+        is_outsourced: service.isOutsourced === true,
+        requires_quote: service.requiresQuote === true,
+        description: service.description,
       }),
     });
 
@@ -189,11 +223,20 @@ export async function updateServiceOnBackend(
       const confirmedItem: ServiceItem = {
         ...service,
         name: data.name || service.name,
+        article: data.article || service.article,
+        treatment: data.treatment || service.treatment,
         category: data.category || service.category,
         price: Number(data.unit_price) || service.price,
         unit: data.unit || service.unit,
+        pricingModel: data.pricing_model || service.pricingModel,
         durationHours: Number(data.estimated_hours) || service.durationHours,
         isActive: data.is_active !== false,
+        isExpressAvailable: data.is_express_available === true,
+        expressSurcharge: Number(data.express_surcharge) || 0,
+        isPickupAvailable: data.is_pickup_available !== false,
+        isOutsourced: data.is_outsourced === true,
+        requiresQuote: data.requires_quote === true,
+        description: data.description || service.description,
       };
 
       const current = getLocalServices();
@@ -216,27 +259,44 @@ export async function updateServiceOnBackend(
 }
 
 /**
- * Supprime une prestation de la base de données
+ * Supprime une prestation de la base de données via requête DELETE vers l'API Go
  */
 export async function deleteServiceOnBackend(
   serviceId: string,
   token?: string
-): Promise<{ success: boolean; synced: boolean }> {
+): Promise<{ success: boolean; synced: boolean; error?: string }> {
   let synced = false;
+  let apiError: string | undefined = undefined;
+
   try {
     const res = await fetch(`/api/v1/services/${serviceId}`, {
       method: 'DELETE',
       headers: getAuthHeader(token),
     });
+
     if (res.ok) {
       synced = true;
       saveLastSyncTime();
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      if (res.status === 404) {
+        // Prestation absente de PostgreSQL (ex: service local non encore synchronisé ou déjà supprimé)
+        console.warn(`[ServicesApi] Prestation ${serviceId} introuvable sur le serveur (404), suppression locale.`);
+        synced = false;
+      } else {
+        apiError = errorData.error || `Erreur serveur HTTP ${res.status}`;
+      }
     }
   } catch (err: any) {
     console.warn('[ServicesApi] Échec appel DELETE /api/v1/services:', err.message);
+    apiError = err.message || 'Erreur réseau de communication avec l\'API Go';
   }
 
-  // Toujours nettoyer le stockage local
+  if (apiError) {
+    return { success: false, synced: false, error: apiError };
+  }
+
+  // Nettoyer le stockage local en cas de succès ou de ressource non trouvée sur le backend
   const current = getLocalServices();
   const updated = current.filter((s) => s.id !== serviceId);
   saveLocalServices(updated);

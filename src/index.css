@@ -15,3 +15,81 @@
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
+
+/* Styles d'impression haute fidélité pour Ticket de Caisse / Reçu Thermique (80mm & 58mm) */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Masquer tous les composants de l'application hors zone de reçu */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Rendre visible uniquement le conteneur du reçu imprimable */
+  #printable-receipt-container,
+  #printable-receipt-container *,
+  #printable-thermal-ticket,
+  #printable-thermal-ticket * {
+    visibility: visible;
+  }
+
+  #printable-receipt-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 2mm 3mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  #printable-receipt-container.receipt-width-80mm {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+
+  #printable-receipt-container.receipt-width-58mm {
+    width: 58mm !important;
+    max-width: 58mm !important;
+  }
+
+  #printable-thermal-ticket {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 2mm 3mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 0mm;
+  }
+}
+
+/* Motif de découpe dentelée type rouleau de caisse enregistreuse */
+.receipt-serrated-top {
+  background: radial-gradient(circle at 10px -5px, transparent 12px, white 13px) repeat-x 0 0;
+  background-size: 20px 20px;
+}
+
+.receipt-serrated-bottom {
+  background: radial-gradient(circle at 10px 25px, transparent 12px, white 13px) repeat-x 0 0;
+  background-size: 20px 20px;
+}
+

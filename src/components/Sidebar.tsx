@@ -5,10 +5,7 @@ import {
   Users,
   Tag,
   Activity,
-  BookOpen,
   Building2,
-  CheckCircle2,
-  AlertCircle,
   ShieldCheck,
   ArrowRightLeft,
 } from 'lucide-react';
@@ -42,8 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'customers', label: 'Fichier Clients', icon: Users, roles: ['owner', 'manager', 'cashier', 'superadmin'] },
     { id: 'services', label: 'Prestations & Tarifs', icon: Tag, roles: ['owner', 'manager', 'superadmin'] },
     { id: 'superadmin', label: 'Plateforme SaaS', icon: ShieldCheck, roles: ['superadmin'], badge: '12 pressings' },
-    { id: 'system-health', label: 'Santé & API Go', icon: Activity },
-    { id: 'docs', label: 'Documentation (Mac)', icon: BookOpen },
+    { id: 'system-health', label: 'Diagnostic & Base de Données', icon: Activity },
   ];
 
   const visibleNavItems = navItems.filter((item) => {

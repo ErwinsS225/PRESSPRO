@@ -165,11 +165,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     onChange={(e) => handleItemChange(idx, e.target.value)}
                     className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                   >
-                    {services.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name} ({s.price} F)
-                      </option>
-                    ))}
+                    {services
+                      .filter((s) => s.isActive !== false)
+                      .map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} — {s.price.toLocaleString('fr-FR')} FCFA ({s.unit})
+                        </option>
+                      ))}
                   </select>
 
                   <input

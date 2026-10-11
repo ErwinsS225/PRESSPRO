@@ -4,8 +4,7 @@ export type ViewMode =
   | 'customers'
   | 'services'
   | 'superadmin'
-  | 'system-health'
-  | 'docs';
+  | 'system-health';
 
 export type UserRole = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'operator';
 
@@ -73,15 +72,51 @@ export interface Customer {
   balanceDue: number;
 }
 
+export type PricingModel = 'piece' | 'kilogram' | 'subscription' | 'contract';
+
 export interface ServiceItem {
   id: string;
   name: string;
+  article?: string;
+  treatment?: string;
   category: string;
   price: number;
   unit: string;
+  pricingModel?: PricingModel;
   durationHours: number;
   isActive?: boolean;
+  isExpressAvailable?: boolean;
+  expressSurcharge?: number;
+  isPickupAvailable?: boolean;
+  isOutsourced?: boolean;
+  requiresQuote?: boolean;
   description?: string;
+  notes?: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  monthlyPrice: number; // en FCFA
+  quotaPieces: number; // ex: 15 pièces incluses
+  collectionFrequency: string; // ex: 2 fois / mois
+  description: string;
+  isPopular?: boolean;
+  overagePricePerPiece: number; // Prix par pièce en dépassement
+  target: 'Individuel' | 'Couple' | 'Famille' | 'Professionnel';
+  isActive: boolean;
+}
+
+export interface B2BContract {
+  id: string;
+  clientName: string;
+  businessType: 'Hôtel' | 'Restaurant' | 'Clinique' | 'Salon & Spa' | 'Entreprise';
+  billingType: 'piece' | 'kilogram' | 'lot' | 'monthly_fixed';
+  ratePerUnit: number; // FCFA
+  billingCycle: 'Fin de mois' | 'Bi-mensuel' | 'À la livraison';
+  contactPerson: string;
+  phone: string;
+  status: 'active' | 'pending' | 'suspended';
 }
 
 export interface HealthCheckResult {

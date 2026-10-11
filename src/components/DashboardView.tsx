@@ -59,7 +59,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-colors"
           >
             <Server className="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-400" />
-            <span>État Serveur Go & DB</span>
+            <span>État Connexion & DB</span>
           </button>
           <button
             onClick={onNewOrder}
@@ -183,7 +183,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Dépôts Récents & Suivi des Tickets
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Données de démonstration du pressing (isolation par tenant_id)
+              Commandes enregistrées au comptoir avec statut de traitement
             </p>
           </div>
           <button

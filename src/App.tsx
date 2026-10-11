@@ -17,7 +17,6 @@ import { CustomersView } from './components/CustomersView';
 import { ServicesView } from './components/ServicesView';
 import { SuperAdminView } from './components/SuperAdminView';
 import { SystemHealthView } from './components/SystemHealthView';
-import { DocsView } from './components/DocsView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalTicketModal } from './components/ThermalTicketModal';
@@ -103,11 +102,20 @@ function PressingOSApp() {
                 srvData.map((d: any) => ({
                   id: d.id,
                   name: d.name,
-                  category: d.category || 'Lavage & Repassage',
+                  article: d.article || d.name,
+                  treatment: d.treatment || 'Lavage & Soin',
+                  category: d.category || 'Vêtements du quotidien',
                   price: Number(d.unit_price) || 0,
                   unit: d.unit || 'pièce',
+                  pricingModel: d.pricing_model || 'piece',
                   durationHours: Number(d.estimated_hours) || 24,
                   isActive: d.is_active !== false,
+                  isExpressAvailable: d.is_express_available === true,
+                  expressSurcharge: Number(d.express_surcharge) || 0,
+                  isPickupAvailable: d.is_pickup_available !== false,
+                  isOutsourced: d.is_outsourced === true,
+                  requiresQuote: d.requires_quote === true,
+                  description: d.description || '',
                 }))
               );
             }
@@ -182,10 +190,20 @@ function PressingOSApp() {
           const mapped: ServiceItem[] = data.map((d: any) => ({
             id: d.id,
             name: d.name,
-            category: d.category,
-            price: d.unit_price,
+            article: d.article || d.name,
+            treatment: d.treatment || 'Lavage & Soin',
+            category: d.category || 'Vêtements du quotidien',
+            price: Number(d.unit_price) || 0,
             unit: d.unit || 'pièce',
-            durationHours: d.estimated_hours || 24,
+            pricingModel: d.pricing_model || 'piece',
+            durationHours: Number(d.estimated_hours) || 24,
+            isActive: d.is_active !== false,
+            isExpressAvailable: d.is_express_available === true,
+            expressSurcharge: Number(d.express_surcharge) || 0,
+            isPickupAvailable: d.is_pickup_available !== false,
+            isOutsourced: d.is_outsourced === true,
+            requiresQuote: d.requires_quote === true,
+            description: d.description || '',
           }));
           setServices(mapped);
           showToast(`Catalogue synchronisé (${mapped.length} prestations depuis PostgreSQL)`);
@@ -335,8 +353,6 @@ function PressingOSApp() {
                   isProbing={isCheckingHealth}
                 />
               )}
-
-              {currentView === 'docs' && <DocsView />}
             </motion.div>
           </AnimatePresence>
         </main>
