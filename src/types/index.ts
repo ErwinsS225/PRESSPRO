@@ -80,6 +80,8 @@ export interface ServiceItem {
   price: number;
   unit: string;
   durationHours: number;
+  isActive?: boolean;
+  description?: string;
 }
 
 export interface HealthCheckResult {

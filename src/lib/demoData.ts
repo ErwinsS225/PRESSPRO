@@ -142,11 +142,17 @@ export const DEMO_CUSTOMERS: Customer[] = [
 ];
 
 export const DEMO_SERVICES: ServiceItem[] = [
-  { id: 'srv-1', name: 'Chemise classique', category: 'Lavage & Repassage', price: 1000, unit: 'pièce', durationHours: 24 },
-  { id: 'srv-2', name: 'Pantalon costume / ville', category: 'Nettoyage à sec', price: 1500, unit: 'pièce', durationHours: 24 },
-  { id: 'srv-3', name: 'Costume 2 pièces (Veste + Pantalon)', category: 'Nettoyage à sec', price: 3500, unit: 'ensemble', durationHours: 48 },
-  { id: 'srv-4', name: 'Robe de soirée / Cérémonie', category: 'Délicat', price: 4000, unit: 'pièce', durationHours: 48 },
-  { id: 'srv-5', name: 'Drap 2 places / Couette', category: 'Linge de maison', price: 2500, unit: 'pièce', durationHours: 48 },
-  { id: 'srv-6', name: 'Veste blazer simple', category: 'Nettoyage à sec', price: 2000, unit: 'pièce', durationHours: 24 },
-  { id: 'srv-7', name: 'Pagne traditionnel 3 morceaux', category: 'Lavage délicat', price: 3000, unit: 'ensemble', durationHours: 48 },
+  { id: 'srv-1', name: 'Chemise classique (Lavage & Repassage)', category: 'Lavage & Repassage', price: 1000, unit: 'pièce', durationHours: 24, isActive: true, description: 'Lavage délicat machine ou main, amidonnage léger et repassage sur cintre.' },
+  { id: 'srv-2', name: 'Pantalon classique / jean', category: 'Lavage & Repassage', price: 1000, unit: 'pièce', durationHours: 24, isActive: true, description: 'Lavage assouplissant et repassage avec ou sans plis au choix.' },
+  { id: 'srv-3', name: 'T-shirt / Polo en coton', category: 'Lavage & Repassage', price: 700, unit: 'pièce', durationHours: 24, isActive: true, description: 'Lavage soigné anti-décoloration et pliage soigné sous film protecteur.' },
+  { id: 'srv-4', name: 'Costume 2 pièces (Veste + Pantalon)', category: 'Nettoyage à sec', price: 3500, unit: 'ensemble', durationHours: 48, isActive: true, description: 'Traitement aux solvants écologiques, détachage cols et poignets, mise en forme vapeur.' },
+  { id: 'srv-5', name: 'Veste blazer simple / Costume', category: 'Nettoyage à sec', price: 2000, unit: 'pièce', durationHours: 24, isActive: true, description: 'Nettoyage à sec avec renfort des épaulettes et repassage mannequin.' },
+  { id: 'srv-6', name: 'Pantalon de costume ville (Pressing)', category: 'Nettoyage à sec', price: 1500, unit: 'pièce', durationHours: 24, isActive: true, description: 'Nettoyage à sec et pressage vapeur avec tracé de plis parfait.' },
+  { id: 'srv-7', name: 'Chemise sur cintre (Repassage seul)', category: 'Repassage seul', price: 500, unit: 'pièce', durationHours: 12, isActive: true, description: 'Finition artisanale au fer à vapeur sur cintre avec emballage individuel.' },
+  { id: 'srv-8', name: 'Pantalon à plis (Repassage seul)', category: 'Repassage seul', price: 600, unit: 'pièce', durationHours: 12, isActive: true, description: 'Repassage professionnel sous presse et cintre.' },
+  { id: 'srv-9', name: 'Robe de soirée / Cérémonie', category: 'Délicat', price: 4000, unit: 'pièce', durationHours: 48, isActive: true, description: 'Soin spécial perles, paillettes et matières nobles (soie, dentelle).' },
+  { id: 'srv-10', name: 'Pagne traditionnel 3 morceaux', category: 'Délicat', price: 3000, unit: 'ensemble', durationHours: 48, isActive: true, description: 'Fixation des couleurs traditionnelles, lavage doux et repassage soigné.' },
+  { id: 'srv-11', name: 'Bazin riche brodé / Grand Boubou', category: 'Délicat', price: 4500, unit: 'ensemble', durationHours: 48, isActive: true, description: 'Traitement spécial brillance du Bazin, battage léger et repassage haut de gamme.' },
+  { id: 'srv-12', name: 'Drap 2 places / Grande Couette', category: 'Linge de maison', price: 2500, unit: 'pièce', durationHours: 48, isActive: true, description: 'Désinfection haute température, lavage grand volume et séchage thermo-contrôlé.' },
+  { id: 'srv-13', name: 'Rideaux occultants / Voilages (la paire)', category: 'Linge de maison', price: 3500, unit: 'pièce', durationHours: 48, isActive: true, description: 'Dépoussiérage, lavage assouplissant et défroissage vapeur.' },
 ];

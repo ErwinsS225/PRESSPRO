@@ -103,14 +103,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/75 p-4 backdrop-blur-xs">
+      <div className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
           <div>
-            <h2 className="text-sm font-semibold text-neutral-900">Enregistrer un Dépôt de Linge</h2>
-            <p className="text-xs text-neutral-500">Création d'un ticket de pressing avec calcul automatique.</p>
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Enregistrer un Dépôt de Linge</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Création d'un ticket de pressing avec calcul automatique.</p>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-neutral-400 hover:text-neutral-700">
+          <button onClick={onClose} className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -118,11 +118,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700">Client</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Client</label>
               <select
                 value={selectedCustomer}
                 onChange={(e) => handleCustomerChange(e.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               >
                 {customers.map((c) => (
                   <option key={c.id} value={c.fullName}>
@@ -133,12 +133,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700">Téléphone de contact</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Téléphone de contact</label>
               <input
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               />
             </div>
           </div>
@@ -146,11 +146,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           {/* Items Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-medium text-neutral-700">Vêtements déposés</label>
+              <label className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Vêtements déposés</label>
               <button
                 type="button"
                 onClick={handleAddItem}
-                className="flex items-center gap-1 text-[11px] text-neutral-600 hover:text-neutral-900"
+                className="flex items-center gap-1 text-[11px] text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"
               >
                 <Plus className="h-3 w-3" />
                 <span>Ajouter un vêtement</span>
@@ -159,11 +159,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-2 rounded-md border border-neutral-100 bg-neutral-50 p-2">
+                <div key={item.id} className="flex items-center gap-2 rounded-md border border-neutral-100 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-900/60">
                   <select
                     value={item.serviceName}
                     onChange={(e) => handleItemChange(idx, e.target.value)}
-                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900"
+                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                   >
                     {services.map((s) => (
                       <option key={s.id} value={s.name}>
@@ -177,10 +177,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     min={1}
                     value={item.quantity}
                     onChange={(e) => handleQuantityChange(idx, parseInt(e.target.value, 10))}
-                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono"
+                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                   />
 
-                  <div className="w-24 text-right font-mono text-xs font-medium text-neutral-900 tabular-nums">
+                  <div className="w-24 text-right font-mono text-xs font-medium text-neutral-900 dark:text-neutral-100 tabular-nums">
                     {item.subtotal.toLocaleString('fr-FR')} F
                   </div>
 
@@ -188,7 +188,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleRemoveItem(idx)}
-                      className="text-neutral-400 hover:text-neutral-700 p-1"
+                      className="text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 p-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -200,11 +200,11 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700">Règlement au Dépôt</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Règlement au Dépôt</label>
               <select
                 value={paymentStatus}
                 onChange={(e) => setPaymentStatus(e.target.value as any)}
-                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               >
                 <option value="paid">Payé d'avance (Total)</option>
                 <option value="partially_paid">Acompte versé (50%)</option>
@@ -213,21 +213,21 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700">Instructions particulières</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Instructions particulières</label>
               <input
                 type="text"
                 placeholder="Ex: Tache café, col dur..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-neutral-100 pt-3">
+          <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-3">
             <div>
-              <span className="text-[11px] text-neutral-500">Total à payer :</span>
-              <div className="font-mono text-base font-bold text-neutral-900 tabular-nums">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Total à payer :</span>
+              <div className="font-mono text-base font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
                 {totalAmount.toLocaleString('fr-FR')} FCFA
               </div>
             </div>
@@ -236,13 +236,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Annuler
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
               >
                 Valider le Dépôt
               </button>

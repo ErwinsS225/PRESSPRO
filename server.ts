@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const GO_PORT = 8080;
+const GO_PORT = 8085;
 
 let goProcess: ChildProcess | null = null;
 

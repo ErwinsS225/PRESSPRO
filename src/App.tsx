@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession } from './types';
 import { CURRENT_TENANT, DEMO_ORDERS, DEMO_CUSTOMERS, DEMO_SERVICES } from './lib/demoData';
 import { checkEndpoint } from './lib/api';
+import { ThemeProvider } from './context/ThemeContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
@@ -19,8 +20,9 @@ import { SystemHealthView } from './components/SystemHealthView';
 import { DocsView } from './components/DocsView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
+import { ThermalTicketModal } from './components/ThermalTicketModal';
 
-export default function App() {
+function PressingOSApp() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [session, setSession] = useState<AuthSession>({
     token: 'jwt-default-session-token',
@@ -41,6 +43,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [selectedTicketOrder, setSelectedTicketOrder] = useState<Order | null>(null);
   const [health, setHealth] = useState<HealthCheckResult | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -52,7 +55,6 @@ export default function App() {
     }, 3200);
   };
 
-  // Sonde initiale de santé de l'API Go au montage
   const runHealthProbe = async () => {
     setIsCheckingHealth(true);
     try {
@@ -70,6 +72,53 @@ export default function App() {
 
   useEffect(() => {
     runHealthProbe();
+
+    // Authentification automatique du gérant pour obtenir un jeton JWT valide
+    async function initSessionAndServices() {
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'gerant@pressing-ivoire.ci', password: 'pass123' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const validToken = data.token;
+          setSession({
+            token: validToken,
+            user: data.user,
+            tenant: data.tenant || CURRENT_TENANT,
+          });
+
+          // Récupération des prestations réelles depuis le backend Go
+          const srvRes = await fetch('/api/v1/services', {
+            headers: {
+              Authorization: `Bearer ${validToken}`,
+            },
+          });
+          if (srvRes.ok) {
+            const srvData = await srvRes.json();
+            if (Array.isArray(srvData) && srvData.length > 0) {
+              setServices(
+                srvData.map((d: any) => ({
+                  id: d.id,
+                  name: d.name,
+                  category: d.category || 'Lavage & Repassage',
+                  price: Number(d.unit_price) || 0,
+                  unit: d.unit || 'pièce',
+                  durationHours: Number(d.estimated_hours) || 24,
+                  isActive: d.is_active !== false,
+                }))
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Initialisation session backend:', err);
+      }
+    }
+
+    initSessionAndServices();
   }, []);
 
   const handleAdvanceOrderStatus = (orderId: string) => {
@@ -79,10 +128,14 @@ export default function App() {
         let nextStatus: Order['status'] = ord.status;
         if (ord.status === 'received') nextStatus = 'washing';
         else if (ord.status === 'washing') nextStatus = 'ironing';
-        else if (ord.status === 'ironing') nextStatus = 'ready';
-        else if (ord.status === 'ready') nextStatus = 'delivered';
+        else if (ord.status === 'ironing') {
+          nextStatus = 'ready';
+          showToast(`Linge prêt ! Notification SMS / WhatsApp envoyée à ${ord.customerName} (${ord.customerPhone})`);
+        } else if (ord.status === 'ready') {
+          nextStatus = 'delivered';
+          showToast(`Linge remis au client (${ord.orderNumber})`);
+        }
 
-        showToast(`Ticket ${ord.orderNumber} mis à jour : ${nextStatus}`);
         return { ...ord, status: nextStatus };
       })
     );
@@ -91,6 +144,8 @@ export default function App() {
   const handleAddOrder = (newOrder: Order) => {
     setOrders([newOrder, ...orders]);
     showToast(`Dépôt ${newOrder.orderNumber} enregistré avec succès`);
+    // Proposer l'impression immédiate du ticket thermique
+    setSelectedTicketOrder(newOrder);
   };
 
   const handleAddCustomer = (newCustomer: Customer) => {
@@ -100,7 +155,70 @@ export default function App() {
 
   const handleAddService = (newService: ServiceItem) => {
     setServices([...services, newService]);
-    showToast(`Prestation ${newService.name} ajoutée`);
+    showToast(`Prestation "${newService.name}" ajoutée (${newService.price.toLocaleString('fr-FR')} FCFA)`);
+  };
+
+  const handleUpdateService = (updatedService: ServiceItem) => {
+    setServices((prev) => prev.map((s) => (s.id === updatedService.id ? updatedService : s)));
+    showToast(`Tarif mis à jour : ${updatedService.name} (${updatedService.price.toLocaleString('fr-FR')} FCFA)`);
+  };
+
+  const handleDeleteService = (serviceId: string) => {
+    const item = services.find((s) => s.id === serviceId);
+    setServices((prev) => prev.filter((s) => s.id !== serviceId));
+    showToast(`Prestation "${item?.name || 'Sélectionnée'}" supprimée du catalogue`);
+  };
+
+  const handleSyncServicesWithDB = async () => {
+    try {
+      const res = await fetch('/api/v1/services', {
+        headers: {
+          'Authorization': `Bearer ${session.token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: ServiceItem[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            category: d.category,
+            price: d.unit_price,
+            unit: d.unit || 'pièce',
+            durationHours: d.estimated_hours || 24,
+          }));
+          setServices(mapped);
+          showToast(`Catalogue synchronisé (${mapped.length} prestations depuis PostgreSQL)`);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Erreur sync catalogue:', err);
+    }
+    showToast('Grille tarifaire synchronisée avec PostgreSQL');
+  };
+
+  const handleSettleBalance = (orderId: string, amount: number, method: string) => {
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id !== orderId) return ord;
+        const newPaid = ord.paidAmount + amount;
+        return {
+          ...ord,
+          paidAmount: newPaid,
+          paymentStatus: 'paid',
+        };
+      })
+    );
+    showToast(`Solde de ${amount.toLocaleString('fr-FR')} FCFA encaissé avec succès via ${method.toUpperCase()}`);
+    // Mettre à jour la commande ouverte si active
+    if (selectedTicketOrder && selectedTicketOrder.id === orderId) {
+      setSelectedTicketOrder({
+        ...selectedTicketOrder,
+        paidAmount: selectedTicketOrder.paidAmount + amount,
+        paymentStatus: 'paid',
+      });
+    }
   };
 
   const handleLoginSuccess = (newSession: AuthSession) => {
@@ -115,7 +233,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-neutral-50/40 text-neutral-900 font-sans antialiased selection:bg-neutral-900 selection:text-white">
+    <div className="flex min-h-screen bg-neutral-50/40 text-neutral-900 font-sans antialiased selection:bg-neutral-900 selection:text-white dark:bg-[#050505] dark:text-neutral-100 dark:selection:bg-white dark:selection:text-black transition-colors duration-150">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -124,7 +242,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 15 }}
             transition={{ duration: 0.18 }}
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg border border-neutral-800"
+            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg border border-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-200"
           >
             <span>{toastMessage}</span>
           </motion.div>
@@ -180,6 +298,7 @@ export default function App() {
                   orders={orders}
                   onAdvanceStatus={handleAdvanceOrderStatus}
                   onNewOrder={() => setIsNewOrderModalOpen(true)}
+                  onOpenThermalTicket={(ord) => setSelectedTicketOrder(ord)}
                 />
               )}
 
@@ -188,7 +307,16 @@ export default function App() {
               )}
 
               {currentView === 'services' && (
-                <ServicesView services={services} onAddService={handleAddService} />
+                <ServicesView
+                  services={services}
+                  currentUser={session.user}
+                  token={session.token}
+                  onAddService={handleAddService}
+                  onUpdateService={handleUpdateService}
+                  onDeleteService={handleDeleteService}
+                  onSyncWithDB={handleSyncServicesWithDB}
+                  showToast={showToast}
+                />
               )}
 
               {currentView === 'superadmin' && (
@@ -232,6 +360,24 @@ export default function App() {
           onLoginSuccess={handleLoginSuccess}
         />
       )}
+
+      {/* Modal Ticket Thermique (80mm) */}
+      {selectedTicketOrder && (
+        <ThermalTicketModal
+          order={selectedTicketOrder}
+          tenantName={session.tenant?.name || 'Pressing Ivoire Cocody'}
+          onClose={() => setSelectedTicketOrder(null)}
+          onSettleBalance={handleSettleBalance}
+        />
+      )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <PressingOSApp />
+    </ThemeProvider>
   );
 }

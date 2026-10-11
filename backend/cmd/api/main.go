@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/database"
 	"pressing-os/backend/internal/health"
 	apphttp "pressing-os/backend/internal/http"
+	"pressing-os/backend/internal/order"
 )
 
 func main() {
@@ -64,11 +66,19 @@ func main() {
 	authService := auth.NewService(jwtManager)
 	authHandler := auth.NewHandler(authService)
 
+	orderService := order.NewService()
+	orderHandler := order.NewHandler(orderService)
+
+	catalogService := catalog.NewService()
+	catalogHandler := catalog.NewHandler(catalogService)
+
 	router := apphttp.NewRouter(apphttp.ServerDependencies{
-		Config:        cfg,
-		HealthHandler: healthHandler,
-		AuthHandler:   authHandler,
-		JWTManager:    jwtManager,
+		Config:         cfg,
+		HealthHandler:  healthHandler,
+		AuthHandler:    authHandler,
+		JWTManager:     jwtManager,
+		OrderHandler:   orderHandler,
+		CatalogHandler: catalogHandler,
 	})
 
 	// 4. Configuration du serveur HTTP avec timeouts stricts

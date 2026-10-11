@@ -1,6 +1,6 @@
-# PressingOS — Spécification de l'API REST (v0.2.0-auth)
+# PressingOS — Spécification de l'API REST (v0.3.0-orders)
 
-Documentation complète des endpoints HTTP du serveur Go Chi, incluant l'authentification JWT, l'isolation multi-tenant et le contrôle d'accès basé sur les rôles (RBAC).
+Documentation complète des endpoints HTTP du serveur Go Chi, incluant l'authentification JWT, l'isolation multi-tenant, les commandes de pressing et la génération de tickets thermiques (80mm).
 
 ---
 
@@ -10,33 +10,14 @@ Documentation complète des endpoints HTTP du serveur Go Chi, incluant l'authent
 Vérifie la vivacité (Liveness) du processus backend Go.
 - **Authentification** : Aucune (Public)
 - **Code HTTP** : `200 OK`
-- **Réponse** :
-```json
-{
-  "status": "ok",
-  "service": "pressingos-api",
-  "timestamp": "2026-10-11T06:30:00Z"
-}
-```
 
 ### `GET /ready`
 Vérifie l'état de préparation opérationnelle (Readiness) incluant la connectivité active à PostgreSQL.
 - **Authentification** : Aucune (Public)
 - **Codes HTTP** : `200 OK` (connecté) ou `503 Service Unavailable` (déconnecté)
-- **Réponse (200)** :
-```json
-{
-  "status": "ready",
-  "service": "pressingos-api",
-  "database": "connected",
-  "timestamp": "2026-10-11T06:30:00Z"
-}
-```
 
 ### `GET /api/v1/system/info`
 Métadonnées du monolithe modulaire.
-- **Authentification** : Aucune (Public)
-- **Code HTTP** : `200 OK`
 
 ---
 
@@ -45,60 +26,14 @@ Métadonnées du monolithe modulaire.
 ### `POST /api/v1/auth/login`
 Connexion utilisateur par email et mot de passe.
 - **Authentification** : Aucune (Public)
-- **Corps de requête (JSON)** :
-```json
-{
-  "email": "gerant@pressing-ivoire.ci",
-  "password": "pass123"
-}
-```
-- **Réponse (200 OK)** :
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "usr-gerant-001",
-    "tenant_id": "a0000000-0000-0000-0000-000000000001",
-    "email": "gerant@pressing-ivoire.ci",
-    "full_name": "M. Bamba Seydou",
-    "role": "owner",
-    "status": "active"
-  },
-  "tenant": {
-    "id": "a0000000-0000-0000-0000-000000000001",
-    "name": "Pressing Ivoire Cocody",
-    "slug": "pressing-ivoire-cocody",
-    "city": "Abidjan (Cocody)",
-    "currency": "XOF",
-    "status": "active"
-  }
-}
-```
-
----
+- **Retourne** : Jeton JWT signé HMAC-SHA256, profil utilisateur et établissement.
 
 ### `POST /api/v1/auth/register-tenant`
 Inscription d'un nouveau pressing (Création de l'établissement et du compte propriétaire).
-- **Authentification** : Aucune (Public)
-- **Corps de requête (JSON)** :
-```json
-{
-  "tenant_name": "Pressing du Plateau",
-  "city": "Abidjan (Plateau)",
-  "phone": "+225 07 11 22 33 44",
-  "owner_full_name": "Kone Amadou",
-  "owner_email": "kone@plateau-pressing.ci",
-  "password": "SecretMotDePasse2026"
-}
-```
-- **Réponse (201 Created)** : Retourne le jeton JWT et les métadonnées du tenant créé.
-
----
 
 ### `GET /api/v1/auth/me`
 Retourne le profil de l'utilisateur connecté d'après son jeton.
 - **En-tête requis** : `Authorization: Bearer <token>`
-- **Code HTTP** : `200 OK` (ou `401 Unauthorized`)
 
 ---
 
@@ -106,20 +41,64 @@ Retourne le profil de l'utilisateur connecté d'après son jeton.
 
 ### `GET /api/v1/tenant/current`
 Retourne le contexte de l'établissement actif associé au jeton.
-- **En-tête requis** : `Authorization: Bearer <token>`
 - **Sécurité d'isolation** : Si le client tente de forger `X-Tenant-ID: <autre_id>`, le middleware renvoie immédiatement **403 Forbidden**.
 
 ### `GET /api/v1/admin/stats` (SuperAdmin Uniquement)
 Retourne les métadonnées d'abonnements globaux de la plateforme.
 - **Rôle requis** : `superadmin`
-- **Code HTTP** : `200 OK` pour superadmin, `403 Forbidden` pour tout autre rôle.
 
 ---
 
-## 4. Comptes de Démonstration Pré-Configurés
+## 4. Endpoints Commandes, Flux Linge & Tickets Thermiques (Partie 3)
 
-| Rôle | Email | Mot de passe | Établissement | Périmètre |
-|---|---|---|---|---|
-| **owner** | `gerant@pressing-ivoire.ci` | `pass123` | Pressing Cocody | Gestion complète du pressing, finances, tarifs |
-| **operator** | `atelier@pressing-ivoire.ci` | `pass123` | Pressing Cocody | Suivi des étapes de lavage et repassage en atelier |
-| **superadmin**| `admin@pressingos.ci` | `admin123` | SaaS Global | Éditeur de logiciel, liste des pressings et MRR |
+### `GET /api/v1/orders`
+Liste les commandes appartenant strictement au `tenant_id` authentifié.
+- **En-tête requis** : `Authorization: Bearer <token>`
+- **Paramètres de requête** :
+  - `status` (optionnel) : `received`, `washing`, `ironing`, `ready`, `delivered`
+  - `q` (optionnel) : recherche par nom, numéro de ticket ou téléphone
+
+### `POST /api/v1/orders`
+Enregistre un nouveau dépôt de linge.
+- **En-tête requis** : `Authorization: Bearer <token>`
+- **Corps de requête (JSON)** :
+```json
+{
+  "customer_name": "Kouassi Jean-Marc",
+  "customer_phone": "+225 07 48 12 90 11",
+  "items": [
+    { "service_id": "srv-1", "item_label": "Chemise classique", "quantity": 3, "unit_price": 1000 },
+    { "service_id": "srv-2", "item_label": "Pantalon costume", "quantity": 2, "unit_price": 1500 }
+  ],
+  "initial_paid": 6000,
+  "payment_method": "wave",
+  "due_date": "Demain à 17:00",
+  "notes": "Amidon léger sur cols"
+}
+```
+- **Code HTTP** : `201 Created`
+- **Génération automatique** : Numéro séquentiel au format `CMD-2026-XXX`.
+
+### `PATCH /api/v1/orders/{id}/status`
+Avance l'état d'avancement du vêtement dans le cycle d'atelier.
+- **En-tête requis** : `Authorization: Bearer <token>`
+- **Corps de requête** : `{"status": "washing" | "ironing" | "ready" | "delivered"}`
+- **Code HTTP** : `200 OK`
+
+### `POST /api/v1/orders/{id}/payments`
+Enregistre le versement d'un acompte ou le règlement du solde restant.
+- **En-tête requis** : `Authorization: Bearer <token>`
+- **Corps de requête** :
+```json
+{
+  "amount": 3500,
+  "payment_method": "wave",
+  "reference": "WAVE-CI-998877"
+}
+```
+
+### `GET /api/v1/orders/{id}/ticket`
+Génère le ticket de caisse thermique standard au format 80mm ESC/POS textuel.
+- **En-tête requis** : `Authorization: Bearer <token>`
+- **Content-Type** : `text/plain; charset=utf-8`
+- **Contenu** : En-tête pressing, dates, nom du client, tableau des articles, total, acompte, solde restant dû et code-barres textuel.

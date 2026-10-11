@@ -10,16 +10,20 @@ import (
 	"github.com/go-chi/cors"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/health"
+	"pressing-os/backend/internal/order"
 )
 
 // ServerDependencies regroupe les gestionnaires requis pour assembler le routeur
 type ServerDependencies struct {
-	Config        *config.Config
-	HealthHandler *health.Handler
-	AuthHandler   *auth.Handler
-	JWTManager    *auth.JWTManager
+	Config         *config.Config
+	HealthHandler  *health.Handler
+	AuthHandler    *auth.Handler
+	JWTManager     *auth.JWTManager
+	OrderHandler   *order.Handler
+	CatalogHandler *catalog.Handler
 }
 
 // NewRouter assemble la table de routage Chi avec les middlewares et les routes de base
@@ -59,12 +63,12 @@ func NewRouter(deps ServerDependencies) http.Handler {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"product":       "PressingOS",
-				"version":       "0.2.0-auth",
+				"version":       "0.4.0-catalog",
 				"environment":   deps.Config.ServerEnv,
 				"architecture":  "Modular Monolith (Multi-Tenant Shared DB / Tenant-ID Isolated)",
 				"database_type": "PostgreSQL 16 with pgx connection pool",
 				"target_market": "Pressings et Buanderies — Côte d'Ivoire (XOF)",
-				"security":      "JWT HMAC-SHA256 + Bcrypt + RBAC + Tenant Isolation Middleware",
+				"modules":       []string{"Health", "Auth JWT", "Tenants", "Orders & Receipts", "Catalog & Pricing Grid"},
 				"timestamp":     time.Now().UTC(),
 			})
 		})
@@ -101,6 +105,35 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						"role":        claims.Role,
 					})
 				})
+
+				// Module Grille Tarifaire & Prestations
+				if deps.CatalogHandler != nil {
+					protected.Route("/services", func(catalogRouter chi.Router) {
+						// Lecture pour tous les membres du pressing
+						catalogRouter.Get("/", deps.CatalogHandler.ListServices)
+						catalogRouter.Get("/{id}", deps.CatalogHandler.GetService)
+
+						// Mutations réservées aux propriétaires, gérants et superadmins (RBAC)
+						catalogRouter.Group(func(managerRouter chi.Router) {
+							managerRouter.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+							managerRouter.Post("/", deps.CatalogHandler.CreateService)
+							managerRouter.Put("/{id}", deps.CatalogHandler.UpdateService)
+							managerRouter.Delete("/{id}", deps.CatalogHandler.DeleteService)
+						})
+					})
+				}
+
+				// Module Commandes de linge & Tickets thermiques
+				if deps.OrderHandler != nil {
+					protected.Route("/orders", func(orderRouter chi.Router) {
+						orderRouter.Get("/", deps.OrderHandler.ListOrders)
+						orderRouter.Post("/", deps.OrderHandler.CreateOrder)
+						orderRouter.Get("/{id}", deps.OrderHandler.GetOrder)
+						orderRouter.Patch("/{id}/status", deps.OrderHandler.UpdateStatus)
+						orderRouter.Post("/{id}/payments", deps.OrderHandler.AddPayment)
+						orderRouter.Get("/{id}/ticket", deps.OrderHandler.ThermalReceipt)
+					})
+				}
 
 				// Route SuperAdmin uniquement
 				protected.With(RequireRole(auth.RoleSuperAdmin)).Get("/admin/stats", func(w http.ResponseWriter, req *http.Request) {
