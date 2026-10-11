@@ -68,6 +68,9 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 			entitlements[i].Usage = &u
 			if entitlements[i].Limit != nil {
 				r := *entitlements[i].Limit - u
+				if r < 0 {
+					r = 0 // un quota consommé au-delà du plafond n'affiche jamais un reste négatif
+				}
 				entitlements[i].Remaining = &r
 			}
 		case FeatureUsersMax:
@@ -75,6 +78,9 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 			entitlements[i].Usage = &u
 			if entitlements[i].Limit != nil {
 				r := *entitlements[i].Limit - u
+				if r < 0 {
+					r = 0
+				}
 				entitlements[i].Remaining = &r
 			}
 		}

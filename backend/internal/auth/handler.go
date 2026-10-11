@@ -3,7 +3,15 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"pressing-os/backend/internal/ratelimit"
 )
 
 type contextKey string
@@ -15,12 +23,33 @@ const (
 
 // Handler gère les requêtes HTTP d'authentification
 type Handler struct {
-	service *Service
+	service      *Service
+	logger       *log.Logger
+	loginLimiter *ratelimit.Limiter // protection anti-force brute (optionnel)
+	ipLimiter    *ratelimit.Limiter // plafond global par adresse IP (optionnel)
+}
+
+// SetLoginLimiters branche les limiteurs de débit appliqués à la connexion :
+// un plafond par couple (IP, email) et un plafond global par adresse IP.
+// Un limiteur nil (ou son absence) désactive la protection (mode dégradé/tests).
+func (h *Handler) SetLoginLimiters(perEmail, perIP *ratelimit.Limiter) {
+	h.loginLimiter = perEmail
+	h.ipLimiter = perIP
+}
+
+// clientIP extrait l'adresse IP cliente (le middleware RealIP a déjà normalisé
+// RemoteAddr depuis X-Forwarded-For / X-Real-IP).
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err != nil {
+		return strings.TrimSpace(r.RemoteAddr)
+	}
+	return host
 }
 
 // NewHandler initialise le gestionnaire HTTP
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
 }
 
 // Login traite POST /api/v1/auth/login
@@ -40,11 +69,56 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Protection contre la force brute. Les tentatives sont comptées par couple
+	// (IP, email) et par adresse IP. Une requête refusée par le limiteur n'est
+	// rejetée que si les identifiants sont effectivement invalides : un
+	// utilisateur légitime qui retrouve son mot de passe peut toujours entrer
+	// (et son compteur est alors remis à zéro).
+	ip := clientIP(r)
+	emailKey := strings.ToLower(strings.TrimSpace(req.Email))
+	ipKey := "login-ip:" + ip
+	credKey := "login-ip-email:" + ip + ":" + emailKey
+
+	blocked := false
+	var retryAfter time.Duration
+	if h.ipLimiter != nil {
+		if ok, retry := h.ipLimiter.Allow(ipKey); !ok {
+			blocked, retryAfter = true, retry
+		}
+	}
+	if !blocked && h.loginLimiter != nil {
+		if ok, retry := h.loginLimiter.Allow(credKey); !ok {
+			blocked, retryAfter = true, retry
+		}
+	}
+
 	resp, err := h.service.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
+		// Message volontairement identique pour email inconnu et mot de passe
+		// erroné (pas d'énumération de comptes) ; les erreurs techniques restent
+		// internes au serveur.
+		if blocked {
+			seconds := int(retryAfter.Seconds()) + 1
+			w.Header().Set("Retry-After", strconv.Itoa(seconds))
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "trop de tentatives de connexion — réessayez dans " + strconv.Itoa(seconds) + " secondes",
+			})
+			return
+		}
+		if !errors.Is(err, ErrInvalidCredentials) {
+			h.logger.Printf("[auth] erreur interne au login (réponse 401 générique): %v", err)
+		}
 		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": ErrInvalidCredentials.Error()})
 		return
+	}
+
+	if h.loginLimiter != nil {
+		h.loginLimiter.Reset(credKey)
+	}
+	if h.ipLimiter != nil {
+		h.ipLimiter.Reset(ipKey)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -95,8 +169,14 @@ func (h *Handler) RegisterTenant(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.RegisterTenant(r.Context(), req)
 	if err != nil {
-		w.WriteHeader(http.StatusConflict)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if errors.Is(err, ErrEmailAlreadyExists) {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": ErrEmailAlreadyExists.Error()})
+			return
+		}
+		h.logger.Printf("[auth] erreur interne à l'inscription (réponse 500 générique): %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "impossible de finaliser l'inscription de l'établissement"})
 		return
 	}
 
@@ -144,6 +224,18 @@ func GetTenantIDFromContext(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+// WithTenantID force le tenant de la requête (utilisé par le middleware pour un
+// superadmin qui cible explicitement un établissement via X-Tenant-ID).
+// Sans cette injection, un superadmin (dont le jeton ne porte aucun tenant)
+// accéderait aux routes multi-tenant avec un identifiant vide, provoquant des
+// erreurs SQL (UUID "") au lieu d'une réponse métier claire.
+func WithTenantID(ctx context.Context, tenantID string) context.Context {
+	if strings.TrimSpace(tenantID) == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, TenantContextKey, tenantID)
 }
 
 // WithUserClaims injecte les claims dans le contexte (utilitaire de test et middleware)

@@ -128,9 +128,9 @@ func TestAddPayment_Success(t *testing.T) {
 
 	initialPaid := order.PaidAmount
 	paymentReq := AddPaymentRequest{
-		Amount:   3500,
+		Amount:        3500,
 		PaymentMethod: MethodCash,
-		Reference: "TEST-REF",
+		Reference:     "TEST-REF",
 	}
 
 	updated, err := service.AddPayment(ctx, tenantID, order.ID, paymentReq)
@@ -172,4 +172,48 @@ func TestIsolationMultitenant(t *testing.T) {
 		_, err := service.GetOrderByID(ctx, tenant2, ordersDefault[0].ID)
 		assert.ErrorIs(t, err, ErrOrderNotFound)
 	}
+}
+
+// TestAddPayment_ExceedsRemainingDue vérifie qu'un encaissement supérieur au
+// solde restant dû est refusé : le journal des paiements doit toujours
+// correspondre au montant encaissable (intégrité comptable).
+func TestAddPayment_ExceedsRemainingDue(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "a0000000-0000-0000-0000-000000000001"
+
+	ord, err := service.CreateOrder(ctx, tenantID, CreateOrderRequest{
+		CustomerName:  "Client Intégrité",
+		CustomerPhone: "+225 07 00 00 00 01",
+		Items: []CreateOrderItemInput{
+			{ServiceID: "srv-101", ItemLabel: "Chemise", Quantity: 3, UnitPrice: 500},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1500.0, ord.TotalAmount)
+
+	// Surpaiement : refusé, aucun mouvement financier.
+	_, err = service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 999999, PaymentMethod: "cash"})
+	assert.ErrorIs(t, err, ErrPaymentExceedsDue)
+
+	reloaded, err := service.GetOrderByID(ctx, tenantID, ord.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0.0, reloaded.PaidAmount, "le solde ne doit pas bouger après un refus")
+	assert.Len(t, reloaded.Payments, 0, "aucun paiement ne doit être enregistré après un refus")
+
+	// Paiement partiel puis solde exact : acceptés.
+	_, err = service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 500, PaymentMethod: "wave"})
+	require.NoError(t, err)
+
+	settled, err := service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 1000, PaymentMethod: "cash"})
+	require.NoError(t, err)
+	assert.Equal(t, 1500.0, settled.PaidAmount)
+	assert.Equal(t, 0.0, settled.RemainingDue)
+	assert.Equal(t, PaymentStatusPaid, settled.PaymentStatus)
+	assert.Len(t, settled.Payments, 2)
+
+	// Plus rien à encaisser : tout nouveau paiement est refusé.
+	_, err = service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 1, PaymentMethod: "cash"})
+	assert.ErrorIs(t, err, ErrPaymentExceedsDue)
 }

@@ -272,7 +272,7 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 // Supporte le filtrage par statut et la recherche textuelle sur le client/numéro de commande
 func (s *Service) GetOrders(ctx context.Context, tenantID string, statusFilter string, search string) ([]*Order, error) {
 	s.logger.Printf("[order] Récupération commandes: tenant=%s, statut=%s, recherche='%s'", tenantID, statusFilter, search)
-	
+
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
 		return s.store.GetOrders(ctx, tenantID, statusFilter, search)
@@ -319,7 +319,7 @@ func (s *Service) GetOrders(ctx context.Context, tenantID string, statusFilter s
 // Retourne une copie de sécurité pour éviter modification externe des données partagées
 func (s *Service) GetOrderByID(ctx context.Context, tenantID, orderID string) (*Order, error) {
 	s.logger.Printf("[order] Consultation commande: orderID=%s, tenant=%s", orderID, tenantID)
-	
+
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation consultation à PostgreSQL: orderID=%s", orderID)
 		return s.store.GetOrderByID(ctx, tenantID, orderID)
@@ -344,7 +344,7 @@ func (s *Service) GetOrderByID(ctx context.Context, tenantID, orderID string) (*
 // Vérifie l'isolation tenant et la validité du nouveau statut dans le cycle de production
 func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newStatus string) (*Order, error) {
 	s.logger.Printf("[order] Mise à jour statut commande: %s, ancien=%s, nouveau=%s, tenant=%s", orderID, "?", newStatus, tenantID)
-	
+
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation mise à jour statut à PostgreSQL: orderID=%s", orderID)
 		return s.store.UpdateOrderStatus(ctx, tenantID, orderID, newStatus)
@@ -368,9 +368,9 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 	oldStatus := ord.Status
 	ord.Status = newStatus
 	ord.UpdatedAt = time.Now().UTC()
-	
+
 	s.logger.Printf("[order] Statut mis à jour: %s, %s → %s", orderID, oldStatus, newStatus)
-	
+
 	// Copie de sécurité
 	ordCopy := *ord
 	return &ordCopy, nil
@@ -380,7 +380,7 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 // Vérifie l'isolation tenant, met à jour les montants et le statut de paiement
 func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
 	s.logger.Printf("[order] Ajout paiement: commande=%s, montant=%.2f, tenant=%s", orderID, req.Amount, tenantID)
-	
+
 	if req.Amount <= 0 {
 		s.logger.Printf("[order] Paiement refusé: montant invalide %.2f pour commande %s", req.Amount, orderID)
 		return nil, ErrInvalidPayment
@@ -400,11 +400,16 @@ func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req 
 		return nil, err
 	}
 
+	// Intégrité comptable : refus de tout encaissement supérieur au solde dû.
+	due := ord.TotalAmount - ord.PaidAmount
+	if req.Amount > due {
+		s.logger.Printf("[order] Paiement refusé: montant %.2f > solde dû %.2f (commande %s, tenant=%s)",
+			req.Amount, due, orderID, tenantID)
+		return nil, ErrPaymentExceedsDue
+	}
+
 	// Mise à jour des montants
 	ord.PaidAmount += req.Amount
-	if ord.PaidAmount > ord.TotalAmount {
-		ord.PaidAmount = ord.TotalAmount
-	}
 	ord.RemainingDue = ord.TotalAmount - ord.PaidAmount
 
 	// Utilisation du helper pour calculer le nouveau statut de paiement
@@ -425,7 +430,7 @@ func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req 
 	})
 	ord.UpdatedAt = time.Now().UTC()
 
-	s.logger.Printf("[order] Paiement enregistré: commande=%s, nouveau statut paiement=%s, restant=%.2f", 
+	s.logger.Printf("[order] Paiement enregistré: commande=%s, nouveau statut paiement=%s, restant=%.2f",
 		orderID, ord.PaymentStatus, ord.RemainingDue)
 
 	// Copie de sécurité

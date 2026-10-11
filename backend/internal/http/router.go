@@ -71,12 +71,12 @@ func NewRouter(deps ServerDependencies) http.Handler {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"product":       "PressingOS",
-				"version":       "0.4.0-catalog",
+				"version":       "0.5.0-hardening",
 				"environment":   deps.Config.ServerEnv,
 				"architecture":  "Modular Monolith (Multi-Tenant Shared DB / Tenant-ID Isolated)",
 				"database_type": "PostgreSQL 16 with pgx connection pool",
 				"target_market": "Pressings et Buanderies — Côte d'Ivoire (XOF)",
-				"modules":       []string{"Health", "Auth JWT", "Tenants", "Orders & Receipts", "Catalog & Pricing Grid"},
+				"modules":       []string{"Health", "Auth JWT", "Tenants", "Orders & Receipts", "Catalog & Pricing Grid", "Billing & Entitlements", "Price Lists", "Customers"},
 				"timestamp":     time.Now().UTC(),
 			})
 		})

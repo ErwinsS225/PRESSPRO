@@ -2,7 +2,9 @@ package order
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -10,17 +12,37 @@ import (
 
 	"pressing-os/backend/internal/auth"
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/httperr"
 )
 
 // Handler gère les requêtes HTTP sur les commandes
 type Handler struct {
 	service *Service
 	quota   *billing.QuotaGuard
+	logger  *log.Logger
 }
 
 // NewHandler initialise le gestionnaire HTTP des commandes
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
+}
+
+// respondServiceError traduit une erreur du service en réponse HTTP :
+//   - erreurs métier            -> 400 avec le message fonctionnel (utilisable par l'UI) ;
+//   - ressource inexistante/hors -> 404 « commande introuvable » (aucune fuite d'existence) ;
+//   - erreur technique (SQL/IO)  -> 500 générique, détail journalisé côté serveur.
+func (h *Handler) respondServiceError(w http.ResponseWriter, err error, internalMsg string) {
+	switch {
+	case errors.Is(err, ErrOrderNotFound):
+		httperr.Error(w, http.StatusNotFound, "commande introuvable")
+	case errors.Is(err, ErrInvalidStatusOrder),
+		errors.Is(err, ErrEmptyOrderItems),
+		errors.Is(err, ErrInvalidPayment),
+		errors.Is(err, ErrPaymentExceedsDue):
+		httperr.Error(w, http.StatusBadRequest, err.Error())
+	default:
+		httperr.Internal(w, h.logger, "order", err, internalMsg)
+	}
 }
 
 // SetQuotaGuard branche le garde-fou du quota mensuel (plan FREE = 50).
@@ -62,9 +84,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Garde-fou quota mensuel : essai dépassé = FREE plafonné à 50 commandes.
 	if h.quota != nil {
 		if err := h.quota.CheckOrdersCreation(r.Context(), tenantID); err != nil {
-			w.WriteHeader(http.StatusPaymentRequired)
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"error":            err.Error(),
+			httperr.ErrorWithExtra(w, http.StatusPaymentRequired, err.Error(), map[string]string{
 				"upgrade_required": "true",
 			})
 			return
@@ -73,8 +93,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateOrder(r.Context(), tenantID, req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible d'enregistrer la commande")
 		return
 	}
 
@@ -98,8 +117,7 @@ func (h *Handler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	orders, err := h.service.GetOrders(r.Context(), tenantID, statusFilter, search)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible de récupérer les commandes")
 		return
 	}
 
@@ -112,12 +130,16 @@ func (h *Handler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
+
 	orderID := chi.URLParam(r, "id")
 
 	ord, err := h.service.GetOrderByID(r.Context(), tenantID, orderID)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "commande introuvable"})
+		h.respondServiceError(w, err, "impossible de récupérer la commande")
 		return
 	}
 
@@ -130,6 +152,11 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
+
 	orderID := chi.URLParam(r, "id")
 
 	var req UpdateStatusRequest
@@ -141,8 +168,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.service.UpdateOrderStatus(r.Context(), tenantID, orderID, req.Status)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible de mettre à jour le statut")
 		return
 	}
 
@@ -155,6 +181,11 @@ func (h *Handler) AddPayment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
+
 	orderID := chi.URLParam(r, "id")
 
 	var req AddPaymentRequest
@@ -166,8 +197,7 @@ func (h *Handler) AddPayment(w http.ResponseWriter, r *http.Request) {
 
 	settled, err := h.service.AddPayment(r.Context(), tenantID, orderID, req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible d'enregistrer le paiement")
 		return
 	}
 
@@ -179,14 +209,17 @@ func (h *Handler) AddPayment(w http.ResponseWriter, r *http.Request) {
 // Retourne la maquette formattée pour imprimante thermique 80mm
 func (h *Handler) ThermalReceipt(w http.ResponseWriter, r *http.Request) {
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
+
 	claims := auth.GetUserFromContext(r.Context())
 	orderID := chi.URLParam(r, "id")
 
 	ord, err := h.service.GetOrderByID(r.Context(), tenantID, orderID)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "commande introuvable"})
+		h.respondServiceError(w, err, "impossible de générer le ticket")
 		return
 	}
 

@@ -74,10 +74,18 @@ backend/
 │   └── api/
 │       └── main.go           # Point d'entrée, initialisation et Graceful Shutdown
 ├── internal/
+│   ├── auth/                 # JWT, bcrypt, inscription d'établissement (onboarding)
+│   ├── billing/              # Plans, droits effectifs, quotas, matrice des fonctionnalités
+│   ├── catalog/              # Catalogue de prestations et grille tarifaire
 │   ├── config/               # Lecture typée des variables d'environnement (.env)
+│   ├── customer/             # Fichier clients du pressing
 │   ├── database/             # Gestion du pool pgxpool et des requêtes
 │   ├── health/               # Endpoints /health (liveness) et /ready (readiness)
-│   └── http/                 # Routeur Chi, middlewares (CORS, timeouts, logger)
+│   ├── httperr/              # Réponses d'erreur normalisées (aucune fuite technique)
+│   ├── order/                # Commandes, paiements, ticket thermique 80 mm
+│   ├── pricelist/            # Grilles tarifaires versionnées (snapshots JSONB)
+│   ├── ratelimit/            # Limiteur de débit (anti-force brute sur /auth/login)
+│   └── http/                 # Routeur Chi, middlewares (CORS, timeouts, JWT, RBAC)
 ├── migrations/               # Migrations SQL numérotées (up/down)
 ├── go.mod                    # Définition du module Go et dépendances
 └── Makefile                  # Commandes raccourcies de test, build, formatage
@@ -85,7 +93,35 @@ backend/
 
 ---
 
-## 5. Arrêt Gracieux (Graceful Shutdown)
+## 5. Démarrage, mode de persistance et onboarding
+
+### Choix du mode de persistance (au démarrage)
+1. Le pool `pgxpool` est créé, puis **un `Ping` est exécuté** : la création du pool ne prouve pas que la base répond.
+2. `Ping` réussi → tous les services sont adossés à PostgreSQL (`dbReady = true`).
+3. `Ping` échoué → **bascule complète en repli mémoire** (données de démonstration, aucune écriture persistée) et `/ready` renvoie `503`. Les logs l'annoncent explicitement ; `/health` reste `200` (processus vivant).
+4. Sans `DATABASE_URL` joignable, l'API reste utilisable (mode démonstration) au lieu de renvoyer des erreurs 500.
+
+### Sécurité du démarrage
+`SERVER_ENV=production` impose un `JWT_SECRET` d'au moins 32 caractères : sans lui, le processus refuse de démarrer. Un secret de développement n'est utilisé qu'en environnement non-production, avec un avertissement explicite dans les logs.
+
+### Onboarding d'un nouvel établissement
+L'inscription (`POST /api/v1/auth/register-tenant`) exécute une transaction unique : tenant → branche principale → compte propriétaire → appartenances (tenant + branche) → abonnement d'essai 7 jours. Ensuite, un **hook d'onboarding** injecté à l'assemblage (`SetOnTenantRegistered`) initialise, de façon idempotente :
+- la **grille tarifaire par défaut** du catalogue (prestations courantes du pressing) ;
+- la **grille tarifaire principale** (`price_lists`) et sa **première version figée** (snapshot JSONB du catalogue).
+
+Un pressing fraîchement inscrit peut donc enregistrer des commandes immédiatement.
+
+### Politique de réponse d'erreur (paquet `httperr`)
+- erreurs métier → `400`/`402`/`409` avec message fonctionnel ;
+- ressource inconnue **ou appartenant à un autre établissement** → `404` (aucune fuite d'existence) ;
+- erreurs techniques (SQL, réseau, transaction) → journalisées côté serveur, `500` avec message générique.
+
+### Limitation de débit
+`POST /api/v1/auth/login` est protégé (`internal/ratelimit`) : 10 tentatives par couple (IP, email) et 40 par IP sur 5 minutes, réponse `429` + `Retry-After`. Une connexion réussie réinitialise le compteur. Le limiteur est en mémoire (mono-instance) ; en déploiement multi-instances, le remplacer par un compteur partagé.
+
+---
+
+## 6. Arrêt Gracieux (Graceful Shutdown)
 
 Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker/Kubernetes) :
 1. Le serveur cesse d'accepter de nouvelles requêtes entrantes.

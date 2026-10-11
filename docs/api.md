@@ -1,6 +1,23 @@
-# PressingOS — Spécification de l'API REST (v0.3.0-orders)
+# PressingOS — Spécification de l'API REST (v0.5.0-hardening)
 
 Documentation complète des endpoints HTTP du serveur Go Chi, incluant l'authentification JWT, l'isolation multi-tenant, les commandes de pressing et la génération de tickets thermiques (80mm).
+
+## 0. Conventions transverses
+
+### Format des erreurs
+Toutes les erreurs respectent le format `{"error": "message"}` :
+- **messages métier** (validation, transition interdite, plafond atteint) : lisibles et destinés à l'interface ;
+- **erreurs techniques** (SQL, réseau, transaction) : journalisées côté serveur, **jamais** exposées au client (réponse 500 générique) ;
+- **codes** : `400` validation · `401` authentification · `402` quota/plan · `403` rôle ou isolation · `404` ressource inconnue **ou appartenant à un autre établissement** (l'existence n'est jamais révélée) · `409` conflit (email déjà utilisé) · `429` trop de tentatives · `500` erreur interne.
+
+### Limitation de débit
+`POST /api/v1/auth/login` est protégé contre la force brute :
+- 10 tentatives par couple (IP, email) et 40 tentatives par adresse IP, sur une fenêtre de 5 minutes ;
+- au-delà, réponse `429` avec en-tête `Retry-After` (secondes) ;
+- une connexion **réussie** remet le compteur à zéro : un utilisateur légitime n'est jamais bloqué par ses fautes de frappe.
+
+### Onboarding d'un nouvel établissement
+`POST /api/v1/auth/register-tenant` crée, en une transaction : l'organisation, l'établissement principal, le compte propriétaire, les appartenances (tenant + branche), l'abonnement d'essai 7 jours, **la grille tarifaire par défaut (catalogue)** et **la première version figée de la grille tarifaire**. Un pressing fraîchement inscrit est donc immédiatement opérationnel.
 
 ---
 

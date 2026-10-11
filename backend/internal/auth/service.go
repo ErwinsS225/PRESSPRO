@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,30 @@ type Service struct {
 	users      map[string]*User          // clé: email normalisé
 	tenants    map[string]*TenantSummary // clé: tenant_id
 	store      *dbStore                  // nil = mode mémoire ; non-nil = persistance PostgreSQL
+
+	// onTenantRegistered est appelé après chaque inscription réussie (onboarding
+	// du catalogue, grille tarifaire…). Injecté au démarrage par l'assemblage
+	// applicatif afin que le module auth n'ait aucune dépendance métier.
+	onTenantRegistered []func(ctx context.Context, tenantID string) error
+}
+
+// SetOnTenantRegistered enregistre un ou plusieurs hooks d'onboarding exécutés
+// après la création d'un établissement. Un échec de hook est journalisé mais
+// n'annule jamais l'inscription (l'établissement et son compte existent déjà).
+func (s *Service) SetOnTenantRegistered(hooks ...func(ctx context.Context, tenantID string) error) {
+	s.onTenantRegistered = append(s.onTenantRegistered, hooks...)
+}
+
+// runOnTenantRegistered exécute les hooks d'onboarding.
+func (s *Service) runOnTenantRegistered(ctx context.Context, tenantID string) {
+	for _, hook := range s.onTenantRegistered {
+		if hook == nil {
+			continue
+		}
+		if err := hook(ctx, tenantID); err != nil {
+			log.Printf("[auth] onboarding: échec de l'initialisation du tenant %s: %v", tenantID, err)
+		}
+	}
 }
 
 // NewService initialise le service avec des comptes de démonstration prêts à l'emploi
@@ -232,6 +257,8 @@ func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest)
 		if terr != nil {
 			return nil, fmt.Errorf("impossible de générer le jeton: %w", terr)
 		}
+		// Onboarding du nouvel établissement (catalogue, grille tarifaire…).
+		s.runOnTenantRegistered(ctx, tenant.ID)
 		return &LoginResponse{Token: token, User: *user, Tenant: tenant}, nil
 	}
 
@@ -279,6 +306,9 @@ func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest)
 	if err != nil {
 		return nil, err
 	}
+
+	// Onboarding du nouvel établissement (mode mémoire).
+	s.runOnTenantRegistered(ctx, tenant.ID)
 
 	return &LoginResponse{
 		Token:  token,

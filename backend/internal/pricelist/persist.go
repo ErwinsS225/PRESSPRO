@@ -32,8 +32,12 @@ type dbStore struct {
 }
 
 // NewStore construit un service de grilles tarifaires adossé à PostgreSQL.
+// Le Service est bâti via NewService() pour garantir l'initialisation des maps
+// internes (même précaution que le catalogue : jamais de Service partiel).
 func NewStore(db *database.Store) *Service {
-	return &Service{store: &dbStore{database: db}}
+	s := NewService()
+	s.store = &dbStore{database: db}
+	return s
 }
 
 func (s *dbStore) ListPriceLists(ctx context.Context, tenantID string) ([]*PriceList, error) {

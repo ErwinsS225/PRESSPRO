@@ -46,7 +46,7 @@ func AuthenticatorMiddleware(jwtManager *auth.JWTManager) func(http.Handler) htt
 			// PROTECTION CONTRE L'USURPATION MULTI-TENANT :
 			// Si un client envoie un header 'X-Tenant-ID' distinct de son jeton vérifié,
 			// et qu'il n'est pas superadmin, la requête est formellement bloquée en 403 Forbidden.
-			customTenantHeader := r.Header.Get("X-Tenant-ID")
+			customTenantHeader := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
 			if customTenantHeader != "" && claims.Role != auth.RoleSuperAdmin {
 				if customTenantHeader != claims.TenantID {
 					w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -60,6 +60,15 @@ func AuthenticatorMiddleware(jwtManager *auth.JWTManager) func(http.Handler) htt
 
 			// Injection sécurisée dans le contexte de requête
 			ctx := auth.WithUserClaims(r.Context(), claims)
+
+			// Cas du superadmin (jeton sans établissement) : un X-Tenant-ID
+			// explicite et bien formé devient le contexte de travail, ce qui
+			// permet à l'éditeur SaaS d'administrer un pressing précis. Sans ce
+			// header, l'établissement reste vide et les routes multi-tenant
+			// répondent 403 « contexte d'établissement requis ».
+			if claims.Role == auth.RoleSuperAdmin && customTenantHeader != "" && looksLikeUUIDForTenant(customTenantHeader) {
+				ctx = auth.WithTenantID(ctx, customTenantHeader)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -103,4 +112,26 @@ func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// looksLikeUUIDForTenant valide le format UUID d'un identifiant d'établissement
+// fourni par un superadmin (évite de propager une valeur arbitraire vers SQL).
+func looksLikeUUIDForTenant(v string) bool {
+	if len(v) != 36 {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		switch i {
+		case 8, 13, 18, 23:
+			if v[i] != '-' {
+				return false
+			}
+		default:
+			c := v[i]
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
 }

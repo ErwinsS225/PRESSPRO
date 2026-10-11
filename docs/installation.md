@@ -1,5 +1,11 @@
 # Guide d'Installation et de Démarrage Local (macOS)
 
+> **Deux façons de lancer le projet**
+> 1. **Full-stack en une commande** — `npm run dev` : Express sert le SPA sur **http://localhost:3000** et lance lui-même le binaire Go (`backend/bin/api`) sur le port interne **8085**, qu'il proxifie (`/health`, `/ready`, `/api/*`). C'est le mode recommandé.
+> 2. **Mode séparé** — `cd backend && go run cmd/api/main.go` expose l'API directement sur le port **8080** (valeur par défaut de `PORT`), et `npm run dev` reste utilisable côté frontend.
+>
+> Mise en garde production : `SERVER_ENV=production` **exige** `JWT_SECRET` (32 caractères minimum) — le serveur refuse de démarrer sans ce secret.
+
 Ce guide pas à pas est conçu pour vous accompagner sur votre **MacBook sous macOS** avec **VS Code** et le terminal.
 
 ---
@@ -93,6 +99,11 @@ go test ./...
 
 # Lancer le serveur d'API
 go run cmd/api/main.go
+
+# Lancer les tests unitaires et d'intégration
+go test ./...
+TEST_DATABASE_URL="postgres://pressing_app:...@localhost:5432/pressing_os?sslmode=disable" \
+  go test -tags=integration ./internal/catalog/...
 ```
 Le terminal affichera :
 ```
@@ -115,8 +126,10 @@ curl http://localhost:8080/ready
 
 ## 6. Démarrage du Frontend
 
-Ouvrez un autre onglet de terminal et lancez le frontend :
+Ouvrez un autre onglet de terminal : si l'API tourne déjà seule sur `8080`, lancez uniquement
+le frontend ; sinon `npm run dev` suffit (il lance aussi le binaire Go sur le port interne 8085).
 ```bash
+npm ci --legacy-peer-deps   # npm ci/install strict échoue (conflit vite@8 / esbuild@0.25)
 npm run dev
 ```
 Ouvrez votre navigateur web à l'adresse : **`http://localhost:3000`**.
