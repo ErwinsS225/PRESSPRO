@@ -1,27 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Plus,
-  Search,
-  Edit2,
-  Trash2,
-  Database,
-  CheckCircle2,
-  XCircle,
-  Copy,
-  Zap,
-  Truck,
-  Building2,
-  FileText,
-  Clock,
-  Sliders,
-  DollarSign,
-  AlertCircle,
-  Check,
-  Tag,
-  ArrowUpDown,
-  Filter,
-  Sparkles,
-} from 'lucide-react';
+import { Plus, Search, Trash2, Database, XCircle, Copy, Sliders, Check, Tag } from 'lucide-react';
 import { ServiceItem, User } from '../types';
 
 interface CatalogManagerModalProps {
@@ -41,21 +19,17 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
   isOpen,
   onClose,
   services,
-  currentUser,
   token,
   onAddService,
   onUpdateService,
   onDeleteService,
-  onSyncWithDB,
   showToast,
 }) => {
-  if (!isOpen) return null;
-
   // Filtres internes au gestionnaire
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [filterPricing, setFilterPricing] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
+  const [filterPricing] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
 
   // Sélection d'un service pour édition en direct ou mode création
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
@@ -69,7 +43,9 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
   const [formCategory, setFormCategory] = useState('Vêtements du quotidien');
   const [formPrice, setFormPrice] = useState(1000);
   const [formUnit, setFormUnit] = useState('pièce');
-  const [formPricingModel, setFormPricingModel] = useState<'piece' | 'kilogram' | 'subscription' | 'contract'>('piece');
+  const [formPricingModel, setFormPricingModel] = useState<
+    'piece' | 'kilogram' | 'subscription' | 'contract'
+  >('piece');
   const [formDuration, setFormDuration] = useState(24);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsExpress, setFormIsExpress] = useState(false);
@@ -410,6 +386,11 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
     }
   };
 
+  // Fermeture : rendu nul APRÈS l'appel des hooks (l'ordre d'appel doit être
+  // identique à chaque rendu, sinon React lève « Rendered more hooks than
+  // during the previous render » dès la première ouverture du gestionnaire).
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs">
       <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-[#0c0c0c]">
@@ -430,7 +411,8 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Créez, modifiez, désactivez ou supprimez des prestations. Les anciennes commandes conservent leur tarification historique.
+                Créez, modifiez, désactivez ou supprimez des prestations. Les anciennes commandes conservent
+                leur tarification historique.
               </p>
             </div>
           </div>
@@ -800,7 +782,8 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                     Statut Actif au Comptoir
                   </span>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Si désactivée, cette prestation ne pourra plus être sélectionnée pour de nouvelles commandes.
+                    Si désactivée, cette prestation ne pourra plus être sélectionnée pour de nouvelles
+                    commandes.
                   </p>
                 </div>
                 <button
@@ -872,8 +855,8 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                       {isSaving
                         ? 'Synchronisation PostgreSQL...'
                         : isCreatingNew
-                        ? 'Créer dans la Base de Données'
-                        : 'Mettre à jour dans PostgreSQL'}
+                          ? 'Créer dans la Base de Données'
+                          : 'Mettre à jour dans PostgreSQL'}
                     </span>
                   </button>
                 </div>

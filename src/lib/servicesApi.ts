@@ -8,7 +8,7 @@ const LAST_SYNC_KEY = 'pressingos_catalog_last_sync';
 export function getAuthHeader(token?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -67,7 +67,9 @@ export function getLocalServices(): ServiceItem[] {
 /**
  * Récupère la liste des prestations depuis l'API backend Go (ou cache local sécurisé)
  */
-export async function fetchServices(token?: string): Promise<{ services: ServiceItem[]; fromBackend: boolean; error?: string }> {
+export async function fetchServices(
+  token?: string
+): Promise<{ services: ServiceItem[]; fromBackend: boolean; error?: string }> {
   try {
     const res = await fetch('/api/v1/services', {
       method: 'GET',
@@ -281,7 +283,9 @@ export async function deleteServiceOnBackend(
       const errorData = await res.json().catch(() => ({}));
       if (res.status === 404) {
         // Prestation absente de PostgreSQL (ex: service local non encore synchronisé ou déjà supprimé)
-        console.warn(`[ServicesApi] Prestation ${serviceId} introuvable sur le serveur (404), suppression locale.`);
+        console.warn(
+          `[ServicesApi] Prestation ${serviceId} introuvable sur le serveur (404), suppression locale.`
+        );
         synced = false;
       } else {
         apiError = errorData.error || `Erreur serveur HTTP ${res.status}`;
@@ -289,7 +293,7 @@ export async function deleteServiceOnBackend(
     }
   } catch (err: any) {
     console.warn('[ServicesApi] Échec appel DELETE /api/v1/services:', err.message);
-    apiError = err.message || 'Erreur réseau de communication avec l\'API Go';
+    apiError = err.message || "Erreur réseau de communication avec l'API Go";
   }
 
   if (apiError) {

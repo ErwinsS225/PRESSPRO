@@ -9,11 +9,7 @@ interface LoginModalProps {
   onLoginSuccess: (session: AuthSession) => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({
-  currentSession,
-  onClose,
-  onLoginSuccess,
-}) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ currentSession, onClose, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +62,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200">
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -99,7 +98,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">{acc.label}</span>
+                      <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
+                        {acc.label}
+                      </span>
                       <span className="font-mono text-[10px] text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400">
                         {acc.role}
                       </span>
@@ -141,7 +142,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Manual Form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Adresse Email</label>
+            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              Adresse Email
+            </label>
             <input
               type="email"
               required
@@ -153,7 +156,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Mot de passe</label>
+            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              Mot de passe
+            </label>
             <input
               type="password"
               required

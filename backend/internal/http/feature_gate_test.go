@@ -215,3 +215,106 @@ func TestRequireFeatureQuota_Users(t *testing.T) {
 		t.Errorf("sous le plafond : attendu 201, obtenu %d", code)
 	}
 }
+
+// TestRequireFeature_RapportsEtDepenses : les modules Rapports et Dépenses sont
+// des fonctionnalités payantes — un établissement gratuit reçoit 402 avec le
+// message commercial, tandis qu'une formule payante (ou un essai actif, niveau
+// BUSINESS) passe.
+func TestRequireFeature_RapportsEtDepenses(t *testing.T) {
+	const gratuit = "a0000000-0000-0000-0000-000000000001" // formule gratuite, essai terminé
+	const payant = "b62709cf-0fbf-4db2-aa56-d861b7930283"  // formule PRO
+
+	billingSvc := billing.NewService()
+	// Essai terminé => matrice FREE ; abonnement PRO pour le second établissement.
+	billingSvc.ForcePlanForTest(gratuit, billing.PlanFree, billing.StatusActive)
+	billingSvc.ForcePlanForTest(payant, billing.PlanPro, billing.StatusActive)
+
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	appel := func(garde func(http.Handler) http.Handler, role, tenantID string) (int, map[string]interface{}) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/summary", nil)
+		claims := &auth.UserClaims{UserID: "usr-gerant-001", TenantID: tenantID, Role: role}
+		req = req.WithContext(auth.WithUserClaims(req.Context(), claims))
+		rec := httptest.NewRecorder()
+		garde(ok).ServeHTTP(rec, req)
+
+		var corps map[string]interface{}
+		_ = json.Unmarshal(rec.Body.Bytes(), &corps)
+		return rec.Code, corps
+	}
+
+	// 1. Rapports avancés : refusés en formule gratuite, autorisés en PRO.
+	gardeRapports := apphttp.RequireFeature(billingSvc, billing.FeatureReportsAdvanced)
+	if code, corps := appel(gardeRapports, auth.RoleOwner, gratuit); code != http.StatusPaymentRequired {
+		t.Errorf("rapports en gratuit : attendu 402, obtenu %d (%v)", code, corps)
+	} else if corps["feature"] != billing.FeatureReportsAdvanced {
+		t.Errorf("la réponse doit désigner la fonctionnalité refusée : %v", corps)
+	}
+	if code, _ := appel(gardeRapports, auth.RoleOwner, payant); code != http.StatusOK {
+		t.Errorf("rapports en PRO : attendu 200, obtenu %d", code)
+	}
+
+	// 2. Dépenses avancées : même matrice commerciale.
+	gardeDepenses := apphttp.RequireFeature(billingSvc, billing.FeatureExpensesAdvanced)
+	if code, _ := appel(gardeDepenses, auth.RoleOwner, gratuit); code != http.StatusPaymentRequired {
+		t.Errorf("dépenses en gratuit : attendu 402, obtenu %d", code)
+	}
+	if code, _ := appel(gardeDepenses, auth.RoleOwner, payant); code != http.StatusOK {
+		t.Errorf("dépenses en PRO : attendu 200, obtenu %d", code)
+	}
+
+	// 3. Le superadmin de l'éditeur n'est jamais bloqué par la matrice.
+	if code, _ := appel(gardeRapports, auth.RoleSuperAdmin, gratuit); code != http.StatusOK {
+		t.Errorf("superadmin : attendu 200, obtenu %d", code)
+	}
+}
+
+// TestRequireFeatureQuota_MultiSites : le plafond d'établissements d'une
+// formule doit être appliqué en création (1 site en gratuit et PRO, 3 en
+// BUSINESS) — la consommation est celle des établissements réellement ouverts.
+func TestRequireFeatureQuota_MultiSites(t *testing.T) {
+	const gratuit = "tenant-multisites-gratuit"
+	const business = "tenant-multisites-business"
+
+	billingSvc := billing.NewService()
+	billingSvc.ForcePlanForTest(gratuit, billing.PlanFree, billing.StatusActive)
+	billingSvc.ForcePlanForTest(business, billing.PlanBusiness, billing.StatusActive)
+	billingSvc.SetUsageCounter(fixedCounter{branches: 1})
+
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusCreated) })
+	garde := apphttp.RequireFeatureQuota(billingSvc, billing.FeatureMultiSite)
+
+	appel := func(role, tenantID string) (int, map[string]interface{}) {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/branches", nil)
+		claims := &auth.UserClaims{UserID: "usr-gerant-001", TenantID: tenantID, Role: role}
+		req = req.WithContext(auth.WithUserClaims(req.Context(), claims))
+		rec := httptest.NewRecorder()
+		garde(ok).ServeHTTP(rec, req)
+		var corps map[string]interface{}
+		_ = json.Unmarshal(rec.Body.Bytes(), &corps)
+		return rec.Code, corps
+	}
+
+	code, corps := appel(auth.RoleOwner, gratuit)
+	if code != http.StatusPaymentRequired {
+		t.Errorf("2e établissement en formule gratuite : attendu 402, obtenu %d", code)
+	}
+	if corps["feature"] != billing.FeatureMultiSite {
+		t.Errorf("fonctionnalité annoncée = %v, attendue %s", corps["feature"], billing.FeatureMultiSite)
+	}
+
+	if code, _ = appel(auth.RoleOwner, business); code != http.StatusCreated {
+		t.Errorf("2e établissement en BUSINESS (plafond 3) : attendu 201, obtenu %d", code)
+	}
+
+	// Plafond BUSINESS atteint : le 4e établissement est refusé.
+	billingSvc.SetUsageCounter(fixedCounter{branches: 3})
+	if code, _ = appel(auth.RoleOwner, business); code != http.StatusPaymentRequired {
+		t.Errorf("4e établissement en BUSINESS : attendu 402, obtenu %d", code)
+	}
+
+	// Le superadmin reste dispensé (administration de la plateforme).
+	if code, _ = appel(auth.RoleSuperAdmin, business); code != http.StatusCreated {
+		t.Errorf("superadmin : attendu 201, obtenu %d", code)
+	}
+}

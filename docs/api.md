@@ -19,11 +19,15 @@ Toutes les erreurs respectent le format `{"error": "message"}` :
 ### Fonctionnalités payantes (formules)
 Deux garde-fous distincts protègent les modules payants :
 - **`RequireFeature`** (droit booléen) : la fonctionnalité doit être incluse dans la formule → `402` `{"error","feature","upgrade_required":"true"}` ;
-- **`RequireFeatureQuota`** (plafond consommé) : la consommation réelle est mesurée sur les données (`orders.monthly.max`, `users.max`, `catalog.price_lists`) et comparée à `plan_entitlements.limit_value` → `402` avec le message métier et `usage`.
+- **`RequireFeatureQuota`** (plafond consommé) : la consommation réelle est mesurée sur les données (`orders.monthly.max`, `users.max`, `catalog.price_lists`, `branches.multi_site`) et comparée à `plan_entitlements.limit_value` → `402` avec le message métier et `usage`.
 
 Les **lectures ne sont jamais payantes** : une rétrogradation de formule ne rend pas l'historique inaccessible. Le superadmin est dispensé de ces garde-fous.
 
-État actuel du câblage : `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS), `POST /api/v1/price-lists/{id}/versions` et `POST /api/v1/users` (plafond de comptes : 2 en gratuit, 5 en PRO, 15 en BUSINESS — établissement d'essai : 15).
+État actuel du câblage :
+- `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS) et `POST /api/v1/price-lists/{id}/versions` ;
+- `POST /api/v1/users` (plafond de comptes : 2 en gratuit, 5 en PRO, 15 en BUSINESS — établissement d'essai : 15) ;
+- `POST /api/v1/branches` (plafond d'établissements : 1 en gratuit et PRO, 3 en BUSINESS) ;
+- `GET /api/v1/reports/summary` (`reports.advanced`) et `POST`/`DELETE /api/v1/expenses` (`expenses.advanced`).
 
 ### Abonnement suspendu
 Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/status`), les **modules métier** de l'établissement (catalogue, commandes, clients, grilles) répondent `402` avec `{"error":"abonnement suspendu…","subscription_status":"SUSPENDED"}`. Les routes de compte (`/tenant/current`, `/me/entitlements`) et l'authentification restent ouvertes afin que le pressing puisse constater sa situation ; le superadmin conserve l'accès complet.
@@ -168,3 +172,46 @@ La table `services` est alignée sur le modèle Go via la migration `000002_cata
 Au démarrage, le catalogue bascule sur PostgreSQL quand le pool est joignable,
 avec repli mémoire (seed) sinon. `GET /api/v1/services` accepte `category` et `q`
 avec pagination SQL `ORDER BY name ASC`.
+
+---
+
+## 6. Endpoints Établissements, Dépenses & Rapports (modules payants)
+
+Trois modules complets sont ajoutés au groupe des **modules métier** : ils sont donc
+également gelés (`402`) lorsqu'un abonnement est suspendu, et **les lectures ne sont
+jamais payantes** (une rétrogradation de formule ne rend pas l'historique inaccessible).
+
+### Module Établissements (multi-sites) — plafond `branches.multi_site`
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/branches` | tous les membres | Liste les établissements du pressing (id, nom, code, adresse, ville, téléphone, `is_primary`, `status`, `orders_count`). L'établissement principal est créé à l'inscription. |
+| POST | `/api/v1/branches` | owner, manager (superadmin) | Crée un établissement secondaire. Corps : `{"name","code","address","phone","city"}`. Gardé par `RequireFeatureQuota(branches.multi_site)` : 1 site en gratuit et PRO, 3 en BUSINESS (essai actif = niveau BUSINESS) → `402` avec `feature: branches.multi_site` et `usage`. Les membres actifs du pressing sont rattachés au nouveau site (`branch_memberships`) pour pouvoir y opérer. |
+| PATCH | `/api/v1/branches/{id}` | owner, manager (superadmin) | Modification **partielle** : seuls les champs fournis changent (`name`, `code`, `address`, `phone`, `city`, `status`). Statuts : `active`, `suspended`, `archived`. L'établissement principal ne peut être ni suspendu ni archivé (`400`). |
+
+Réponses : `409` si un établissement porte déjà ce nom (comparaison insensible à la
+casse et aux espaces superflus) ; `404` si l'identifiant est inconnu ou appartient à
+un autre pressing ; `400` pour un nom manquant (120 caractères maximum) ou un statut
+invalide.
+
+### Module Dépenses — fonctionnalité `expenses.advanced`
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/expenses` | tous les membres | Dépenses de la période : `from`, `to` (`AAAA-MM-JJ`, défaut = mois courant), `category`, `branch_id`. Réponse : `{"expenses":[…],"count":N,"total_xof":N,"by_category":[…],"period":{…}}` — la lecture reste ouverte même en formule gratuite. |
+| POST | `/api/v1/expenses` | owner, manager (superadmin) | Enregistre une charge. Corps : `{"category","label","amount_xof","spent_at","branch_id","payment_method","note"}` (`spent_at` par défaut = aujourd'hui ; `branch_id` déduit de l'en-tête `X-Branch-ID` s'il est omis). Gardé par `RequireFeature(expenses.advanced)`. |
+| DELETE | `/api/v1/expenses/{id}` | owner, manager (superadmin) | Supprime une charge du pressing. `404` pour une dépense d'un autre établissement. Gardé par `RequireFeature(expenses.advanced)`. |
+
+Catégories du référentiel : `matieres_premieres`, `produits_entretien`, `loyer`,
+`energie_eau`, `salaires`, `transport`, `equipement`, `maintenance`, `taxes`, `divers`.
+`400` pour un libellé vide, un montant ≤ 0, une catégorie inconnue ou une date
+invalide.
+
+### Module Rapports — fonctionnalités `reports.advanced` et `reports.consolidated`
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/reports/summary?from=AAAA-MM-JJ&to=AAAA-MM-JJ` | owner, manager (superadmin) | Rapport d'activité de la période (défaut : mois courant). Calcule sur les données réelles : CA **encaissé**, nombre de commandes, `orders_by_status`, ticket moyen, dépenses de la période et leur répartition par poste, **marge = CA encaissé − dépenses**, top 5 des prestations. `data_source` indique `postgresql` ou `memoire`. `400` (`ErrInvalidPeriod`) si `from` > `to` ou si une date est illisible. |
+
+Consolidation multi-sites : quand la formule inclut `reports.consolidated` (BUSINESS,
+essai actif inclus), la réponse porte `consolidated: true` et `by_branch` (CA, dépenses
+et marge par établissement). Sinon le rapport reste complet et `plan_hint` rappelle
+que « La consolidation multi-sites est incluse dans la formule BUSINESS. » — l'interface
+affiche une invitation commerciale à la place du tableau consolidé.

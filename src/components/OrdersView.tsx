@@ -132,7 +132,10 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   const nextAction = getNextStatusLabel(order.status);
                   const isPaid = order.paymentStatus === 'paid';
                   return (
-                    <tr key={order.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
+                    <tr
+                      key={order.id}
+                      className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                    >
                       <td className="px-5 py-3.5">
                         <button
                           onClick={() => onOpenThermalTicket(order)}
@@ -144,13 +147,19 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         </button>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="font-medium text-neutral-900 dark:text-neutral-100">{order.customerName}</div>
-                        <div className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{order.customerPhone}</div>
+                        <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                          {order.customerName}
+                        </div>
+                        <div className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+                          {order.customerPhone}
+                        </div>
                       </td>
                       <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                         <div>{order.items.map((i) => `${i.quantity}x ${i.serviceName}`).join(', ')}</div>
                         {order.notes && (
-                          <div className="text-[11px] text-neutral-400 dark:text-neutral-500 italic mt-0.5">Note: {order.notes}</div>
+                          <div className="text-[11px] text-neutral-400 dark:text-neutral-500 italic mt-0.5">
+                            Note: {order.notes}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400 font-mono text-[11px]">

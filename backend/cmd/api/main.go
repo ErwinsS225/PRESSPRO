@@ -15,15 +15,18 @@ import (
 
 	"pressing-os/backend/internal/auth"
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/branch"
 	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/customer"
 	"pressing-os/backend/internal/database"
+	"pressing-os/backend/internal/expense"
 	"pressing-os/backend/internal/health"
 	apphttp "pressing-os/backend/internal/http"
 	"pressing-os/backend/internal/order"
 	"pressing-os/backend/internal/pricelist"
 	"pressing-os/backend/internal/ratelimit"
+	"pressing-os/backend/internal/report"
 )
 
 func main() {
@@ -190,6 +193,39 @@ func main() {
 	}
 	billingHandler := billing.NewHandler(billingService)
 
+	// Module Établissements (multi-sites) : PostgreSQL quand disponible.
+	branchService := branch.NewService()
+	if dbReady {
+		branchService = branch.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Établissements (multi-sites) adossés à PostgreSQL.")
+	} else {
+		logger.Println("Établissements en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	branchHandler := branch.NewHandler(branchService)
+
+	// Module Dépenses (fonctionnalité payante « expenses.advanced »).
+	expenseService := expense.NewService()
+	if dbReady {
+		expenseService = expense.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Dépenses adossées à PostgreSQL.")
+	} else {
+		logger.Println("Dépenses en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	expenseHandler := expense.NewHandler(expenseService)
+
+	// Module Rapports (fonctionnalité payante « reports.advanced ») : agrégats
+	// SQL quand la base est joignable, sinon calcul mémoire à partir des
+	// services commandes / dépenses.
+	reportService := report.NewService()
+	if dbReady {
+		reportService = report.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Rapports adossés à PostgreSQL (agrégats SQL).")
+	} else {
+		reportService.SetSources(orderService, expenseService)
+		logger.Println("Rapports en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	reportHandler := report.NewHandler(reportService, billingService)
+
 	// Garde-fou quota : la 51e commande FREE (essai dépassé) est refusée en 402.
 	// Compteur mémoire en mode dégradé, compteur SQL quand PostgreSQL est joignable.
 	if dbReady {
@@ -223,6 +259,9 @@ func main() {
 		CatalogHandler:    catalogHandler,
 		CustomerHandler:   customerHandler,
 		PriceListHandler:  priceListHandler,
+		BranchHandler:     branchHandler,
+		ExpenseHandler:    expenseHandler,
+		ReportHandler:     reportHandler,
 		Billing:           billingService,
 		BillingHandler:    billingHandler,
 		MembershipChecker: membershipChecker,

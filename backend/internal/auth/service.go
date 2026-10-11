@@ -19,7 +19,7 @@ var (
 	// l'établissement (même réponse : aucune fuite inter-tenant).
 	ErrUserNotFound = errors.New("utilisateur introuvable")
 	// ErrInvalidRole : rôle hors périmètre d'un pressing (ex. superadmin).
-	ErrInvalidRole = errors.New("rôle invalide pour un compte d'établissement")
+	ErrInvalidRole        = errors.New("rôle invalide pour un compte d'établissement")
 	ErrEmailAlreadyExists = errors.New("cette adresse email est déjà utilisée")
 	ErrTenantNotFound     = errors.New("établissement introuvable")
 )

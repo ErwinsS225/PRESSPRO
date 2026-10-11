@@ -11,12 +11,15 @@ import (
 
 	"pressing-os/backend/internal/auth"
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/branch"
 	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/customer"
+	"pressing-os/backend/internal/expense"
 	"pressing-os/backend/internal/health"
 	"pressing-os/backend/internal/order"
 	"pressing-os/backend/internal/pricelist"
+	"pressing-os/backend/internal/report"
 )
 
 // ServerDependencies regroupe les gestionnaires requis pour assembler le routeur
@@ -29,6 +32,9 @@ type ServerDependencies struct {
 	CatalogHandler    *catalog.Handler
 	CustomerHandler   *customer.Handler
 	PriceListHandler  *pricelist.Handler
+	BranchHandler     *branch.Handler
+	ExpenseHandler    *expense.Handler
+	ReportHandler     *report.Handler
 	Billing           *billing.Service
 	BillingHandler    *billing.Handler
 	MembershipChecker *MembershipChecker
@@ -54,7 +60,7 @@ func NewRouter(deps ServerDependencies) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Tenant-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Tenant-ID", "X-Branch-ID"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -211,18 +217,58 @@ func NewRouter(deps ServerDependencies) http.Handler {
 					}
 
 					// Module Équipe : comptes employés de l'établissement, plafonnés
-				// par la formule (users.max : 2 en gratuit, 5 en PRO, 15 en BUSINESS).
-				if deps.AuthHandler != nil {
-					business.Group(func(team chi.Router) {
-						team.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
-						team.Get("/users", deps.AuthHandler.ListUsers)
-						team.With(RequireFeatureQuota(deps.Billing, billing.FeatureUsersMax)).
-							Post("/users", deps.AuthHandler.CreateUser)
-						team.Patch("/users/{id}/status", deps.AuthHandler.SetUserStatus)
-					})
-				}
+					// par la formule (users.max : 2 en gratuit, 5 en PRO, 15 en BUSINESS).
+					if deps.AuthHandler != nil {
+						business.Group(func(team chi.Router) {
+							team.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+							team.Get("/users", deps.AuthHandler.ListUsers)
+							team.With(RequireFeatureQuota(deps.Billing, billing.FeatureUsersMax)).
+								Post("/users", deps.AuthHandler.CreateUser)
+							team.Patch("/users/{id}/status", deps.AuthHandler.SetUserStatus)
+						})
+					}
 
-			}) // fin des modules métier
+					// Module Établissements (multi-sites) : lecture ouverte aux
+					// membres (sélection du site d'imputation), création soumise au
+					// plafond de la formule (1 en gratuit et PRO, 3 en BUSINESS).
+					if deps.BranchHandler != nil {
+						business.Route("/branches", func(branchRouter chi.Router) {
+							branchRouter.Get("/", deps.BranchHandler.ListBranches)
+							branchRouter.Group(func(managerRouter chi.Router) {
+								managerRouter.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+								managerRouter.With(RequireFeatureQuota(deps.Billing, billing.FeatureMultiSite)).
+									Post("/", deps.BranchHandler.CreateBranch)
+								managerRouter.Patch("/{id}", deps.BranchHandler.UpdateBranch)
+							})
+						})
+					}
+
+					// Module Dépenses (fonctionnalité payante « expenses.advanced »).
+					// Lecture pour les membres, écritures réservées aux gérants.
+					if deps.ExpenseHandler != nil {
+						business.Route("/expenses", func(expenseRouter chi.Router) {
+							expenseRouter.Get("/", deps.ExpenseHandler.ListExpenses)
+							expenseRouter.Group(func(managerRouter chi.Router) {
+								managerRouter.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+								managerRouter.With(RequireFeature(deps.Billing, billing.FeatureExpensesAdvanced)).
+									Post("/", deps.ExpenseHandler.CreateExpense)
+								managerRouter.With(RequireFeature(deps.Billing, billing.FeatureExpensesAdvanced)).
+									Delete("/{id}", deps.ExpenseHandler.DeleteExpense)
+							})
+						})
+					}
+
+					// Module Rapports (fonctionnalité payante « reports.advanced » ;
+					// consolidation par établissement incluse dans BUSINESS).
+					if deps.ReportHandler != nil {
+						business.Route("/reports", func(reportRouter chi.Router) {
+							reportRouter.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+							reportRouter.With(RequireFeature(deps.Billing, billing.FeatureReportsAdvanced)).
+								Get("/summary", deps.ReportHandler.Summary)
+						})
+					}
+
+				}) // fin des modules métier
 
 				// Droits effectifs du pressing (moteur d'abonnement centralisé).
 				if deps.BillingHandler != nil {

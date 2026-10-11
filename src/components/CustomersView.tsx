@@ -99,9 +99,16 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
                 </tr>
               ) : (
                 filteredCustomers.map((c) => (
-                  <tr key={c.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">{c.fullName}</td>
-                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">{c.phone}</td>
+                  <tr
+                    key={c.id}
+                    className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                  >
+                    <td className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">
+                      {c.fullName}
+                    </td>
+                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
+                      {c.phone}
+                    </td>
                     <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">{c.neighborhood}</td>
                     <td className="px-4 py-3.5 text-center font-mono text-neutral-700 dark:text-neutral-300 tabular-nums">
                       {c.totalOrders} dépôts
@@ -128,14 +135,18 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/70 p-4 backdrop-blur-xs">
           <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111]">
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Ajouter un Client</h2>
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Ajouter un Client
+            </h2>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
               Enregistrez un nouvel habitué pour votre pressing.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Nom & Prénoms</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Nom & Prénoms
+                </label>
                 <input
                   type="text"
                   required
@@ -147,7 +158,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Numéro Téléphone (+225)</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Numéro Téléphone (+225)
+                </label>
                 <input
                   type="text"
                   required
@@ -159,7 +172,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Quartier de résidence</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Quartier de résidence
+                </label>
                 <input
                   type="text"
                   placeholder="Ex: Cocody Angré, Marcory, Plateau..."

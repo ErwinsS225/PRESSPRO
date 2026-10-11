@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Printer, QrCode } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { Order, Tenant } from '../types';
 
 interface ThermalTicketModalProps {
@@ -24,14 +24,16 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
   const [isSettling, setIsSettling] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [customerPhone, setCustomerPhone] = useState<string>(order.customerPhone || '');
-  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isSending] = useState<boolean>(false);
   const remainingDue = order.totalAmount - order.paidAmount;
 
   // Générer le QR code automatiquement à l'ouverture
   useEffect(() => {
     const qrContent = generateQRContent(order, tenant);
     // Utiliser l'API QR Code gratuite de Google pour générer un QR code scannable
-    setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrContent)}`);
+    setQrCodeUrl(
+      `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrContent)}`
+    );
   }, [order, tenant]);
 
   // Fonction d'impression optimisée pour les imprimantes thermiques 80mm
@@ -54,12 +56,12 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
     const verifyUrl = `${window.location.origin}/verify/${tenant.id}/${order.id}`;
     return encodeURIComponent(
       `*${tenant.name}* - Votre commande de pressing est prête !\n\n` +
-      `📋 Commande N°${order.orderNumber}\n` +
-      `💰 Montant total : ${order.totalAmount.toLocaleString('fr-FR')} FCFA\n` +
-      `✅ Payé : ${order.paidAmount.toLocaleString('fr-FR')} FCFA\n` +
-      `${remainingDue > 0 ? `💸 Reste à payer : ${remainingDue.toLocaleString('fr-FR')} FCFA\n` : '\n'}` +
-      `🔍 Vérifiez l'authenticité de votre ticket :\n${verifyUrl}\n\n` +
-      `À bientôt chez ${tenant.name} !`
+        `📋 Commande N°${order.orderNumber}\n` +
+        `💰 Montant total : ${order.totalAmount.toLocaleString('fr-FR')} FCFA\n` +
+        `✅ Payé : ${order.paidAmount.toLocaleString('fr-FR')} FCFA\n` +
+        `${remainingDue > 0 ? `💸 Reste à payer : ${remainingDue.toLocaleString('fr-FR')} FCFA\n` : '\n'}` +
+        `🔍 Vérifiez l'authenticité de votre ticket :\n${verifyUrl}\n\n` +
+        `À bientôt chez ${tenant.name} !`
     );
   };
 
@@ -95,7 +97,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     return dateStr || '—';
@@ -131,7 +133,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             width: '80mm', // Taille exacte d'un ticket thermique 80mm
             minHeight: '150mm',
             printColorAdjust: 'exact',
-            WebkitPrintColorAdjust: 'exact'
+            WebkitPrintColorAdjust: 'exact',
           }}
         >
           {/* EN-TÊTE DU PRESSING (CENTRÉ, GRAND FORMAT) */}
@@ -139,7 +141,9 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             <div className="font-bold text-base tracking-wide uppercase">{tenant.name}</div>
             <div className="text-[9px] mt-1">{tenant.city}, Côte d'Ivoire</div>
             <div className="text-[9px]">Tél : {tenant.phone || '+225 XX XX XXX XX'}</div>
-            <div className="text-[8px] text-neutral-500 mt-1">Géré par PressingOS • Votre pressing digitalisé</div>
+            <div className="text-[8px] text-neutral-500 mt-1">
+              Géré par PressingOS • Votre pressing digitalisé
+            </div>
             <div className="my-2 border-b border-black border-dashed" />
           </div>
 
@@ -190,9 +194,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
           {/* INSTRUCTIONS SPÉCIALES */}
           {order.notes && (
-            <div className="mb-3 p-2 border border-neutral-300 text-[9px] italic">
-              📝 {order.notes}
-            </div>
+            <div className="mb-3 p-2 border border-neutral-300 text-[9px] italic">📝 {order.notes}</div>
           )}
 
           <div className="my-2 border-b border-black border-dashed" />
@@ -207,11 +209,11 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
               <span>Déjà payé:</span>
               <span>{order.paidAmount.toLocaleString('fr-FR')} FCFA</span>
             </div>
-            <div className={`flex justify-between font-bold border-t-2 border-black pt-2 ${isFullyPaid ? 'text-green-700' : 'text-red-700'}`}>
+            <div
+              className={`flex justify-between font-bold border-t-2 border-black pt-2 ${isFullyPaid ? 'text-green-700' : 'text-red-700'}`}
+            >
               <span>{isFullyPaid ? '✅ SOLDÉ' : '⚠️ RESTE:'}</span>
-              <span>
-                {isFullyPaid ? '0 FCFA' : `${remainingDue.toLocaleString('fr-FR')} FCFA`}
-              </span>
+              <span>{isFullyPaid ? '0 FCFA' : `${remainingDue.toLocaleString('fr-FR')} FCFA`}</span>
             </div>
           </div>
 
@@ -230,15 +232,10 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
           {/* QR CODE POUR VÉRIFICATION DU TICKET */}
           <div className="flex flex-col items-center justify-center mb-3">
-            {qrCodeUrl && (
-              <img
-                src={qrCodeUrl}
-                alt="QR Code de vérification"
-                className="w-20 h-20"
-              />
-            )}
+            {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code de vérification" className="w-20 h-20" />}
             <div className="text-[8px] mt-2 text-center">
-              Scannez pour vérifier votre commande<br />
+              Scannez pour vérifier votre commande
+              <br />
               Ticket à présenter obligatoirement au retrait
             </div>
           </div>
@@ -344,10 +341,11 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id as any)}
-                    className={`rounded border p-2 text-left text-[11px] font-medium transition-colors ${paymentMethod === m.id
-                      ? 'border-neutral-900 bg-white font-semibold dark:border-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-                      : 'border-neutral-200 hover:bg-white dark:border-neutral-700 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                      }`}
+                    className={`rounded border p-2 text-left text-[11px] font-medium transition-colors ${
+                      paymentMethod === m.id
+                        ? 'border-neutral-900 bg-white font-semibold dark:border-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                        : 'border-neutral-200 hover:bg-white dark:border-neutral-700 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
                   >
                     {m.label}
                   </button>

@@ -44,8 +44,11 @@ describe('fetchPlatformStats', () => {
     });
   });
 
-  it('retourne null quand l\'API refuse l\'accès (403)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'accès refusé' }, 403)));
+  it("retourne null quand l'API refuse l'accès (403)", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'accès refusé' }, 403))
+    );
     await expect(fetchPlatformStats('jeton')).resolves.toBeNull();
   });
 
@@ -61,7 +64,7 @@ describe('fetchPlatformStats', () => {
 });
 
 describe('fetchTenants', () => {
-  it('retourne l\'annuaire des établissements', async () => {
+  it("retourne l'annuaire des établissements", async () => {
     const tenants = [
       {
         tenant_id: 't-1',
@@ -78,13 +81,19 @@ describe('fetchTenants', () => {
         active: true,
       },
     ];
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ tenants, total: 1 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ tenants, total: 1 }))
+    );
 
     await expect(fetchTenants('jeton')).resolves.toEqual(tenants);
   });
 
-  it('retourne une liste vide en cas d\'erreur serveur (jamais de plantage de la vue)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'interne' }, 500)));
+  it("retourne une liste vide en cas d'erreur serveur (jamais de plantage de la vue)", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'interne' }, 500))
+    );
     await expect(fetchTenants('jeton')).resolves.toEqual([]);
   });
 });
@@ -107,7 +116,7 @@ describe('setTenantStatus', () => {
     expect(body).toEqual({ status: 'SUSPENDED', reason: 'impayé' });
   });
 
-  it('remonte le message d\'erreur métier renvoyé par l\'API', async () => {
+  it("remonte le message d'erreur métier renvoyé par l'API", async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => jsonResponse({ error: 'aucun abonnement pour cet établissement' }, 404))
@@ -120,7 +129,7 @@ describe('setTenantStatus', () => {
 });
 
 describe('registerTenant', () => {
-  it('inscrit un nouvel établissement avec ses informations d\'exploitation', async () => {
+  it("inscrit un nouvel établissement avec ses informations d'exploitation", async () => {
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
       jsonResponse({ tenant: { id: 'nouveau' } }, 201)
     );
@@ -160,7 +169,7 @@ describe('registerTenant', () => {
 });
 
 describe('libellés', () => {
-  it('traduit les statuts d\'abonnement', () => {
+  it("traduit les statuts d'abonnement", () => {
     expect(subscriptionLabel('ACTIVE')).toBe('Actif');
     expect(subscriptionLabel('TRIALING')).toBe("Période d'essai");
     expect(subscriptionLabel('SUSPENDED')).toBe('Suspendu');

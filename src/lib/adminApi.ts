@@ -97,9 +97,7 @@ export async function setTenantStatus(
 }
 
 /** Inscrit un nouvel établissement partenaire (catalogue et grille créés d'office). */
-export async function registerTenant(
-  input: RegisterTenantInput
-): Promise<{ ok: boolean; error?: string }> {
+export async function registerTenant(input: RegisterTenantInput): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/v1/auth/register-tenant', {
       method: 'POST',

@@ -10,6 +10,9 @@ import {
   ShieldCheck,
   ArrowRightLeft,
   UserCog,
+  Building,
+  Wallet,
+  BarChart3,
 } from 'lucide-react';
 import { ViewMode, Tenant, HealthCheckResult, User } from '../types';
 import { ThemeToggle } from './ThemeToggle';
@@ -31,17 +34,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   tenant,
   currentUser,
   onOpenLoginModal,
-  health,
   isOpenMobile,
   onCloseMobile,
 }) => {
-  const navItems: { id: ViewMode; label: string; icon: React.ElementType; badge?: string; roles?: string[] }[] = [
+  const navItems: {
+    id: ViewMode;
+    label: string;
+    icon: React.ElementType;
+    badge?: string;
+    roles?: string[];
+  }[] = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'orders', label: 'Commandes & Linge', icon: Shirt, badge: '5 actives' },
-    { id: 'customers', label: 'Fichier Clients', icon: Users, roles: ['owner', 'manager', 'cashier', 'superadmin'] },
+    {
+      id: 'customers',
+      label: 'Fichier Clients',
+      icon: Users,
+      roles: ['owner', 'manager', 'cashier', 'superadmin'],
+    },
     { id: 'services', label: 'Prestations & Tarifs', icon: Tag, roles: ['owner', 'manager', 'superadmin'] },
     { id: 'team', label: 'Équipe', icon: UserCog, roles: ['owner', 'manager', 'superadmin'] },
-    { id: 'superadmin', label: 'Plateforme SaaS', icon: ShieldCheck, roles: ['superadmin'], badge: 'Éditeur' },
+    { id: 'branches', label: 'Établissements', icon: Building, roles: ['owner', 'manager', 'superadmin'] },
+    { id: 'expenses', label: 'Dépenses', icon: Wallet, roles: ['owner', 'manager', 'cashier', 'superadmin'] },
+    { id: 'reports', label: 'Rapports', icon: BarChart3, roles: ['owner', 'manager', 'superadmin'] },
+    {
+      id: 'superadmin',
+      label: 'Plateforme SaaS',
+      icon: ShieldCheck,
+      roles: ['superadmin'],
+      badge: 'Éditeur',
+    },
   ];
 
   const visibleNavItems = navItems.filter((item) => {

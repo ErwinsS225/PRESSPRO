@@ -160,6 +160,7 @@ type fixedCounter struct {
 	orders     int64
 	users      int64
 	priceLists int64
+	branches   int64
 }
 
 func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
@@ -170,6 +171,9 @@ func (f fixedCounter) CountUsers(_ context.Context, _ string) (int64, error) {
 }
 func (f fixedCounter) CountPriceLists(_ context.Context, _ string) (int64, error) {
 	return f.priceLists, nil
+}
+func (f fixedCounter) CountBranches(_ context.Context, _ string) (int64, error) {
+	return f.branches, nil
 }
 
 func TestOrderQuotaFreeAfterTrial(t *testing.T) {

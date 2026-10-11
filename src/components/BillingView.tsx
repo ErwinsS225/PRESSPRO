@@ -1,15 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Building2,
-  Check,
-  Crown,
-  Loader2,
-  ShieldCheck,
-  Sparkles,
-  Store,
-  WifiOff,
-  Zap,
-} from 'lucide-react';
+import { Building2, Check, Crown, Loader2, ShieldCheck, Sparkles, Store, WifiOff, Zap } from 'lucide-react';
 
 /**
  * BillingView — écran « Mon abonnement ».
@@ -204,11 +194,7 @@ export const BillingView: React.FC<{
                     : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
                 }`}
               >
-                {data.on_trial ? (
-                  <Sparkles className="h-7 w-7" />
-                ) : (
-                  <ShieldCheck className="h-7 w-7" />
-                )}
+                {data.on_trial ? <Sparkles className="h-7 w-7" /> : <ShieldCheck className="h-7 w-7" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -270,9 +256,7 @@ export const BillingView: React.FC<{
       </div>
       {/* Titre section */}
       <div>
-        <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          Choisir une formule
-        </h2>
+        <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Choisir une formule</h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Changez à tout moment. Le paiement est validé manuellement par notre équipe.
         </p>

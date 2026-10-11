@@ -7,31 +7,23 @@ import {
   Trash2,
   Database,
   RefreshCw,
-  Check,
   AlertTriangle,
   AlertCircle,
   Loader2,
-  Sparkles,
   Tag,
-  Printer,
   Receipt,
   Calculator,
   SlidersHorizontal,
   X,
   CheckCircle2,
-  Shield,
   Layers,
-  ArrowUpDown,
   ShoppingBag,
   Info,
   Truck,
   Zap,
   Briefcase,
   Calendar,
-  ExternalLink,
   Copy,
-  Building2,
-  Percent,
 } from 'lucide-react';
 import { ServiceItem, User, SubscriptionPlan, B2BContract, PricingModel } from '../types';
 import {
@@ -72,7 +64,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   // Onglet principal : Catalogue / Abonnements / Contrats B2B
   const [mainTab, setMainTab] = useState<'catalog' | 'subscriptions' | 'contracts'>('catalog');
   // Sous-onglets du catalogue : mode de facturation
-  const [catalogSubTab, setCatalogSubTab] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
 
   // Navigation & filtres de catalogue
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -93,7 +84,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Données Abonnements et Contrats B2B (Modèles commerciaux 3 & 4)
-  const [subscriptions, setSubscriptions] = useState<SubscriptionPlan[]>(() => {
+  const [subscriptions] = useState<SubscriptionPlan[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_subscriptions');
       return saved ? JSON.parse(saved) : DEMO_SUBSCRIPTION_PLANS;
@@ -102,7 +93,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     }
   });
 
-  const [b2bContracts, setB2bContracts] = useState<B2BContract[]>(() => {
+  const [b2bContracts] = useState<B2BContract[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_b2b_contracts');
       return saved ? JSON.parse(saved) : DEMO_B2B_CONTRACTS;
@@ -143,17 +134,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [includeExpressInQuote, setIncludeExpressInQuote] = useState(false);
 
   const canEdit =
-    currentUser.role === 'owner' ||
-    currentUser.role === 'manager' ||
-    currentUser.role === 'superadmin';
+    currentUser.role === 'owner' || currentUser.role === 'manager' || currentUser.role === 'superadmin';
 
   // Les 5 grandes catégories officielles d'Abidjan
   const categories = [
     { id: 'all', label: 'Toutes les catégories', short: 'Toutes' },
     { id: 'Vêtements du quotidien', label: 'A. Vêtements du quotidien (Priorité 1)', short: 'Quotidien' },
-    { id: 'Vêtements traditionnels & cérémoniels', label: 'B. Traditionnels & Cérémoniels (Priorité 1)', short: 'Traditionnel' },
+    {
+      id: 'Vêtements traditionnels & cérémoniels',
+      label: 'B. Traditionnels & Cérémoniels (Priorité 1)',
+      short: 'Traditionnel',
+    },
     { id: 'Linge de maison', label: 'C. Linge de maison', short: 'Linge de maison' },
-    { id: 'Services complémentaires & Options', label: 'D. Services complémentaires & Options', short: 'Compléments' },
+    {
+      id: 'Services complémentaires & Options',
+      label: 'D. Services complémentaires & Options',
+      short: 'Compléments',
+    },
     { id: 'Prestations spécialisées & Luxe', label: 'E. Spécialisées & Luxe', short: 'Luxe & Spécial' },
   ];
 
@@ -241,7 +238,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     setFormArticle(item.article || item.name);
     setFormTreatment('Repassage seul');
     setFormCategory(item.category);
-    setFormPrice(Math.round(item.price * 0.6 / 50) * 50); // ~60% du prix
+    setFormPrice(Math.round((item.price * 0.6) / 50) * 50); // ~60% du prix
     setFormUnit(item.unit);
     setFormPricingModel(item.pricingModel || 'piece');
     setFormDuration(12);
@@ -291,12 +288,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
+          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${
+            synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
           }`
         );
       }
     } catch (err: any) {
-      if (showToast) showToast(`Erreur : ${err.message || 'Impossible d\'ajouter la prestation'}`);
+      if (showToast) showToast(`Erreur : ${err.message || "Impossible d'ajouter la prestation"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -337,7 +335,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL actualisée' : ''
+          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${
+            synced ? '• Base PostgreSQL actualisée' : ''
           }`
         );
       }
@@ -407,7 +406,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${itemToDelete.name}" supprimée définitivement ${result.synced ? 'de la base de données PostgreSQL' : ''
+          `Prestation "${itemToDelete.name}" supprimée définitivement ${
+            result.synced ? 'de la base de données PostgreSQL' : ''
           }`
         );
       }
@@ -512,7 +512,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Catalogue multi-modèles (Pièce, Kilogramme, Abonnements & B2B) paramétrable par pressing en Francs CFA (XOF).
+            Catalogue multi-modèles (Pièce, Kilogramme, Abonnements & B2B) paramétrable par pressing en Francs
+            CFA (XOF).
           </p>
           <div className="flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
             <span>Dernière synchro DB : {lastSyncText}</span>
@@ -527,10 +528,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Simulateur express */}
           <button
             onClick={() => setIsQuoteCalcOpen(!isQuoteCalcOpen)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${isQuoteCalcOpen
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
-              }`}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              isQuoteCalcOpen
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+            }`}
           >
             <Calculator className="h-3.5 w-3.5" />
             <span>Simulateur Devis {quoteTotalPieces > 0 ? `(${quoteTotalPieces})` : ''}</span>
@@ -556,7 +558,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
-            <span>{isSyncing ? 'Synchronisation...' : syncFeedback === 'success' ? 'Synchronisé !' : 'Actualiser DB'}</span>
+            <span>
+              {isSyncing
+                ? 'Synchronisation...'
+                : syncFeedback === 'success'
+                  ? 'Synchronisé !'
+                  : 'Actualiser DB'}
+            </span>
           </button>
 
           {canEdit && (
@@ -600,10 +608,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       <div className="flex border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setMainTab('catalog')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'catalog'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'catalog'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Layers className="h-4 w-4" />
           <span>Modèles 1 & 2 : Prestations à la Pièce & au Kg ({services.length})</span>
@@ -611,10 +620,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('subscriptions')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'subscriptions'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'subscriptions'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Calendar className="h-4 w-4" />
           <span>Modèle 3 : Forfaits & Abonnements Mensuels ({subscriptions.length})</span>
@@ -622,10 +632,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('contracts')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'contracts'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'contracts'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Briefcase className="h-4 w-4" />
           <span>Modèle 4 : Contrats Professionnels B2B ({b2bContracts.length})</span>
@@ -698,10 +709,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${qty > 0
-                    ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
-                    : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
-                    }`}
+                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${
+                    qty > 0
+                      ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
+                      : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
+                  }`}
                 >
                   <div className="min-w-0 pr-2">
                     <p className="truncate font-medium text-neutral-900 dark:text-neutral-100">{item.name}</p>
@@ -744,18 +756,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isSelected
-                    ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
-                    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
-                    }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                    isSelected
+                      ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
+                      : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}
                 >
                   <span className="hidden md:inline">{cat.label}</span>
                   <span className="md:hidden">{cat.short}</span>
                   <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${isSelected
-                      ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
-                      : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
-                      }`}
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                      isSelected
+                        ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
+                        : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                    }`}
                   >
                     {count}
                   </span>
@@ -860,10 +874,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       return (
                         <tr
                           key={item.id}
-                          className={`transition-colors ${!isActive
-                            ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
-                            : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
-                            }`}
+                          className={`transition-colors ${
+                            !isActive
+                              ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
+                              : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
+                          }`}
                         >
                           {/* Article & Traitement */}
                           <td className="px-5 py-3.5">
@@ -896,7 +911,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                           {/* Unité & Modèle */}
                           <td className="px-4 py-3.5">
                             <div className="space-y-0.5 font-mono text-[11px]">
-                              <span className="font-medium text-neutral-800 dark:text-neutral-200">{item.unit}</span>
+                              <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                                {item.unit}
+                              </span>
                               {item.pricingModel === 'kilogram' && (
                                 <span className="block text-[10px] text-indigo-600 dark:text-indigo-400">
                                   Au kilogramme
@@ -953,12 +970,15 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                               onClick={() => canEdit && handleToggleActive(item)}
                               disabled={!canEdit}
                               title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${isActive
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
-                                : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
-                                }`}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
+                                  : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
+                              }`}
                             >
-                              <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`}
+                              />
                               <span>{isActive ? 'Actif' : 'Inactif'}</span>
                             </button>
                           </td>
@@ -1010,8 +1030,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               Modèle 3 — Abonnements Mensuels & Forfaits Prédéfinis
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Formules avec volume de pièces inclus, fréquence de collecte programmée et tarification des dépassements.
-              Adaptées aux cadres, familles et résidences d'Abidjan.
+              Formules avec volume de pièces inclus, fréquence de collecte programmée et tarification des
+              dépassements. Adaptées aux cadres, familles et résidences d'Abidjan.
             </p>
           </div>
 
@@ -1019,10 +1039,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             {subscriptions.map((plan) => (
               <div
                 key={plan.id}
-                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${plan.isPopular
-                  ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
-                  : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
-                  }`}
+                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${
+                  plan.isPopular
+                    ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
+                    : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
+                }`}
               >
                 {plan.isPopular && (
                   <span className="absolute -top-2.5 right-4 rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1051,7 +1072,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-3 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-300">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span><strong>{plan.quotaPieces} pièces</strong> incluses par mois</span>
+                      <span>
+                        <strong>{plan.quotaPieces} pièces</strong> incluses par mois
+                      </span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -1091,7 +1114,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               Modèle 4 — Contrats Professionnels & Partenariats B2B
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Tarification négociée au kilogramme, à la pièce ou au forfait pour hôtels, restaurants, cliniques et salons de beauté.
+              Tarification négociée au kilogramme, à la pièce ou au forfait pour hôtels, restaurants,
+              cliniques et salons de beauté.
             </p>
           </div>
 
@@ -1120,10 +1144,19 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
-                      {contract.billingType === 'kilogram' ? 'Au kilogramme' : contract.billingType === 'piece' ? 'À la pièce' : 'Forfait mensuel'}
+                      {contract.billingType === 'kilogram'
+                        ? 'Au kilogramme'
+                        : contract.billingType === 'piece'
+                          ? 'À la pièce'
+                          : 'Forfait mensuel'}
                     </td>
                     <td className="px-4 py-3.5 font-mono font-bold text-neutral-900 dark:text-neutral-100">
-                      {contract.ratePerUnit.toLocaleString('fr-FR')} FCFA {contract.billingType === 'kilogram' ? '/ kg' : contract.billingType === 'piece' ? '/ pièce' : '/ mois'}
+                      {contract.ratePerUnit.toLocaleString('fr-FR')} FCFA{' '}
+                      {contract.billingType === 'kilogram'
+                        ? '/ kg'
+                        : contract.billingType === 'piece'
+                          ? '/ pièce'
+                          : '/ mois'}
                     </td>
                     <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                       {contract.billingCycle}
@@ -1214,10 +1247,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
                   >
                     <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                    <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                    <option value="Vêtements traditionnels & cérémoniels">
+                      B. Vêtements traditionnels & cérémoniels
+                    </option>
                     <option value="Linge de maison">C. Linge de maison</option>
-                    <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
-                    <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
+                    <option value="Services complémentaires & Options">
+                      D. Services complémentaires & Options
+                    </option>
+                    <option value="Prestations spécialisées & Luxe">
+                      E. Prestations spécialisées & Luxe
+                    </option>
                   </select>
                 </div>
 
@@ -1335,7 +1374,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                 {formIsExpress && (
                   <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800 flex items-center gap-2">
-                    <span className="text-[11px] text-neutral-600 dark:text-neutral-400">Supplément express :</span>
+                    <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Supplément express :
+                    </span>
                     <input
                       type="number"
                       value={formExpressSurcharge}
@@ -1368,7 +1409,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-neutral-300 text-neutral-900"
                 />
-                <label htmlFor="formIsActiveCheck2" className="text-xs text-neutral-700 dark:text-neutral-300">
+                <label
+                  htmlFor="formIsActiveCheck2"
+                  className="text-xs text-neutral-700 dark:text-neutral-300"
+                >
                   Activer immédiatement cette prestation dans l'ERP
                 </label>
               </div>
@@ -1460,10 +1504,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
                   >
                     <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                    <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                    <option value="Vêtements traditionnels & cérémoniels">
+                      B. Vêtements traditionnels & cérémoniels
+                    </option>
                     <option value="Linge de maison">C. Linge de maison</option>
-                    <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
-                    <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
+                    <option value="Services complémentaires & Options">
+                      D. Services complémentaires & Options
+                    </option>
+                    <option value="Prestations spécialisées & Luxe">
+                      E. Prestations spécialisées & Luxe
+                    </option>
                   </select>
                 </div>
 
@@ -1599,7 +1649,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-neutral-300 text-neutral-900"
                 />
-                <label htmlFor="formEditActiveCheck2" className="text-xs text-neutral-700 dark:text-neutral-300">
+                <label
+                  htmlFor="formEditActiveCheck2"
+                  className="text-xs text-neutral-700 dark:text-neutral-300"
+                >
                   Prestation active et facturable au comptoir
                 </label>
               </div>
@@ -1678,9 +1731,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   {deletingItem.price.toLocaleString('fr-FR')} FCFA / {deletingItem.unit}
                 </span>
               </div>
-              <h3 className="mt-2 text-sm font-bold text-neutral-900 dark:text-white">
-                {deletingItem.name}
-              </h3>
+              <h3 className="mt-2 text-sm font-bold text-neutral-900 dark:text-white">{deletingItem.name}</h3>
               {deletingItem.treatment && (
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   Traitement : {deletingItem.treatment}
@@ -1693,14 +1744,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <div className="flex items-start gap-2 rounded-lg border border-emerald-200/60 bg-emerald-50/40 p-2.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  <strong>Historique protégé :</strong> Les commandes et factures déjà émises conserveront le libellé et le tarif historiques exacts enregistrés au moment du dépôt.
+                  <strong>Historique protégé :</strong> Les commandes et factures déjà émises conserveront le
+                  libellé et le tarif historiques exacts enregistrés au moment du dépôt.
                 </p>
               </div>
 
               <div className="flex items-start gap-2 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-2.5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
                 <Info className="h-4 w-4 shrink-0 text-neutral-400 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  Cette action supprimera l'article du catalogue actif via l'API Go. Pour suspendre temporairement une prestation sans l'effacer, vous pouvez choisir de la <strong>désactiver</strong>.
+                  Cette action supprimera l'article du catalogue actif via l'API Go. Pour suspendre
+                  temporairement une prestation sans l'effacer, vous pouvez choisir de la{' '}
+                  <strong>désactiver</strong>.
                 </p>
               </div>
             </div>
@@ -1798,9 +1852,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 >
                   <option value="all">Toutes les catégories ({services.length} prestations)</option>
                   <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                  <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                  <option value="Vêtements traditionnels & cérémoniels">
+                    B. Vêtements traditionnels & cérémoniels
+                  </option>
                   <option value="Linge de maison">C. Linge de maison</option>
-                  <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
+                  <option value="Services complémentaires & Options">
+                    D. Services complémentaires & Options
+                  </option>
                   <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
                 </select>
               </div>
@@ -1815,10 +1873,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       key={pct}
                       type="button"
                       onClick={() => setBulkPercent(pct)}
-                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${bulkPercent === pct
-                        ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                        : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                        }`}
+                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${
+                        bulkPercent === pct
+                          ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                          : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      }`}
                     >
                       {pct > 0 ? `+${pct}%` : `${pct}%`}
                     </button>

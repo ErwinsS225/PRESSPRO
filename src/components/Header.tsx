@@ -20,9 +20,6 @@ export const Header: React.FC<HeaderProps> = ({
   tenant,
   currentUser,
   onOpenLoginModal,
-  health,
-  isChecking,
-  onRefreshHealth,
   onOpenMobileMenu,
   onNewOrderClick,
 }) => {
@@ -70,7 +67,9 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">Session active</span>
           <span className="text-neutral-300 dark:text-neutral-700">·</span>
-          <span className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium capitalize">Rôle : {currentUser.role}</span>
+          <span className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium capitalize">
+            Rôle : {currentUser.role}
+          </span>
         </div>
       </div>
 
@@ -107,7 +106,9 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{currentUser.full_name.split(' ')[0]}</span>
               <ArrowRightLeft className="h-2.5 w-2.5 text-neutral-400 dark:text-neutral-500" />
             </div>
-            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono uppercase">{currentUser.role}</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono uppercase">
+              {currentUser.role}
+            </div>
           </div>
         </button>
       </div>

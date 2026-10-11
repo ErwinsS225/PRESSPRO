@@ -42,7 +42,10 @@ afterEach(() => {
 
 describe('TeamView', () => {
   it('liste les comptes et protège le compte courant', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(MEMBRES)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(MEMBRES))
+    );
 
     render(<TeamView currentUser={gerant} token="jeton-gerant" />);
 

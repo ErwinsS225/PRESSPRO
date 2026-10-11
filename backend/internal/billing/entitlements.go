@@ -103,7 +103,7 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 // isCountedFeature indique les fonctionnalités dont la consommation est mesurée.
 func isCountedFeature(featureKey string) bool {
 	switch featureKey {
-	case FeatureOrdersMonthlyMax, FeatureUsersMax, FeaturePriceLists:
+	case FeatureOrdersMonthlyMax, FeatureUsersMax, FeaturePriceLists, FeatureMultiSite:
 		return true
 	}
 	return false
@@ -122,6 +122,8 @@ func (s *Service) FeatureUsage(ctx context.Context, tenantID, featureKey string)
 		return s.counters.CountUsers(ctx, tenantID)
 	case FeaturePriceLists:
 		return s.counters.CountPriceLists(ctx, tenantID)
+	case FeatureMultiSite:
+		return s.counters.CountBranches(ctx, tenantID)
 	}
 	return 0, nil
 }

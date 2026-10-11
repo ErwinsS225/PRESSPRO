@@ -31,11 +31,7 @@ interface SuperAdminViewProps {
   onSelectTenantView?: (tenantId: string) => void;
 }
 
-export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
-  currentUser,
-  token,
-  showToast,
-}) => {
+export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, token, showToast }) => {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [tenants, setTenants] = useState<TenantOverview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,15 +52,12 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [platformStats, directory] = await Promise.all([
-      fetchPlatformStats(token),
-      fetchTenants(token),
-    ]);
+    const [platformStats, directory] = await Promise.all([fetchPlatformStats(token), fetchTenants(token)]);
     setStats(platformStats);
     setTenants(directory);
     setError(
       platformStats === null
-        ? "Impossible de charger les indicateurs de la plateforme (API ou base indisponible)."
+        ? 'Impossible de charger les indicateurs de la plateforme (API ou base indisponible).'
         : null
     );
     setLoading(false);
@@ -78,13 +71,10 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-[#0B0B0B]">
         <Shield className="h-8 w-8 text-neutral-400 dark:text-neutral-500" />
-        <h1 className="mt-3 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-          Accès refusé
-        </h1>
+        <h1 className="mt-3 text-lg font-semibold text-neutral-900 dark:text-neutral-100">Accès refusé</h1>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Vous n&apos;avez pas l&apos;autorisation requise pour accéder à
-          l&apos;Espace Éditeur SaaS. Seuls les comptes de super-utilisateur de la
-          plateforme peuvent y accéder.
+          Vous n&apos;avez pas l&apos;autorisation requise pour accéder à l&apos;Espace Éditeur SaaS. Seuls
+          les comptes de super-utilisateur de la plateforme peuvent y accéder.
         </p>
       </div>
     );
@@ -132,9 +122,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
       setCreateError(result.error ?? 'inscription refusée');
       return;
     }
-    showToast?.(
-      `${newTenantName} inscrit — catalogue, grille tarifaire et essai 7 jours créés`
-    );
+    showToast?.(`${newTenantName} inscrit — catalogue, grille tarifaire et essai 7 jours créés`);
     setNewTenantName('');
     setNewEmail('');
     setNewPhone('');
@@ -172,8 +160,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              Gestion de l&apos;ensemble des pressings souscrits en Côte
-              d&apos;Ivoire, facturation et abonnements.
+              Gestion de l&apos;ensemble des pressings souscrits en Côte d&apos;Ivoire, facturation et
+              abonnements.
             </p>
           </div>
         </div>
@@ -200,9 +188,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <span>
-            Mode démonstration : aucune base de données n&apos;est connectée, les
-            chiffres proviennent des abonnements en mémoire et ne sont pas
-            persistés.
+            Mode démonstration : aucune base de données n&apos;est connectée, les chiffres proviennent des
+            abonnements en mémoire et ne sont pas persistés.
           </span>
         </div>
       )}
@@ -376,9 +363,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
                     {t.status.toUpperCase() === 'TRIALING' && (
                       <span className="font-mono text-[11px] text-amber-700 dark:text-amber-400 font-medium">
                         {subscriptionLabel(t.status)}
-                        {t.trial_ends_at
-                          ? ` → ${new Date(t.trial_ends_at).toLocaleDateString('fr-FR')}`
-                          : ''}
+                        {t.trial_ends_at ? ` → ${new Date(t.trial_ends_at).toLocaleDateString('fr-FR')}` : ''}
                       </span>
                     )}
                     {['PAST_DUE', 'CANCELED', 'SUSPENDED'].includes(t.status.toUpperCase()) && (
@@ -416,8 +401,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               Inscrire un Nouveau Pressing
             </h2>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              L&apos;inscription crée l&apos;établissement, son compte propriétaire,
-              ses 49 prestations et sa grille tarifaire, avec 7 jours d&apos;essai.
+              L&apos;inscription crée l&apos;établissement, son compte propriétaire, ses 49 prestations et sa
+              grille tarifaire, avec 7 jours d&apos;essai.
             </p>
 
             <form onSubmit={handleCreateTenant} className="mt-4 space-y-3">

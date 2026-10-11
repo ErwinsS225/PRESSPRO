@@ -3,14 +3,15 @@
 # Déclenché à chaque push et pull request :
 #   • backend  : build, go vet, tests unitaires (-race) puis tests d'intégration
 #                sur un PostgreSQL 16 réel (migrations appliquées) ;
-#   • frontend : vérification TypeScript puis build de production Vite.
+#   • frontend : ESLint + Prettier, vérification TypeScript, tests Vitest puis
+#                build de production Vite.
 # ============================================================================
 
 name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ['**']
   pull_request:
 
 jobs:
@@ -44,7 +45,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: '1.25'
           cache-dependency-path: backend/go.sum
 
       - name: Dépendances
@@ -65,13 +66,14 @@ jobs:
           done
 
       - name: Tests d'intégration (PostgreSQL réel)
-        run: go test -tags=integration -v ./internal/catalog/...
+        run: go test -tags=integration -v ./internal/catalog/... ./internal/auth/... ./internal/report/...
 
       - name: Couverture des correctifs (index, quota, appartenance, éditeur)
         run: >
           go test -v
           ./internal/ratelimit/... ./internal/httperr/...
           ./internal/auth/... ./internal/billing/... ./internal/http/...
+          ./internal/branch/... ./internal/expense/... ./internal/report/...
 
   frontend:
     name: Frontend React (types + build)
@@ -82,13 +84,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
 
       # Le projet dépend de vite@8 avec esbuild@0.25 en devDependency :
       # la résolution stricte de npm échoue, --legacy-peer-deps est requis.
       - name: Dépendances
         run: npm ci --legacy-peer-deps
+
+      - name: Qualité du code (ESLint)
+        run: npm run lint:eslint
+
+      - name: Formatage (Prettier)
+        run: npm run format:check
 
       - name: Vérification TypeScript
         run: npm run lint

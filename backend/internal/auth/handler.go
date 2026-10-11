@@ -208,6 +208,11 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "impossible de récupérer la liste des utilisateurs"})
 		return
 	}
+	// Tableau vide plutôt que « null » : le client affiche une liste vide et
+	// non une erreur lorsque le pressing n'a pas encore de compte employé.
+	if users == nil {
+		users = []*User{}
+	}
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(users)

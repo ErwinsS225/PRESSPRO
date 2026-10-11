@@ -10,8 +10,6 @@ import {
   Layers,
   ShoppingBag,
   FileText,
-  Sliders,
-  Maximize2,
   CheckCircle2,
 } from 'lucide-react';
 import { ServiceItem } from '../types';
@@ -48,9 +46,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
   const [format, setFormat] = useState<ReceiptFormat>(initialFormat);
 
   const hasQuote = Object.keys(quoteItems).length > 0;
-  const [contentMode, setContentMode] = useState<ReceiptContentMode>(
-    hasQuote ? 'quote' : 'essentials'
-  );
+  const [contentMode, setContentMode] = useState<ReceiptContentMode>(hasQuote ? 'quote' : 'essentials');
   const [selectedCategory, setSelectedCategory] = useState<string>('Vêtements du quotidien');
   const [showLegalNotice, setShowLegalNotice] = useState(true);
   const [showBarcode, setShowBarcode] = useState(true);
@@ -183,7 +179,8 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Format ticket de caisse thermique (pharmacie, boulangerie & supermarché) conforme à l'affichage commercial ivoirien.
+                Format ticket de caisse thermique (pharmacie, boulangerie & supermarché) conforme à
+                l'affichage commercial ivoirien.
               </p>
             </div>
           </div>
@@ -256,9 +253,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   <span className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                     Boulangerie & Mini TPE
                   </span>
-                  <span className="mt-1 text-[9px] text-neutral-400">
-                    Compact Caisse
-                  </span>
+                  <span className="mt-1 text-[9px] text-neutral-400">Compact Caisse</span>
                 </button>
               </div>
             </div>
@@ -394,7 +389,8 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                 <span>Réglementation Commerciale</span>
               </div>
               <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed text-[10px]">
-                En Côte d'Ivoire, l'affichage obligatoire des prix et tarifs peut être assuré au comptoir par voie de barème imprimé et mis à disposition immédiate du consommateur.
+                En Côte d'Ivoire, l'affichage obligatoire des prix et tarifs peut être assuré au comptoir par
+                voie de barème imprimé et mis à disposition immédiate du consommateur.
               </p>
             </div>
           </div>
@@ -430,15 +426,9 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                 <div className="text-[10px] font-sans text-neutral-600">
                   Blanchisserie & Soin Textile Haute Précision
                 </div>
-                <div className="text-[9px] text-neutral-600">
-                  {tenantAddress}
-                </div>
-                <div className="text-[9px] text-neutral-600 font-sans">
-                  {tenantPhone}
-                </div>
-                <div className="text-[8px] text-neutral-500">
-                  RCCM : CI-ABJ-2024-B-10492 | CC : 2314980 R
-                </div>
+                <div className="text-[9px] text-neutral-600">{tenantAddress}</div>
+                <div className="text-[9px] text-neutral-600 font-sans">{tenantPhone}</div>
+                <div className="text-[8px] text-neutral-500">RCCM : CI-ABJ-2024-B-10492 | CC : 2314980 R</div>
                 <div className="text-neutral-400 text-[10px] select-none tracking-widest pt-0.5">
                   {format === '58mm' ? '---------------------' : '-------------------------------'}
                 </div>
@@ -458,10 +448,10 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   {contentMode === 'quote'
                     ? '*** DEVIS ESTIMATION CLIENT ***'
                     : contentMode === 'essentials'
-                    ? '*** EXTRAIT DU BARÈME COMPTOIR ***'
-                    : contentMode === 'category'
-                    ? `*** BARÈME : ${selectedCategory.toUpperCase()} ***`
-                    : '*** BARÈME OFFICIEL GÉNÉRAL ***'}
+                      ? '*** EXTRAIT DU BARÈME COMPTOIR ***'
+                      : contentMode === 'category'
+                        ? `*** BARÈME : ${selectedCategory.toUpperCase()} ***`
+                        : '*** BARÈME OFFICIEL GÉNÉRAL ***'}
                 </div>
                 <div className="text-neutral-400 text-[10px] select-none tracking-widest">
                   {format === '58mm' ? '---------------------' : '-------------------------------'}
@@ -490,7 +480,9 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                           </span>
                         </div>
                         <div className="flex justify-between text-[9px] text-neutral-500 pl-2">
-                          <span>Tarif unitaire : {item.price.toLocaleString('fr-FR')} F / {item.unit}</span>
+                          <span>
+                            Tarif unitaire : {item.price.toLocaleString('fr-FR')} F / {item.unit}
+                          </span>
                           <span>Délai : {item.durationHours}h</span>
                         </div>
                       </div>
@@ -501,7 +493,11 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                     <div className="flex justify-between text-[10px] pt-1 text-amber-900 font-medium">
                       <span>Traitement Express 24h (+50%)</span>
                       <span className="font-bold tabular-nums">
-                        +{Math.round((quoteTotal - (includePickupInQuote ? 1500 : 0)) / 3).toLocaleString('fr-FR')} F
+                        +
+                        {Math.round((quoteTotal - (includePickupInQuote ? 1500 : 0)) / 3).toLocaleString(
+                          'fr-FR'
+                        )}{' '}
+                        F
                       </span>
                     </div>
                   )}
@@ -550,9 +546,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                     {filteredServices.map((item) => (
                       <div key={item.id} className="py-1 flex justify-between items-baseline gap-1">
                         <div className="min-w-0 pr-1">
-                          <div className="font-bold text-neutral-900 leading-tight">
-                            {item.name}
-                          </div>
+                          <div className="font-bold text-neutral-900 leading-tight">{item.name}</div>
                           <div className="text-[9px] text-neutral-500 flex items-center gap-1.5">
                             <span>{item.unit}</span>
                             <span>•</span>
@@ -626,15 +620,9 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   <p className="font-bold text-neutral-800 uppercase">
                     Conditions Générales de Dépôt & Retrait
                   </p>
-                  <p>
-                    1. Réclamations recevables sous 48h sur présentation du reçu original.
-                  </p>
-                  <p>
-                    2. Vêtements non réclamés conservés pendant 90 jours conformément à la loi.
-                  </p>
-                  <p>
-                    3. Supplément express 24h (+50%) • Forfait collecte Abidjan : 1 500 FCFA.
-                  </p>
+                  <p>1. Réclamations recevables sous 48h sur présentation du reçu original.</p>
+                  <p>2. Vêtements non réclamés conservés pendant 90 jours conformément à la loi.</p>
+                  <p>3. Supplément express 24h (+50%) • Forfait collecte Abidjan : 1 500 FCFA.</p>
                 </div>
               )}
 
@@ -656,7 +644,12 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
         <div className="flex items-center justify-between border-t border-neutral-100 px-6 py-3 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141414]">
           <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Format : {format === '80mm' ? 'Reçu 80 mm (Pharmacie / Supermarché)' : 'Reçu 58 mm (Boulangerie / Mini TPE)'}</span>
+            <span>
+              Format :{' '}
+              {format === '80mm'
+                ? 'Reçu 80 mm (Pharmacie / Supermarché)'
+                : 'Reçu 58 mm (Boulangerie / Mini TPE)'}
+            </span>
             <span>•</span>
             <span>{filteredServices.length} prestation(s) sur le ticket</span>
           </div>

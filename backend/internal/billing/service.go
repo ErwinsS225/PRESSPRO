@@ -15,7 +15,8 @@ type policyRow struct {
 
 func int64ptr(v int64) *int64 { return &v }
 
-// defaultMatrix reproduit la matrice seedée en base (spec section 2).
+// defaultMatrix reproduit la matrice seedée en base (spec section 2) et les
+// ajustements des migrations (000012 : expenses.advanced payant).
 // NULL (sans plafond) est représenté par un pointeur nil.
 func defaultMatrix() map[string]map[string]policyRow {
 	free := map[string]policyRow{
@@ -25,7 +26,9 @@ func defaultMatrix() map[string]map[string]policyRow {
 		FeaturePriceLists:       {enabled: true, limit: int64ptr(1)},
 		FeatureMultiSite:        {enabled: true, limit: int64ptr(1)},
 		FeatureReportsAdvanced:  {enabled: false},
-		FeatureExpensesAdvanced: {enabled: true},
+		// Migration 000012 : le suivi avancé des dépenses est réservé aux
+		// formules payantes (PRO / BUSINESS), l'essai actif valant BUSINESS.
+		FeatureExpensesAdvanced: {enabled: false},
 		FeaturePricingPro:       {enabled: false},
 		FeatureReportsConsol:    {enabled: false},
 		FeatureAuditAdvanced:    {enabled: true},
@@ -66,6 +69,9 @@ type UsageCounter interface {
 	// CountPriceLists alimente le plafond de la fonctionnalité « grilles
 	// tarifaires » (1 en formule gratuite, 3 en PRO, 10 en BUSINESS).
 	CountPriceLists(ctx context.Context, tenantID string) (int64, error)
+	// CountBranches alimente le plafond multi-sites « branches.multi_site »
+	// (1 établissement en gratuit et PRO, 3 en BUSINESS).
+	CountBranches(ctx context.Context, tenantID string) (int64, error)
 }
 
 // memoryCounter : zéro usage (mode dégradé).
@@ -79,6 +85,10 @@ func (memoryCounter) CountPriceLists(_ context.Context, _ string) (int64, error)
 }
 
 func (memoryCounter) CountUsers(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (memoryCounter) CountBranches(_ context.Context, _ string) (int64, error) {
 	return 0, nil
 }
 

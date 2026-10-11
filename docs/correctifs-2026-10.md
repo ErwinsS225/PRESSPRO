@@ -158,19 +158,49 @@ Le module est placé dans le groupe **métier** : un abonnement suspendu le gèl
 
 **Compteurs** : 54 tests Go (+ 2 tests d'intégration PostgreSQL), 27 tests frontend ; bundle applicatif 263 kB (l'écran Équipe ajoute 13 kB), aucun avertissement de taille.
 
-## 7. Reste à faire (backlog priorisé)
+## 7. Session 4 — qualité frontend, garde-fous éprouvés et quota multi-sites réparé
+
+### 1. ESLint 9 + Prettier sur tout le frontend
+- `eslint.config.js` (configuration **plate** : `js.configs.recommended`, `typescript-eslint`, `react-hooks`, `react-refresh`, puis `eslint-config-prettier` en dernier), `.prettierrc.json` (guillemets simples, 110 colonnes, virgules ES5) et `.prettierignore`.
+- Scripts `package.json` : `lint:eslint` (`eslint . --max-warnings=50`), `format`, `format:check` ; `lint` reste la vérification TypeScript (`tsc --noEmit`).
+- Les deux contrôles sont branchés dans la CI (job *Frontend*), après `npm ci --legacy-peer-deps`.
+- **TypeScript ramené à `6.0.3`** : `typescript-eslint` 8.71 déclare `peerDependencies typescript >=4.8.4 <6.1.0` et refuse TypeScript 7.
+- **Dette résorbée** : `CatalogManagerModal.tsx` appelait 25 hooks **après** un `return null` conditionnel (l'ordre d'appel changeait entre le premier et le second rendu → erreur React en production) ; early-return déplacé après tous les hooks. Imports/props/mutateurs morts supprimés dans `ServicesView`, `Header`, `Sidebar`, `ThermalTicketModal`, `CounterReceiptModal`, `App.tsx` et `src/lib/api.ts`.
+- Résultat : **`eslint .` → 0 erreur** (46 avertissements `no-explicit-any` assumés et plafonnés), **`prettier --check .` → conforme** sur l'ensemble du dépôt frontend.
+
+### 2. Couverture Vitest étendue aux vues métier
+**10 fichiers / 63 tests** verts : clients `branchesApi` (8), `expensesApi` (7), `reportsApi` (8), `teamApi` (10), `adminApi` (12) ; composants `BranchesView` (4), `ExpensesView` (4), `ReportsView` (5), `TeamView` (3), `SuperAdminView` (2). Les tests vérifient notamment : établissement principal protégé, refus `402` affiché avec l'offre commerciale, isolation des actions selon le rôle (caissier), calculs de période (`monthBounds`, février bissextile), envoi JSON des créations et rechargement au changement de période.
+
+### 3. Bug — le plafond `branches.multi_site` n'était jamais appliqué
+`billing.Service.FeatureUsage` ne traitait pas la clé `branches.multi_site` : la consommation mesurée valait **toujours 0**, donc `CheckLimit` laissait passer toutes les créations. Constaté sur la pile réelle : un pressing **gratuit** créait un 2e établissement (plafond 1), un établissement en **essai** en créait un 4e (plafond BUSINESS = 3) et la consolidation affichait 4 sites.
+- Correctif : `FeatureUsage` mesure désormais `CountBranches` (`COUNT(branches) WHERE status <> 'archived'`) et `isCountedFeature` déclare la clé, ce qui expose aussi la consommation dans `/me/entitlements`.
+- Tests ajoutés : `internal/billing/entitlements_test.go` (mesure, refus au plafond en gratuit **et** en BUSINESS, autorisation sous le plafond, `usage` exposé) et `internal/http/feature_gate_test.go#TestRequireFeatureQuota_MultiSites` (`402` avec `feature: branches.multi_site`, superadmin dispensé). **Les deux échouent si l'on retire le cas de `FeatureUsage`** (vérifié en le supprimant temporairement).
+
+### 4. Bug — `GET /api/v1/users` renvoyait `null` pour une équipe vide
+Une tranche nulle Go était sérialisée `null` ; le client frontend en déduisait une erreur de chargement au lieu d'une liste vide.
+- Correctif : le handler normalise en tableau vide ; `teamApi.ts` traite explicitement `null`.
+- Tests : `auth/users_test.go` — `TestListUsers_TenantSansCompte` (corps strictement `[]`) et `TestListUsers_ComptesDuTenant` (isolation inter-établissements, aucun condensat de mot de passe exposé).
+
+### Preuves d'exécution
+- **Modules payants en live** (`/tmp/verif_modules.py`, pile réelle 3000 → 8085 → PostgreSQL 16) : **35/35** (avant correctif : 32/35, les trois échecs étant le quota multi-sites).
+- **Module Équipe en live** (`/tmp/verif_equipe.py`) : **24/24**.
+- **Non-régression** : 14/14 (fail-closed & quotas), 17/17 (SuperAdmin), 34/34 (E2E) → **89 assertions live** vertes.
+- **Backend** : `gofmt` propre, `go vet ./...` muet, `go test ./...` → **12 paquets `ok`**, **67 tests unitaires** (+ 3 tests d'intégration PostgreSQL, dont `TestIntegration_MultiSitesDepensesRapports`).
+- **Frontend** : `npm run lint` (TypeScript 6.0.3) OK · `npm run lint:eslint` 0 erreur · `npm run format:check` OK · `npm test` **63 tests** · `npm run build` OK.
+
+**Compteurs** : 67 tests Go (+ 3 d'intégration), 63 tests frontend, **35 + 24 + 89 = 148 assertions live** vertes.
+
+## 8. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
-| 🟡 Moyenne | ESLint/Prettier côté frontend ; couverture Vitest étendue aux vues métier |
-| 🟠 Haute | Modules payants restants : `branches.multi_site` (multi-établissements), `reports.*`, `expenses.*` — routes à créer puis garder avec `RequireFeature`/`RequireFeatureQuota` |
 | 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
-| 🟡 Moyenne | Gestion des établissements (branches / multi-sites) dans l'interface (`branches.multi_site`) |
-| 🟢 Basse | Notifications WhatsApp/SMS, rapports avancés, impression ESC/POS native, mode hors-ligne |
+| 🟢 Basse | Notifications WhatsApp/SMS, impression ESC/POS native (WebUSB), mode hors-ligne, export PDF/CSV des rapports |
+| 🟢 Basse | Contrôle d'accès fin par établissement dans l'interface (affecter un employé à un site depuis l'écran Équipe) |
 
 ---
 
-## 8. Vérification finale de bout en bout — 34/34 ✅
+## 9. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -184,21 +214,25 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 9. Comment reproduire les vérifications
+## 10. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique
 cd backend && go vet ./... && go test ./...
 
-# Test d'intégration sur PostgreSQL 16 (migrations appliquées)
+# Tests d'intégration sur PostgreSQL 16 (migrations appliquées)
 TEST_DATABASE_URL="postgres://pressing_app:...@localhost:5432/pressing_os?sslmode=disable" \
-  go test -tags=integration -v ./internal/catalog/... ./internal/auth/...
+  go test -tags=integration -v ./internal/catalog/... ./internal/auth/... ./internal/report/...
+
+# Modules payants de bout en bout (multi-sites, dépenses, rapports, murs 402)
+python3 /tmp/verif_modules.py
 
 # Module Équipe de bout en bout (inscription, création, plafond, désactivation)
 python3 /tmp/verif_equipe.py
 
-# Frontend
-npm ci --legacy-peer-deps && npm run lint && npm run build
+# Frontend : types, ESLint, formatage, tests, build
+npm ci --legacy-peer-deps
+npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 
 # Stack complet (proxy 3000 → API interne 8085)
 npm run dev

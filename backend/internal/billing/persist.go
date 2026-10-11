@@ -86,6 +86,16 @@ func (c *dbCounters) CountUsers(ctx context.Context, tenantID string) (int64, er
 	return n, nil
 }
 
+func (c *dbCounters) CountBranches(ctx context.Context, tenantID string) (int64, error) {
+	var n int64
+	row := c.database.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM branches WHERE tenant_id = $1 AND status <> 'archived'`, tenantID)
+	if err := row.Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 func (s *dbStore) GetSubscription(ctx context.Context, tenantID string) (*SubscriptionRecord, error) {
 	var (
 		planCode, status, planName string

@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  TrendingUp,
-  Shirt,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  Database,
-} from 'lucide-react';
+import { TrendingUp, Shirt, CheckCircle, Clock, ArrowRight, Database } from 'lucide-react';
 import { Order, HealthCheckResult, ViewMode } from '../types';
 
 interface DashboardViewProps {
@@ -16,12 +9,7 @@ interface DashboardViewProps {
   onNewOrder: () => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({
-  orders,
-  health,
-  onNavigate,
-  onNewOrder,
-}) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, onNavigate, onNewOrder }) => {
   const totalRevenue = orders.reduce((sum, o) => sum + o.paidAmount, 0);
   const activeCount = orders.filter((o) => o.status !== 'delivered').length;
   const readyCount = orders.filter((o) => o.status === 'ready').length;
@@ -128,7 +116,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
           <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-            <span>{health?.latencyMs ? `Latence probe: ${health.latencyMs}ms` : 'Endpoint opérationnel'}</span>
+            <span>
+              {health?.latencyMs ? `Latence probe: ${health.latencyMs}ms` : 'Endpoint opérationnel'}
+            </span>
           </div>
         </div>
       </div>
@@ -155,7 +145,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               key={key}
               className="flex flex-col justify-between rounded-md border border-neutral-200/80 bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60"
             >
-              <div className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">{item.label}</div>
+              <div className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+                {item.label}
+              </div>
               <div className="mt-2 flex items-baseline justify-between">
                 <span className="font-mono text-xl font-semibold text-neutral-900 dark:text-neutral-100 tabular-nums">
                   {item.count}
@@ -201,13 +193,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </thead>
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 font-normal">
               {orders.slice(0, 5).map((order) => (
-                <tr key={order.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
+                <tr
+                  key={order.id}
+                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                >
                   <td className="px-5 py-3 font-mono font-medium text-neutral-900 dark:text-neutral-100">
                     {order.orderNumber}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-neutral-900 dark:text-neutral-100">{order.customerName}</div>
-                    <div className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{order.customerPhone}</div>
+                    <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                      {order.customerName}
+                    </div>
+                    <div className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {order.customerPhone}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
                     {order.items.map((it) => `${it.quantity}x ${it.serviceName}`).join(', ')}

@@ -26,11 +26,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', showLa
           <Moon className="h-4 w-4 transition-transform duration-200 rotate-0 scale-100 text-neutral-700" />
         )}
       </div>
-      {showLabel && (
-        <span className="text-xs font-medium">
-          {isDark ? 'Mode clair' : 'Mode sombre'}
-        </span>
-      )}
+      {showLabel && <span className="text-xs font-medium">{isDark ? 'Mode clair' : 'Mode sombre'}</span>}
     </button>
   );
 };

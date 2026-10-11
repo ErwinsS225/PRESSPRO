@@ -9,12 +9,7 @@ interface NewOrderModalProps {
   onSubmit: (order: Order) => void;
 }
 
-export const NewOrderModal: React.FC<NewOrderModalProps> = ({
-  customers,
-  services,
-  onClose,
-  onSubmit,
-}) => {
+export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, services, onClose, onSubmit }) => {
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0]?.fullName || '');
   const [phone, setPhone] = useState(customers[0]?.phone || '+225 07 00 00 00 00');
   const [items, setItems] = useState<OrderItem[]>([
@@ -92,7 +87,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       status: 'received',
       paymentStatus,
       totalAmount,
-      paidAmount: paymentStatus === 'paid' ? totalAmount : paymentStatus === 'partially_paid' ? Math.floor(totalAmount / 2) : 0,
+      paidAmount:
+        paymentStatus === 'paid'
+          ? totalAmount
+          : paymentStatus === 'partially_paid'
+            ? Math.floor(totalAmount / 2)
+            : 0,
       receivedAt: 'À l’instant',
       dueDate: 'Dans 2 jours (18:00)',
       notes: notes || undefined,
@@ -107,10 +107,17 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       <div className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
           <div>
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Enregistrer un Dépôt de Linge</h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">Création d'un ticket de pressing avec calcul automatique.</p>
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Enregistrer un Dépôt de Linge
+            </h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Création d'un ticket de pressing avec calcul automatique.
+            </p>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200">
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -118,7 +125,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Client</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Client
+              </label>
               <select
                 value={selectedCustomer}
                 onChange={(e) => handleCustomerChange(e.target.value)}
@@ -133,7 +142,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Téléphone de contact</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Téléphone de contact
+              </label>
               <input
                 type="text"
                 value={phone}
@@ -146,7 +157,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           {/* Items Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Vêtements déposés</label>
+              <label className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Vêtements déposés
+              </label>
               <button
                 type="button"
                 onClick={handleAddItem}
@@ -159,7 +172,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-2 rounded-md border border-neutral-100 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-900/60">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2 rounded-md border border-neutral-100 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-900/60"
+                >
                   <select
                     value={item.serviceName}
                     onChange={(e) => handleItemChange(idx, e.target.value)}
@@ -202,7 +218,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Règlement au Dépôt</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Règlement au Dépôt
+              </label>
               <select
                 value={paymentStatus}
                 onChange={(e) => setPaymentStatus(e.target.value as any)}
@@ -215,7 +233,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Instructions particulières</label>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Instructions particulières
+              </label>
               <input
                 type="text"
                 placeholder="Ex: Tache café, col dur..."

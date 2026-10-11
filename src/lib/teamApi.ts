@@ -73,7 +73,8 @@ export async function fetchTeam(token?: string): Promise<TeamMember[] | null> {
   try {
     const res = await fetch('/api/v1/users', { headers: authHeaders(token) });
     if (!res.ok) return null;
-    const json = (await res.json()) as TeamMember[] | { users?: TeamMember[] };
+    const json = (await res.json()) as TeamMember[] | { users?: TeamMember[] } | null;
+    if (!json) return [];
     return Array.isArray(json) ? json : (json.users ?? []);
   } catch {
     return null;

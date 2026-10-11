@@ -3,6 +3,8 @@ package auth_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -136,4 +138,62 @@ func TestLogin_CompteDemoTouoursActif(t *testing.T) {
 		t.Errorf("mot de passe erroné: attendu ErrInvalidCredentials, obtenu %v", err)
 	}
 	_ = strings.TrimSpace("")
+}
+
+// TestListUsers_TenantSansCompte : le module Équipe doit exposer un TABLEAU
+// vide (et non « null ») quand le pressing n'a encore aucun compte employé —
+// sinon l'interface affiche une erreur de chargement au lieu d'une liste vide.
+func TestListUsers_TenantSansCompte(t *testing.T) {
+	handler := auth.NewHandler(nouveauService(t))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	claims := &auth.UserClaims{UserID: "usr-gerant-001", TenantID: "tenant-sans-compte", Role: auth.RoleOwner}
+	req = req.WithContext(auth.WithUserClaims(req.Context(), claims))
+	rec := httptest.NewRecorder()
+	handler.ListUsers(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("attendu 200, obtenu %d", rec.Code)
+	}
+	if corps := strings.TrimSpace(rec.Body.String()); corps != "[]" {
+		t.Errorf("attendu « [] », obtenu %q", corps)
+	}
+}
+
+// TestListUsers_ComptesDuTenant : la liste ne contient que les comptes du
+// pressing appelant (aucune fuite entre établissements).
+func TestListUsers_ComptesDuTenant(t *testing.T) {
+	ctx := context.Background()
+	svc := nouveauService(t)
+	const tenantA = "a0000000-0000-0000-0000-000000000001"
+	const tenantB = "b0000000-0000-0000-0000-000000000002"
+
+	if _, err := svc.CreateUser(ctx, tenantA, auth.CreateUserRequest{
+		FullName: "Aïcha Caisse", Email: "aicha@tenant-a.ci", Role: auth.RoleCashier, Password: "motdepasse123",
+	}); err != nil {
+		t.Fatalf("création du compte du tenant A: %v", err)
+	}
+	if _, err := svc.CreateUser(ctx, tenantB, auth.CreateUserRequest{
+		FullName: "Binta Caisse", Email: "binta@tenant-b.ci", Role: auth.RoleCashier, Password: "motdepasse123",
+	}); err != nil {
+		t.Fatalf("création du compte du tenant B: %v", err)
+	}
+
+	handler := auth.NewHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	claims := &auth.UserClaims{UserID: "usr-gerant-001", TenantID: tenantA, Role: auth.RoleOwner}
+	req = req.WithContext(auth.WithUserClaims(req.Context(), claims))
+	rec := httptest.NewRecorder()
+	handler.ListUsers(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("attendu 200, obtenu %d", rec.Code)
+	}
+	corps := rec.Body.String()
+	if !strings.Contains(corps, "aicha@tenant-a.ci") {
+		t.Errorf("le compte du tenant appelant doit apparaître : %s", corps)
+	}
+	if strings.Contains(corps, "binta@tenant-b.ci") {
+		t.Errorf("fuite inter-établissements dans la liste : %s", corps)
+	}
 }

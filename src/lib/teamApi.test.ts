@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  createTeamMember,
-  fetchTeam,
-  roleLabel,
-  setTeamMemberStatus,
-  statusLabel,
-} from './teamApi';
+import { createTeamMember, fetchTeam, roleLabel, setTeamMemberStatus, statusLabel } from './teamApi';
 
 const MEMBRES = [
   {
@@ -51,12 +45,18 @@ describe('fetchTeam', () => {
   });
 
   it('accepte la forme { users: [...] }', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ users: MEMBRES })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ users: MEMBRES }))
+    );
     await expect(fetchTeam('jeton')).resolves.toHaveLength(2);
   });
 
   it('retourne null quand l’accès est refusé (403)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'accès refusé' }, 403)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'accès refusé' }, 403))
+    );
     await expect(fetchTeam('jeton')).resolves.toBeNull();
   });
 

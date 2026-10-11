@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -12,13 +12,16 @@
   }
 
   body {
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 }
 
 /* Styles d'impression haute fidélité pour Ticket de Caisse / Reçu Thermique (80mm & 58mm) */
 @media print {
-  html, body {
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
@@ -92,4 +95,3 @@
   background: radial-gradient(circle at 10px 25px, transparent 12px, white 13px) repeat-x 0 0;
   background-size: 20px 20px;
 }
-

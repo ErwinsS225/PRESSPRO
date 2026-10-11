@@ -71,13 +71,13 @@ afterEach(() => {
 });
 
 describe('SuperAdminView', () => {
-  it('refuse l\'accès à un compte non superadmin', () => {
+  it("refuse l'accès à un compte non superadmin", () => {
     render(<SuperAdminView currentUser={gerant} token="jeton" />);
     expect(screen.getByText('Accès refusé')).toBeInTheDocument();
     expect(screen.queryByText('Répertoire des Pressings Partenaires')).not.toBeInTheDocument();
   });
 
-  it('affiche les indicateurs et l\'annuaire réels de la plateforme', async () => {
+  it("affiche les indicateurs et l'annuaire réels de la plateforme", async () => {
     stubApi();
     render(<SuperAdminView currentUser={superadmin} token="jeton-superadmin" />);
 
@@ -93,10 +93,13 @@ describe('SuperAdminView', () => {
     expect(screen.getAllByText('Abidjan (Cocody)').length).toBeGreaterThan(0);
   });
 
-  it('signale l\'indisponibilité de l\'API au lieu d\'afficher de faux chiffres', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new Error('réseau indisponible');
-    }));
+  it("signale l'indisponibilité de l'API au lieu d'afficher de faux chiffres", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('réseau indisponible');
+      })
+    );
     render(<SuperAdminView currentUser={superadmin} token="jeton" />);
 
     await waitFor(() => {

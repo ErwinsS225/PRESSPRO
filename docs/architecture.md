@@ -74,17 +74,20 @@ backend/
 │   └── api/
 │       └── main.go           # Point d'entrée, initialisation et Graceful Shutdown
 ├── internal/
-│   ├── auth/                 # JWT, bcrypt, inscription d'établissement (onboarding)
+│   ├── auth/                 # JWT, bcrypt, inscription d'établissement (onboarding), équipe
 │   ├── billing/              # Plans, droits effectifs, quotas, matrice des fonctionnalités
+│   ├── branch/               # Établissements multi-sites (branches, rattachement des membres)
 │   ├── catalog/              # Catalogue de prestations et grille tarifaire
 │   ├── config/               # Lecture typée des variables d'environnement (.env)
 │   ├── customer/             # Fichier clients du pressing
 │   ├── database/             # Gestion du pool pgxpool et des requêtes
+│   ├── expense/              # Dépenses d'exploitation (postes, filtres, totaux)
 │   ├── health/               # Endpoints /health (liveness) et /ready (readiness)
 │   ├── httperr/              # Réponses d'erreur normalisées (aucune fuite technique)
 │   ├── order/                # Commandes, paiements, ticket thermique 80 mm
 │   ├── pricelist/            # Grilles tarifaires versionnées (snapshots JSONB)
 │   ├── ratelimit/            # Limiteur de débit (anti-force brute sur /auth/login)
+│   ├── report/               # Rapports d'activité (encaissements, marge, consolidation)
 │   └── http/                 # Routeur Chi, middlewares (CORS, timeouts, JWT, RBAC)
 ├── migrations/               # Migrations SQL numérotées (up/down)
 ├── go.mod                    # Définition du module Go et dépendances
@@ -128,6 +131,19 @@ Les comptes de la vitrine embarquée (`auth.Service.IsDemoAccount`) sont autoris
 ### Garde-fous commerciaux
 `RequireFeature` (droit booléen) et `RequireFeatureQuota` (plafond consommé, mesuré sur les données réelles) protègent les modules payants ; `RequireActiveSubscription` gèle les modules métier d'un établissement suspendu par l'éditeur. Les lectures restent accessibles, et le superadmin est dispensé des deux premiers contrôles.
 
+Modules gardés et compteurs associés :
+
+| Module | Garde-fou | Mesure réelle |
+|---|---|---|
+| Équipe (comptes employés) | `RequireFeatureQuota(users.max)` | `COUNT(users) WHERE status = 'active'` (propriétaire inclus) |
+| Multi-sites (établissements) | `RequireFeatureQuota(branches.multi_site)` | `COUNT(branches) WHERE status <> 'archived'` |
+| Grilles tarifaires | `RequireFeatureQuota(catalog.price_lists)` | `COUNT(price_lists)` |
+| Commandes du mois | `RequireFeatureQuota(orders.monthly.max)` | `COUNT(orders)` sur le mois courant |
+| Rapports avancés / consolidation | `RequireFeature(reports.advanced)` / `reports.consolidated` | droit booléen de la formule |
+| Dépenses d'exploitation | `RequireFeature(expenses.advanced)` | droit booléen de la formule |
+
+Chaque compteur doit être **branché sur un cas explicite** de `billing.Service.FeatureUsage` : une clé oubliée renvoie une consommation nulle et désactive silencieusement le plafond (voir `docs/correctifs-2026-10.md`, session 4).
+
 ### Espace SuperAdmin
 `GET /admin/stats`, `GET /admin/tenants` et `PATCH /admin/tenants/{id}/status` travaillent sur les données réelles (`billing.Service.AdminStats`, `TenantsOverview`, `SetTenantStatus`). En mode dégradé, les indicateurs sont calculés sur les abonnements en mémoire et signalés par `data_source: "memoire"`.
 
@@ -143,3 +159,12 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 2. Un délai de 10 secondes maximum est accordé aux requêtes en cours pour se terminer normalement.
 3. Le pool de connexions PostgreSQL `pgxpool` est fermé proprement.
 4. Aucun processus orphelin ni transaction interrompue à chaud.
+
+---
+
+## 7. Qualité, outillage et intégration continue
+
+- **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library, vues métier incluses) et `npm run build`.
+- **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
+- Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements.
