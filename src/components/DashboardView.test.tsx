@@ -41,7 +41,7 @@ describe('DashboardView — sections ReUI', () => {
 
     // c-card-15 : indicateur avec variation calculée entre les deux mois des dépôts.
     expect(screen.getByText("Chiffre d'affaires encaissé")).toBeInTheDocument();
-    expect(screen.getByText('11 000 FCFA')).toBeInTheDocument();
+    expect(screen.getAllByText('11 000 FCFA').length).toBeGreaterThan(0);
     // La comparaison est découpée en deux nœuds (libellé / valeur) : on vise la valeur.
     expect(screen.getAllByText('6 000 FCFA').length).toBeGreaterThan(0);
 
@@ -52,6 +52,15 @@ describe('DashboardView — sections ReUI', () => {
     // c-carousel-10 : dépôts récents navigables.
     expect(screen.getByText('Derniers dépôts au comptoir')).toBeInTheDocument();
     expect(screen.getAllByText(/CMD-2026-101/).length).toBeGreaterThan(0);
+
+    // Graphiques analytiques : série mensuelle, recouvrement, charge et entonnoir.
+    expect(screen.getByText('Encaissements des 6 derniers mois')).toBeInTheDocument();
+    expect(screen.getByText('Recouvrement des règlements')).toBeInTheDocument();
+    expect(screen.getByText('75,9 %')).toBeInTheDocument(); // 11 000 encaissés sur 14 500 facturés
+    expect(screen.getAllByText('11 000 FCFA').length).toBeGreaterThan(0); // KPI + anneau de recouvrement
+    expect(screen.getByText('Charge du comptoir')).toBeInTheDocument();
+    expect(screen.getByText('Parcours du linge en atelier')).toBeInTheDocument();
+    expect(screen.getByText(/Conversion réception → livraison : 50 %/)).toBeInTheDocument();
 
     // c-card-17 : raccourcis vers le comptoir, les rapports et la saisie.
     expect(screen.getByRole('button', { name: 'Nouveau dépôt de linge' })).toBeInTheDocument();

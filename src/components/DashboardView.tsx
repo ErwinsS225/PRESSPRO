@@ -11,17 +11,23 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { Order, HealthCheckResult, ViewMode } from '../types';
+import {
+  cleMois,
+  dateDepot,
+  pipelineAtelier,
+  recouvrement,
+  serieJournaliere,
+  serieMensuelle,
+} from '@/lib/analytique';
+import { CollectionRadialChart } from '@/components/reui/collection-radial-chart';
+import { DepositsBarChart } from '@/components/reui/deposits-bar-chart';
 import { DepositsCarousel } from '@/components/reui/deposits-carousel';
+import { OrdersPipelineChart } from '@/components/reui/orders-pipeline-chart';
+import { RevenueTrendChart } from '@/components/reui/revenue-trend-chart';
 import { OrdersStatusChart } from '@/components/reui/orders-status-chart';
 import { QuickActionCard } from '@/components/reui/quick-action-card';
 import { RevenueDonutChart } from '@/components/reui/revenue-donut-chart';
 import { StatCard } from '@/components/reui/stat-card';
-
-/** Convertit la date affichée (« jj/mm/aaaa hh:mm ») en clé de mois « aaaa-mm ». */
-function moisDe(receivedAt: string): string | null {
-  const correspondance = receivedAt.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  return correspondance ? `${correspondance[3]}-${correspondance[2]}` : null;
-}
 
 interface DashboardViewProps {
   orders: Order[];
@@ -59,8 +65,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
 
     const parMois = new Map<string, number>();
     for (const commande of orders) {
-      const mois = moisDe(commande.receivedAt);
-      if (!mois) continue;
+      const date = dateDepot(commande.receivedAt);
+      if (!date) continue;
+      const mois = cleMois(date);
       parMois.set(mois, (parMois.get(mois) ?? 0) + commande.paidAmount);
     }
     const moisTries = [...parMois.keys()].sort();
@@ -98,6 +105,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
       ].filter((tranche) => tranche.value > 0),
     [orders]
   );
+
+  // Séries analytiques des graphiques (calculs purs : src/lib/analytique.ts).
+  const mois = useMemo(() => serieMensuelle(orders), [orders]);
+  const journees = useMemo(() => serieJournaliere(orders), [orders]);
+  const reglements = useMemo(() => recouvrement(orders), [orders]);
+  const pipeline = useMemo(() => pipelineAtelier(orders), [orders]);
 
   return (
     <div className="space-y-6">
@@ -264,6 +277,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
           description="Répartition du linge par étape de traitement"
           data={tranchesStatuts}
         />
+      </div>
+
+      {/* Analytique : séries temporelles, recouvrement et entonnoir d'atelier */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RevenueTrendChart
+            title="Encaissements des 6 derniers mois"
+            description="Facturation et règlements encaissés (espèces, Wave, Orange Money) en FCFA"
+            data={mois}
+          />
+        </div>
+        <CollectionRadialChart title="Recouvrement des règlements" recouvrement={reglements} />
+        <div className="xl:col-span-2">
+          <DepositsBarChart
+            title="Charge du comptoir"
+            description={`Dépôts et pièces reçues sur les ${journees.length} derniers jours d’activité`}
+            data={journees}
+          />
+        </div>
+        <OrdersPipelineChart title="Parcours du linge en atelier" data={pipeline} />
       </div>
 
       {/* Dépôts récents (c-carousel-10) et raccourcis du comptoir (c-card-17) */}

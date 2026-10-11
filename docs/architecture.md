@@ -181,7 +181,7 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 ## 7. Qualité, outillage et intégration continue
 
 - **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
-- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **18 fichiers / 126 tests**, vues métier, clients API, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **20 fichiers / 153 tests**, vues métier, clients API, analyses du tableau de bord, dessin réel des graphiques, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
 - Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).
 ### Bibliothèque d'interface : primitives shadcn/ui et composants ReUI
@@ -217,6 +217,18 @@ Contextes d'utilisation retenus :
 | Entonnoir de conversion | c-chart-22 | Espace éditeur : formules souscrites |
 | Tableau des abonnements | c-table-10 | Espace éditeur : répertoire des pressings souscrits |
 | Badges (pleines, `-light`, `-outline`) | c-badge-4 / c-badge-9 | Statuts d'atelier, formules, états d'abonnement |
+| Évolution en aires dégradées | c-chart area | Tableau de bord : encaissements et facturation des 6 derniers mois |
+| Barres groupées | c-chart bar | Tableau de bord : dépôts et pièces reçues par jour d'activité |
+| Anneaux concentriques (radial) | c-chart radial | Tableau de bord : taux de recouvrement des règlements, pourcentage au centre |
+| Entonnoir du parcours du linge | c-chart funnel | Tableau de bord : conversion réception → livraison, dépôts encore en atelier |
+
+Les séries qui alimentent ces graphiques sont calculées par des **fonctions pures** dans
+`src/lib/analytique.ts` (`serieMensuelle`, `serieJournaliere`, `recouvrement`,
+`pipelineAtelier`) : elles lisent les trois formats de date produits par l'application
+(date de l'API, date ISO, libellés de la vitrine de démonstration) et sont testées
+indépendamment du rendu. Les graphiques sont également vérifiés **au dessin** : les tests
+imposent un cadre de 420 × 230 px au conteneur et contrôlent les tracés réellement produits
+(aires et dégradés, barres par série, anneaux colorés, trapèzes de l'entonnoir, parts hachurées).
 
 ### Jeu de styles : cadres surélevés et survols foncés
 

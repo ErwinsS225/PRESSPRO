@@ -313,6 +313,20 @@ clsx, tailwind-merge) :
 | `c-carousel-10` | `reui/deposits-carousel` | Tableau de bord : derniers dépôts avec bandeau de vignettes |
 | `c-badge-4` / `c-badge-9` | `reui/badge` | Statuts (succès, information, avertissement, alerte) en pleines, `-light` et `-outline` |
 
+Puis, à la demande « implémenter les composants charts dans le dashboard », les graphiques
+ont été étoffés et branchés sur des calculs dédiés (`src/lib/analytique.ts`) :
+
+| Modèle | Composant livré | Contexte d'utilisation dans PressingOS |
+|---|---|---|
+| Aire à dégradés | `reui/revenue-trend-chart` | Tableau de bord : encaissements vs facturation des 6 derniers mois, meilleur mois et moyenne mensuelle |
+| Barres groupées | `reui/deposits-bar-chart` | Tableau de bord : dépôts et pièces reçues par jour d'activité, journée de pointe |
+| Anneaux concentriques | `reui/collection-radial-chart` | Tableau de bord : dépôts soldés, acomptes, reste à percevoir — pourcentage recouvré au centre |
+| Entonnoir | `reui/orders-pipeline-chart` | Tableau de bord : conversion réception → livraison, dépôts encore en atelier, étiquettes par étape |
+
+Vérifications d'exécution : 153 tests Vitest (dont 13 sur les analyses, 6 sur le **dessin**
+réel des tracés avec un cadre de 420 × 230 px imposé au conteneur), `tsc`, ESLint, Prettier
+et build Vite verts ; l'aperçu sert bien les nouveaux modules.
+
 Fondations ajoutées : primitives `src/components/ui/` (bouton, carte, tableau, séparateur,
 menu déroulant, carrousel, enveloppe de graphiques avec infobulles et légendes), `cn()` dans
 `src/lib/utils.ts`, **jetons de design shadcn** (`--chart-1` … `--chart-5`, `--card`,
@@ -379,7 +393,7 @@ python3 /tmp/verif_fix_demo.py
 # récepteur /tmp/passerelle.py lancés, puis npm run dev
 python3 /tmp/verif_tour6.py
 
-# Frontend : types, ESLint, formatage, tests (126), build
+# Frontend : types, ESLint, formatage, tests (153), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 
