@@ -6,31 +6,14 @@ import (
 	"time"
 
 	"pressing-os/backend/internal/database"
+	"pressing-os/backend/internal/pgutil"
 )
 
 // uuidPourColonne retourne l'identifiant exploitable dans une colonne UUID, ou
 // nil. Les comptes de démonstration (identifiants mémoire de forme libre) ne
 // peuvent pas alimenter une clé étrangère : ils sont alors consignés dans le
 // motif de l'événement plutôt que rejetés par PostgreSQL.
-func uuidPourColonne(id string) interface{} {
-	if len(id) != 36 {
-		return nil
-	}
-	for i := 0; i < len(id); i++ {
-		switch i {
-		case 8, 13, 18, 23:
-			if id[i] != '-' {
-				return nil
-			}
-		default:
-			c := id[i]
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-				return nil
-			}
-		}
-	}
-	return id
-}
+func uuidPourColonne(id string) interface{} { return pgutil.NullableUUID(id) }
 
 // dbStore exécute les requêtes d'abonnement sur PostgreSQL.
 type dbStore struct {

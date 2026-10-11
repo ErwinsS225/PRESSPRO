@@ -82,3 +82,36 @@ func TestFeatureUsage_MultiSites(t *testing.T) {
 		}
 	}
 }
+
+// TestNotificationsAdvanced_ReserveeAuxFormulesPayantes : l'envoi réel des
+// notifications clients est un droit booléen — composition et journal restent
+// ouverts à tous, seule la transmission est payante (migration 000014).
+func TestNotificationsAdvanced_ReserveeAuxFormulesPayantes(t *testing.T) {
+	ctx := context.Background()
+
+	lire := func(plan, statut string) bool {
+		tenant := "tenant-notif-" + plan + "-" + statut
+		svc := billing.NewService()
+		svc.ForcePlanForTest(tenant, plan, statut)
+		actif, err := svc.IsEnabled(ctx, tenant, billing.FeatureNotificationsAdvanced)
+		if err != nil {
+			t.Fatalf("IsEnabled(%s/%s): %v", plan, statut, err)
+		}
+		return actif
+	}
+
+	if lire(billing.PlanFree, billing.StatusActive) {
+		t.Error("formule gratuite : l'envoi réel des notifications doit être désactivé")
+	}
+	if !lire(billing.PlanPro, billing.StatusActive) {
+		t.Error("formule PRO : l'envoi réel des notifications doit être activé")
+	}
+	if !lire(billing.PlanBusiness, billing.StatusActive) {
+		t.Error("formule BUSINESS : l'envoi réel des notifications doit être activé")
+	}
+	// L'essai en cours (niveau BUSINESS) débloque la fonctionnalité, comme les
+	// autres droits payants : le nouveau pressing la découvre pendant 7 jours.
+	if !lire(billing.PlanBusiness, billing.StatusTrialing) {
+		t.Error("essai (niveau BUSINESS) : l'envoi réel doit être disponible")
+	}
+}

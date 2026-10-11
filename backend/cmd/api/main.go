@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"pressing-os/backend/internal/expense"
 	"pressing-os/backend/internal/health"
 	apphttp "pressing-os/backend/internal/http"
+	"pressing-os/backend/internal/notification"
 	"pressing-os/backend/internal/order"
 	"pressing-os/backend/internal/pricelist"
 	"pressing-os/backend/internal/ratelimit"
@@ -226,6 +228,51 @@ func main() {
 	}
 	reportHandler := report.NewHandler(reportService, billingService)
 
+	// Module Notifications clients (WhatsApp / SMS). Sans base : journal en
+	// mémoire. L'envoi réel passe par la passerelle configurée par l'éditeur
+	// (NOTIFICATIONS_GATEWAY_URL) ; sans elle, chaque message est journalisé
+	// avec le statut « simule » — le comptoir peut le copier ou l'ouvrir dans
+	// WhatsApp depuis l'interface.
+	notificationService := notification.NewService()
+	if dbReady {
+		notificationService = notification.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Notifications clients adossées à PostgreSQL (journal persisté).")
+	} else {
+		logger.Println("Notifications clients en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	notificationService.SetSourceCommandes(orderService)
+	notificationService.SetDroitVerificateur(billingService, billing.FeatureNotificationsAdvanced)
+	if dbReady {
+		dbStore := database.NewStore(dbPool.Pool)
+		notificationService.SetNomPressing(func(ctx context.Context, tenantID string) string {
+			var nom string
+			if err := dbStore.QueryRowContext(ctx, `SELECT name FROM tenants WHERE id = $1`, tenantID).Scan(&nom); err != nil {
+				return ""
+			}
+			return nom
+		})
+	}
+	passerelleURL := strings.TrimSpace(os.Getenv("NOTIFICATIONS_GATEWAY_URL"))
+	if passerelleURL != "" {
+		notificationService.SetPasserelle(notification.NewHTTPPasserelle(
+			passerelleURL, os.Getenv("NOTIFICATIONS_GATEWAY_TOKEN"), 5*time.Second))
+		logger.Printf("Passerelle de notifications activée (%s).", passerelleURL)
+	} else {
+		logger.Println("Aucune passerelle de notifications : les messages sont journalisés (statut « simule »).")
+	}
+	notificationHandler := notification.NewHandler(notificationService)
+
+	// Déclenchement automatique : « prête » et « livrée » notifient le client
+	// (uniquement pour les formules qui incluent l'envoi et sans jamais
+	// retarder la réponse HTTP — le hook s'exécute en tâche de fond).
+	orderService.SetHookStatut(func(ctx context.Context, tenantID, orderID, statut string) {
+		notificationService.NotifierTransition(ctx, notification.NotificationAuto{
+			TenantID:    tenantID,
+			OrderID:     orderID,
+			StatutLinge: statut,
+		})
+	})
+
 	// Garde-fou quota : la 51e commande FREE (essai dépassé) est refusée en 402.
 	// Compteur mémoire en mode dégradé, compteur SQL quand PostgreSQL est joignable.
 	if dbReady {
@@ -251,20 +298,21 @@ func main() {
 	}
 
 	router := apphttp.NewRouter(apphttp.ServerDependencies{
-		Config:            cfg,
-		HealthHandler:     healthHandler,
-		AuthHandler:       authHandler,
-		JWTManager:        jwtManager,
-		OrderHandler:      orderHandler,
-		CatalogHandler:    catalogHandler,
-		CustomerHandler:   customerHandler,
-		PriceListHandler:  priceListHandler,
-		BranchHandler:     branchHandler,
-		ExpenseHandler:    expenseHandler,
-		ReportHandler:     reportHandler,
-		Billing:           billingService,
-		BillingHandler:    billingHandler,
-		MembershipChecker: membershipChecker,
+		Config:              cfg,
+		HealthHandler:       healthHandler,
+		AuthHandler:         authHandler,
+		JWTManager:          jwtManager,
+		OrderHandler:        orderHandler,
+		CatalogHandler:      catalogHandler,
+		CustomerHandler:     customerHandler,
+		PriceListHandler:    priceListHandler,
+		BranchHandler:       branchHandler,
+		ExpenseHandler:      expenseHandler,
+		ReportHandler:       reportHandler,
+		NotificationHandler: notificationHandler,
+		Billing:             billingService,
+		BillingHandler:      billingHandler,
+		MembershipChecker:   membershipChecker,
 	})
 
 	// 4. Configuration du serveur HTTP avec timeouts stricts

@@ -17,6 +17,36 @@ type Service struct {
 	tenantSeqNum map[string]int    // clé: tenant_id -> séquenceur de ticket
 	store        *dbStore          // nil = mode mémoire ; non-nil = persistance PostgreSQL
 	logger       *log.Logger
+
+	// hookStatut est appelé en tâche de fond après une transition de statut de
+	// linge réussie (notifications client, intégrations). Facultatif, et
+	// toujours hors du chemin critique : une panne du hook n'empêche jamais la
+	// réponse HTTP.
+	hookStatut func(ctx context.Context, tenantID, orderID, statut string)
+}
+
+// SetHookStatut branche le récepteur des transitions de statut (facultatif).
+func (s *Service) SetHookStatut(hook func(ctx context.Context, tenantID, orderID, statut string)) {
+	s.hookStatut = hook
+}
+
+// signalerStatut déclenche le hook hors du chemin critique (goroutine isolée,
+// panne avalée, délai borné).
+func (s *Service) signalerStatut(ctx context.Context, tenantID, orderID, statut string) {
+	if s.hookStatut == nil {
+		return
+	}
+	_ = ctx
+	go func() {
+		defer func() {
+			if r := recover(); r != nil && s.logger != nil {
+				s.logger.Printf("[order] hook statut interrompu: %v", r)
+			}
+		}()
+		limite, annuler := context.WithTimeout(context.Background(), 10*time.Second)
+		defer annuler()
+		s.hookStatut(limite, tenantID, orderID, statut)
+	}()
 }
 
 // validateTenantExistence vérifie que le tenant existe dans la map des séquences (mode mémoire uniquement)
@@ -347,7 +377,12 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation mise à jour statut à PostgreSQL: orderID=%s", orderID)
-		return s.store.UpdateOrderStatus(ctx, tenantID, orderID, newStatus)
+		maj, err := s.store.UpdateOrderStatus(ctx, tenantID, orderID, newStatus)
+		if err != nil {
+			return nil, err
+		}
+		s.signalerStatut(ctx, tenantID, orderID, newStatus)
+		return maj, nil
 	}
 
 	s.mu.Lock()
@@ -373,6 +408,7 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 
 	// Copie de sécurité
 	ordCopy := *ord
+	s.signalerStatut(ctx, tenantID, orderID, newStatus)
 	return &ordCopy, nil
 }
 

@@ -17,6 +17,7 @@ import (
 	"pressing-os/backend/internal/customer"
 	"pressing-os/backend/internal/expense"
 	"pressing-os/backend/internal/health"
+	"pressing-os/backend/internal/notification"
 	"pressing-os/backend/internal/order"
 	"pressing-os/backend/internal/pricelist"
 	"pressing-os/backend/internal/report"
@@ -24,20 +25,21 @@ import (
 
 // ServerDependencies regroupe les gestionnaires requis pour assembler le routeur
 type ServerDependencies struct {
-	Config            *config.Config
-	HealthHandler     *health.Handler
-	AuthHandler       *auth.Handler
-	JWTManager        *auth.JWTManager
-	OrderHandler      *order.Handler
-	CatalogHandler    *catalog.Handler
-	CustomerHandler   *customer.Handler
-	PriceListHandler  *pricelist.Handler
-	BranchHandler     *branch.Handler
-	ExpenseHandler    *expense.Handler
-	ReportHandler     *report.Handler
-	Billing           *billing.Service
-	BillingHandler    *billing.Handler
-	MembershipChecker *MembershipChecker
+	Config              *config.Config
+	HealthHandler       *health.Handler
+	AuthHandler         *auth.Handler
+	JWTManager          *auth.JWTManager
+	OrderHandler        *order.Handler
+	CatalogHandler      *catalog.Handler
+	CustomerHandler     *customer.Handler
+	PriceListHandler    *pricelist.Handler
+	BranchHandler       *branch.Handler
+	ExpenseHandler      *expense.Handler
+	ReportHandler       *report.Handler
+	NotificationHandler *notification.Handler
+	Billing             *billing.Service
+	BillingHandler      *billing.Handler
+	MembershipChecker   *MembershipChecker
 }
 
 // NewRouter assemble la table de routage Chi avec les middlewares et les routes de base
@@ -264,7 +266,17 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						})
 					}
 
-					// Module Rapports (fonctionnalité payante « reports.advanced » ;
+					// Module Notifications clients (WhatsApp / SMS). Le journal
+					// et la composition restent ouverts ; l'envoi réel par la
+					// passerelle est réservé aux formules payantes.
+					if deps.NotificationHandler != nil {
+						business.Route("/notifications", func(notificationRouter chi.Router) {
+							notificationRouter.Get("/", deps.NotificationHandler.ListNotifications)
+							notificationRouter.With(RequireFeature(deps.Billing, billing.FeatureNotificationsAdvanced)).
+								Post("/", deps.NotificationHandler.CreateNotification)
+						})
+					}
+
 					// consolidation par établissement incluse dans BUSINESS).
 					if deps.ReportHandler != nil {
 						business.Route("/reports", func(reportRouter chi.Router) {

@@ -98,6 +98,27 @@ Le schéma utilise des identifiants **UUID v4** pour garantir l'unicité globale
 | `payment_method` | VARCHAR(50) | CHECK (cash, orange_money, mtn_momo, wave, card) | Moyen de paiement ivoirien |
 | `reference` | VARCHAR(100)| - | Référence transaction Mobile Money |
 
+### 8. `notifications` (Journal des messages clients — session 6)
+| Colonne | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | UUID | PRIMARY KEY, `DEFAULT uuid_generate_v4()` | Identifiant du message |
+| `tenant_id` | UUID | NOT NULL REFERENCES tenants(id) | Établissement émetteur |
+| `order_id` | UUID | NULL REFERENCES orders(id) ON DELETE SET NULL | Commande concernée (facultative) |
+| `channel` | VARCHAR(20) | NOT NULL, CHECK (`whatsapp`, `sms`) | Canal d'envoi |
+| `template` | VARCHAR(40) | - | Modèle appliqué (`commande_prete`, `commande_livree`, `paiement_recu`, `rappel_retrait`) — NULL pour un message libre |
+| `recipient` | VARCHAR(40) | NOT NULL | Numéro destinataire (téléphone du client par défaut) |
+| `body` | TEXT | NOT NULL | Message tel qu'envoyé (composé ou personnalisé) |
+| `status` | VARCHAR(20) | NOT NULL, CHECK (`simule`, `envoye`, `echec`) | `envoye` = transmis à la passerelle ; `simule` = journalisé sans passerelle ; `echec` = passerelle en erreur |
+| `provider` | VARCHAR(40) | - | `passerelle` ou vide (journal local) |
+| `detail` | TEXT | - | Motif d'échec renvoyé par la passerelle |
+| `attempts` | INTEGER | NOT NULL DEFAULT 1 | Nombre de tentatives d'envoi |
+| `created_by` | UUID | NULL REFERENCES users(id) | Auteur humain ; NULL pour un envoi automatique (`ready`/`delivered`) |
+| `created_at` / `sent_at` | TIMESTAMPTZ | NOT NULL / NULL | Création et envoi effectif |
+
+Index : `(tenant_id, created_at DESC)` pour le journal, `(order_id)` pour l'historique par
+commande. Une commande supprimée n'efface pas le journal (`ON DELETE SET NULL`), une
+commande d'un autre pressing est refusée en amont (`404`).
+
 ---
 
 ## 2. Cycle de Vie des Migrations SQL
@@ -105,5 +126,9 @@ Le schéma utilise des identifiants **UUID v4** pour garantir l'unicité globale
 Les migrations sont stockées dans `backend/migrations/` :
 - `000001_init_schema.up.sql` : applique les créations de tables et index.
 - `000001_init_schema.down.sql` : rollback complet en cas de besoin.
+- `000013_notifications.up.sql` / `000014_notifications_paid_matrix.up.sql` : journal des
+  notifications clients puis droit `notifications.advanced` (faux en gratuit, vrai en PRO et
+  BUSINESS), avec leurs `down.sql` respectifs — la matrice par défaut de
+  `billing.defaultMatrix()` doit rester alignée sur ces entrées.
 
 Lors du lancement via Docker Compose, le script `.up.sql` est automatiquement exécuté par le conteneur PostgreSQL si la base est vierge (`/docker-entrypoint-initdb.d`).

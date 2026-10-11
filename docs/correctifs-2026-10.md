@@ -230,16 +230,76 @@ Détecté en alimentant le pressing vitrine : `POST /api/v1/expenses` répondait
 
 **Compteurs** : 67 tests Go (+ 3 d'intégration), 94 tests frontend, **154 assertions live** vertes.
 
-## 9. Reste à faire (backlog priorisé)
+## 9. Session 6 — notifications clients (WhatsApp / SMS)
+
+Objectif : prévenir le client sans quitter le comptoir, et prouver que le message est bien
+parti. La composition et le **journal restent gratuits** ; l'**envoi par passerelle** est le
+module payant `notifications.advanced` (faux en gratuit, vrai en PRO et BUSINESS).
+
+### 1. Journal et composition ouverts à tous les pressings
+- `GET /api/v1/notifications` : journal du pressing, filtres `order_id`, `channel`,
+  `status`, `limit` (défaut 50, plafond 200) ; réponse enrichie des canaux et modèles
+  disponibles. Lisible même en formule gratuite — l'historique appartient au pressing, et
+  une rétrogradation ne rend jamais inaccessible un message déjà envoyé.
+- Quatre modèles français : `commande_prete`, `commande_livree`, `paiement_recu`,
+  `rappel_retrait`. Le nom du pressing vient du **jeton** (`claims.TenantName`) ou de la
+  base (`SetNomPressing`) — jamais du corps de la requête, donc jamais falsifiable.
+- L'interface du comptoir (`ClientNotificationModal`) propose le canal, le modèle, un
+  **aperçu éditable**, l'envoi, ainsi que « Ouvrir dans WhatsApp / SMS » (liens `wa.me` et
+  `sms:`) et « Copier » : le pressing sans passerelle envoie depuis son propre téléphone.
+
+### 2. Envoi réel par passerelle configurable
+- `POST /api/v1/notifications` : `201` `{"notification", "status", "message"}`. Gardé par
+  `RequireFeature(notifications.advanced)` → `402` en formule gratuite ; l'interface affiche
+  alors l'invitation commerciale **et** conserve l'ouverture manuelle.
+- Passerelle générique par webhook (`NOTIFICATIONS_GATEWAY_URL`, jeton facultatif
+  `NOTIFICATIONS_GATEWAY_TOKEN`) : POST JSON `{to, channel, body, order_id, tenant_id}`,
+  `Authorization: Bearer <jeton>`, délai 5 s. Le fournisseur réel (WhatsApp Business API,
+  agrégateur SMS local) se branche derrière ce webhook sans toucher au cœur métier.
+- Sans passerelle — ou si elle répond en erreur — le message est **journalisé**
+  (`simule`, ou `echec` avec le motif dans `detail`) : jamais de perte silencieuse, l'atelier
+  n'est jamais bloqué par un fournisseur indisponible.
+
+### 3. Déclenchement automatique sur `ready` et `delivered`
+`order.SetHookStatut` branche `notification.NotifierTransition` : lorsque le linge passe à
+`ready` (prêt au retrait) ou `delivered` (livré), le client est prévenu automatiquement —
+en **goroutine isolée** avec `recover` et un délai de 10 s, donc l'accusé de réception du
+comptoir n'attend jamais la passerelle. Les autres transitions n'envoient rien, et le droit
+`notifications.advanced` est revérifié à chaque fois.
+
+### 4. Isolation et validations éprouvées
+- Une commande d'un autre pressing, inconnue ou d'identifiant mal formé → **404
+  « commande introuvable »** (aucune fuite d'existence, aucun message chez le voisin).
+- Canal inconnu (`email`), modèle inconnu, téléphone manquant → **400** avec message métier.
+- Message blanc → repli sur le modèle (le comptoir ne peut pas envoyer un WhatsApp vide).
+
+### 5. Bug/piège corrigé pendant la session
+- `order.Order` n'expose **ni `BranchID` ni `TenantName`** : le périmètre a été retiré du
+  modèle de notification et le nom du pressing déplacé côté jeton/base (voir ci-dessus).
+- Un utilitaire UUID unique (`pgutil.NullableUUID`, `pgutil.IsUUID`) a été extrait : la
+  dépense (session 5) et l'abonnement l'utilisent désormais au lieu de conversions `::uuid`
+  divergentes — c'est la classe de bug qui avait produit le `400 22P02` de la session 5.
+
+### Preuves d'exécution (session 6)
+| Preuve | Résultat |
+|---|---|
+| `go build ./...`, `go vet ./...`, `gofmt -l` | propres |
+| `go test ./...` | **13 paquets ok**, dont `notification` (11 tests : composition, validations, passerelle `httptest` — payload, Bearer, échec 429/injoignable, hook automatique, isolation tenant) et `billing` (`notifications.advanced` réservé aux formules payantes) |
+| Frontend | `tsc --noEmit`, ESLint, Prettier, **108 tests Vitest** (13 fichiers, dont `notificationsApi` et `ClientNotificationModal`), build Vite ✅ |
+| Live `/tmp/verif_tour6.py` (passerelle webhook de test) | **57/57** — journal vide puis 2 messages (`envoye`, `provider: passerelle`), payload et jeton Bearer reçus par la passerelle, filtres, persistance SQL, refus `400`/`404`, repli du message blanc, messages automatiques `ready`/`delivered` réellement transmis, **isolation inter-pressings**, **402 après la fin de l'essai** avec configuration toujours lisible, non-régression des autres modules |
+
+---
+
+## 10. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
 | 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
-| 🟢 Basse | Notifications WhatsApp/SMS, mode hors-ligne (PWA), transfert d'un ticket vers une imprimante réseau |
+| 🟢 Basse | Mode hors-ligne (PWA), transfert d'un ticket vers une imprimante réseau, sélection d'un fournisseur WhatsApp/SMS managé côté éditeur |
 
 ---
 
-## 10. Vérification finale de bout en bout — 34/34 ✅
+## 11. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -253,7 +313,7 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 11. Comment reproduire les vérifications
+## 12. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique
@@ -275,7 +335,12 @@ python3 /tmp/verif_tour5.py
 # Correctif « dépense avec un compte de démonstration » (auteur non-UUID)
 python3 /tmp/verif_fix_demo.py
 
-# Frontend : types, ESLint, formatage, tests (94), build
+# Tour 6 : notifications clients (journal, passerelle webhook, automatisme, 402)
+# Prérequis : NOTIFICATIONS_GATEWAY_URL=http://127.0.0.1:9099/webhook et le petit
+# récepteur /tmp/passerelle.py lancés, puis npm run dev
+python3 /tmp/verif_tour6.py
+
+# Frontend : types, ESLint, formatage, tests (108), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

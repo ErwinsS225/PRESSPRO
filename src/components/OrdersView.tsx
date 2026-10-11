@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, ArrowRight, Check, Printer } from 'lucide-react';
+import { Search, Plus, ArrowRight, Check, Printer, MessageCircle } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 
 interface OrdersViewProps {
@@ -7,6 +7,7 @@ interface OrdersViewProps {
   onAdvanceStatus: (orderId: string) => void;
   onNewOrder: () => void;
   onOpenThermalTicket: (order: Order) => void;
+  onNotifyClient: (order: Order) => void;
 }
 
 export const OrdersView: React.FC<OrdersViewProps> = ({
@@ -14,6 +15,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   onAdvanceStatus,
   onNewOrder,
   onOpenThermalTicket,
+  onNotifyClient,
 }) => {
   const [filter, setFilter] = useState<'all' | OrderStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,6 +199,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                             title="Imprimer le ticket 80mm"
                           >
                             <Printer className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onNotifyClient(order)}
+                            className="rounded p-1 text-neutral-400 hover:text-emerald-700 dark:text-neutral-500 dark:hover:text-emerald-400"
+                            title="Notifier le client (WhatsApp / SMS)"
+                            aria-label={`Notifier ${order.customerName}`}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
                           </button>
                           {nextAction ? (
                             <button

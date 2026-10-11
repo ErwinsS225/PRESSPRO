@@ -141,8 +141,24 @@ Modules gardés et compteurs associés :
 | Commandes du mois | `RequireFeatureQuota(orders.monthly.max)` | `COUNT(orders)` sur le mois courant |
 | Rapports avancés / consolidation | `RequireFeature(reports.advanced)` / `reports.consolidated` | droit booléen de la formule |
 | Dépenses d'exploitation | `RequireFeature(expenses.advanced)` | droit booléen de la formule |
+| Notifications clients (envoi) | `RequireFeature(notifications.advanced)` | droit booléen de la formule — la **lecture du journal reste libre** |
 
 Chaque compteur doit être **branché sur un cas explicite** de `billing.Service.FeatureUsage` : une clé oubliée renvoie une consommation nulle et désactive silencieusement le plafond (voir `docs/correctifs-2026-10.md`, session 4).
+
+### Module Notifications clients (paquet `internal/notification`)
+
+| Élément | Rôle |
+|---|---|
+| `Service` | Compose et journalise les messages ; sources injectées : `SourceCommandes` (`GetOrderByID` — isolation par pressing), `Passerelle` (facultatif), `SetDroitVerificateur(billing, notifications.advanced)`, `SetNomPressing` (nom du pressing lu en base, repli « votre pressing ») |
+| `Passerelle` | Interface d'envoi réel ; `NewHTTPPasserelle(url, jeton, timeout)` effectue un POST JSON (`to`, `channel`, `body`, `order_id`, `tenant_id`) avec `Authorization: Bearer` lorsque le jeton est configuré, délai 5 s par défaut |
+| `Store` / `dbStore` | Journal persisté (table `notifications`) ; repli mémoire si la base n'est pas prête |
+| `Handler` | `GET /api/v1/notifications` (journal, filtres), `POST /api/v1/notifications` (composition + envoi, gardé par `RequireFeature`) |
+| Hook `order.SetHookStatut` | Les transitions `ready`/`delivered` déclenchent `NotifierTransition` en **goroutine isolée** (10 s maximum, panne avalée, `recover`) : l'accusé de réception du comptoir n'attend jamais la passerelle |
+
+Sans passerelle configurée (`NOTIFICATIONS_GATEWAY_URL` absente), le message reste
+**journalisé** (`status: "simule"`) et l'interface du comptoir propose l'ouverture manuelle
+de WhatsApp / SMS : la fonctionnalité reste utile en formule d'essai comme en local, et un
+échec de la passerelle est tracé (`status: "echec"`, `detail`) sans bloquer l'atelier.
 
 ### Espace SuperAdmin
 `GET /admin/stats`, `GET /admin/tenants` et `PATCH /admin/tenants/{id}/status` travaillent sur les données réelles (`billing.Service.AdminStats`, `TenantsOverview`, `SetTenantStatus`). En mode dégradé, les indicateurs sont calculés sur les abonnements en mémoire et signalés par `data_source: "memoire"`.
@@ -165,7 +181,7 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 ## 7. Qualité, outillage et intégration continue
 
 - **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
-- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **11 fichiers / 94 tests**, vues métier, clients API et flux d'impression ESC/POS) et `npm run build`.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **13 fichiers / 108 tests**, vues métier, clients API, modale de notification client et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
-- Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports et périmètre d'exploitation par établissement (`X-Branch-ID`).
+- Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).
 - **Impression des tickets** : le rendu 80 mm est disponible en HTML (modale ticket) et en **flux ESC/POS** (`src/lib/escpos.ts`) — CP437, encodage tolérant aux accents absents de la table, transport **WebUSB** (Chrome/Edge sur ordinateur) avec aperçu du flux avant envoi ; l'impression HTML reste le repli.

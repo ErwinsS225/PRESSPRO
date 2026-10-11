@@ -6,6 +6,11 @@
 >
 > Mise en garde production : `SERVER_ENV=production` **exige** `JWT_SECRET` (32 caractères minimum) — le serveur refuse de démarrer sans ce secret.
 
+> Notifications clients : `NOTIFICATIONS_GATEWAY_URL` (et son jeton facultatif
+> `NOTIFICATIONS_GATEWAY_TOKEN`) active l'envoi réel WhatsApp/SMS par webhook. Laisser vide
+> pour rester en mode journalisé (« simule »), dans lequel l'interface du comptoir propose
+> l'ouverture manuelle de WhatsApp / SMS.
+
 Ce guide pas à pas est conçu pour vous accompagner sur votre **MacBook sous macOS** avec **VS Code** et le terminal.
 
 ---

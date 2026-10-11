@@ -27,7 +27,8 @@ Les **lectures ne sont jamais payantes** : une rétrogradation de formule ne ren
 - `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS) et `POST /api/v1/price-lists/{id}/versions` ;
 - `POST /api/v1/users` (plafond de comptes : 2 en gratuit, 5 en PRO, 15 en BUSINESS — établissement d'essai : 15) ;
 - `POST /api/v1/branches` (plafond d'établissements : 1 en gratuit et PRO, 3 en BUSINESS) ;
-- `GET /api/v1/reports/summary` (`reports.advanced`) et `POST`/`DELETE /api/v1/expenses` (`expenses.advanced`).
+- `GET /api/v1/reports/summary` (`reports.advanced`) et `POST`/`DELETE /api/v1/expenses` (`expenses.advanced`) ;
+- `POST /api/v1/notifications` (`notifications.advanced`) — la composition et la **lecture du journal** restent ouvertes à tous.
 
 ### Abonnement suspendu
 Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/status`), les **modules métier** de l'établissement (catalogue, commandes, clients, grilles) répondent `402` avec `{"error":"abonnement suspendu…","subscription_status":"SUSPENDED"}`. Les routes de compte (`/tenant/current`, `/me/entitlements`) et l'authentification restent ouvertes afin que le pressing puisse constater sa situation ; le superadmin conserve l'accès complet.
@@ -222,6 +223,40 @@ Catégories du référentiel : `matieres_premieres`, `produits_entretien`, `loye
 `energie_eau`, `salaires`, `transport`, `equipement`, `maintenance`, `taxes`, `divers`.
 `400` pour un libellé vide, un montant ≤ 0, une catégorie inconnue ou une date
 invalide.
+
+### Module Notifications clients — fonctionnalité `notifications.advanced`
+
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/notifications` | tous les membres | **Journal des messages** du pressing, du plus récent au plus ancien. Filtres : `order_id`, `channel` (`whatsapp`\|`sms`), `status` (`simule`\|`envoye`\|`echec`), `limit` (défaut 50, maximum 200). Réponse : `{"notifications":[…],"count":N,"channels":["whatsapp","sms"],"templates":[…]}`. La lecture reste ouverte même en formule gratuite : l'historique appartient au pressing. |
+| POST | `/api/v1/notifications` | tous les membres | Compose puis envoie un message client. Corps : `{"order_id","channel","template","message","recipient"}` → `201` `{"notification":…,"status":…,"message":…}`. Gardé par `RequireFeature(notifications.advanced)` : `402` en formule gratuite, l'interface propose alors l'ouverture manuelle. |
+
+**Canaux** : `whatsapp`, `sms`. **Modèles** : `commande_prete`, `commande_livree`,
+`paiement_recu`, `rappel_retrait` — chacun compose un texte français avec le nom du
+pressing (issu du jeton, jamais du client), le numéro de commande, le nom du client, le
+solde restant et l'échéance. `message` remplace le modèle ; un `message` vide (ou blanc)
+retombe sur `template`, lui-même par défaut `commande_prete`.
+
+**Destinataire** : `recipient` sinon le téléphone du client de la commande. `400` pour un
+canal ou un modèle inconnu ou un téléphone manquant ; `404` « commande introuvable » pour
+un identifiant inconnu, mal formé ou appartenant à un autre pressing.
+
+**Envoi réel ou journalisé** : avec `NOTIFICATIONS_GATEWAY_URL`, le message est transmis à
+la passerelle (POST JSON `{"to","channel","body","order_id","tenant_id"}` et, si
+`NOTIFICATIONS_GATEWAY_TOKEN` est défini, l'en-tête `Authorization: Bearer <jeton>`, délai
+5 s) ; la notification est alors enregistrée avec `status: "envoye"` et
+`provider: "passerelle"`. Sans passerelle — ou si elle échoue — le message reste
+**journalisé** (`status: "simule"` ou `"echec"`, `detail` explicite) : l'interface propose
+toujours « Ouvrir dans WhatsApp / SMS » pour envoyer depuis le téléphone du comptoir.
+
+**Déclenchement automatique** : lorsqu'une commande passe à `ready` ou `delivered`, le
+service des commandes notifie le client en tâche de fond (hors du chemin critique, 10 s
+maximum, panne avalée) **si la formule inclut `notifications.advanced`** ; la notification
+porte alors `created_by` vide. Les autres transitions n'envoient rien.
+
+**Variable d'environnement** : `NOTIFICATIONS_GATEWAY_URL` (facultative) active l'envoi
+réel ; `NOTIFICATIONS_GATEWAY_TOKEN` (facultative) ajoute le jeton Bearer. Sans URL, tout
+reste dans le journal local.
 
 ### Module Rapports — fonctionnalités `reports.advanced` et `reports.consolidated`
 | Méthode | Route | Rôle | Description |

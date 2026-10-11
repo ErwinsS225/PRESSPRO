@@ -32,6 +32,7 @@ import { ReportsView } from './components/ReportsView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalTicketModal } from './components/ThermalTicketModal';
+import { ClientNotificationModal } from './components/ClientNotificationModal';
 import { TicketVerificationView } from './components/TicketVerificationView';
 
 function PressingOSApp() {
@@ -62,6 +63,8 @@ function PressingOSApp() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [selectedTicketOrder, setSelectedTicketOrder] = useState<Order | null>(null);
+  // Commande dont on notifie le client (WhatsApp / SMS).
+  const [notificationOrder, setNotificationOrder] = useState<Order | null>(null);
   const [health, setHealth] = useState<HealthCheckResult | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -393,6 +396,7 @@ function PressingOSApp() {
                   onAdvanceStatus={handleAdvanceOrderStatus}
                   onNewOrder={() => setIsNewOrderModalOpen(true)}
                   onOpenThermalTicket={(ord) => setSelectedTicketOrder(ord)}
+                  onNotifyClient={(ord) => setNotificationOrder(ord)}
                 />
               )}
 
@@ -471,6 +475,16 @@ function PressingOSApp() {
           tenant={session.tenant}
           onClose={() => setSelectedTicketOrder(null)}
           onSettleBalance={handleSettleBalance}
+        />
+      )}
+
+      {notificationOrder && (
+        <ClientNotificationModal
+          order={notificationOrder}
+          currentUser={session.user}
+          token={session.token}
+          onClose={() => setNotificationOrder(null)}
+          showToast={showToast}
         />
       )}
     </div>
