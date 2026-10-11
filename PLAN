@@ -1,0 +1,38 @@
+## Objectif
+Établir une base de régression avant de modifier le moteur d'abonnement existant.
+
+## Couverture ajoutée
+- Essai de 7 jours et idempotence de `EnsureTrial`.
+- Droits BUSINESS pendant l'essai et dates exposées par l'API métier.
+- Isolation des droits entre tenants.
+- Limite FREE de 50 commandes et absence de ce plafond pendant l'essai BUSINESS.
+
+## Étape suivante
+Après validation CI, compléter les tests pour la fenêtre de commandes de 30 jours, l'expiration persistée vers FREE, la rétrogradation sans suppression des données et les refus de créations dépassant les quotas, puis implémenter ces changements dans les composants existants.
+
+Aucune reconstruction du moteur ni intégration de paiement n'est incluse dans cette PR.
+
+## Résumé par Sourcery
+
+Établir des tests de régression du moteur d’abonnement avant de modifier le comportement lié à l’expiration des périodes d’essai et aux quotas.
+
+Améliorations :
+- Ajouter une couverture de régression pour les périodes d’essai de sept jours et idempotentes, les droits BUSINESS pendant les périodes d’essai, l’isolation des tenants et les quotas de commandes FREE par rapport aux périodes d’essai.
+
+Tests :
+- Introduire des tests de référence sur les abonnements afin de caractériser le comportement actuel des périodes d’essai, des droits, du périmètre des tenants et des quotas.
+
+<details>
+<summary>Original summary in English</summary>
+
+## Summary by Sourcery
+
+Establish subscription-engine regression tests before changing trial expiry and quota behavior.
+
+Enhancements:
+- Add regression coverage for seven-day, idempotent trials, BUSINESS entitlements during trials, tenant isolation, and FREE versus trial order quotas.
+
+Tests:
+- Introduce baseline subscription tests to characterize current trial, entitlement, tenant-scoping, and quota behavior.
+
+</details>
