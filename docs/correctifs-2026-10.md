@@ -1,6 +1,6 @@
 # PressingOS — Journal des correctifs et améliorations
 
-**Session du 11 octobre 2026** — suite au rapport `RAPPORT_PROJET_PRESSPRO.md`.
+**Session du 11 octobre 2026** — après l'audit d'origine du 11 octobre 2026 (rapport historique, depuis retiré du dépôt : ses constats sont repris et re-mesurés dans `docs/analyse-fonctionnalites-2026-10-11.md`).
 Chaque correctif a été vérifié en exécution réelle (PostgreSQL 16, binaire Go compilé, appels HTTP).
 
 ---
@@ -445,7 +445,7 @@ script SQL ponctuel). Les comptes de démonstration embarqués (`gerant@…`, `a
 
 | Priorité | Sujet |
 |---|---|
-| 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
+| 🟡 Moyenne | ~~`analyse.md` et `rapports_audit_consolide.md` : à archiver~~ **fait le 11/10** — supprimés (chiffres non reproductibles), remplacés par `docs/analyse-fonctionnalites-2026-10-11.md` |
 | 🟢 Basse | Mode hors-ligne (PWA), transfert d'un ticket vers une imprimante réseau, sélection d'un fournisseur WhatsApp/SMS managé côté éditeur |
 
 ---

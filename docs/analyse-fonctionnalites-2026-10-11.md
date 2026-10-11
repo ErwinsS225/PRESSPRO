@@ -5,7 +5,7 @@
 | **Date de l'analyse** | 11 octobre 2026 |
 | **Commit analysé** | `bba5130` — branche `arena/90615ea9-presspro` (tête poussée, CI verte) |
 | **Périmètre** | Code source complet (backend Go, frontend React/TS, SQL), documentation du dépôt, **exécution réelle** : tests Go unitaires + intégration PostgreSQL 16, 171 tests frontend, build, appels HTTP sur la pile vivante (proxy `:3000` → API `:8085` → PostgreSQL) |
-| **Méthode** | Inventaire par lecture du code (source de vérité), puis vérification par exécution. Aucun chiffre n'est repris d'un document sans avoir été re-mesuré. |
+| **Méthode** | Inventaire par lecture du code (source de vérité), puis vérification par exécution. Aucun chiffre n'est repris d'un document sans avoir été re-mesuré. Le rapport d'audit d'origine, retiré du dépôt le 11/10 (voir A17), n'est cité qu'à titre historique. |
 
 ---
 
@@ -23,7 +23,7 @@
 | Qualité & tests | **7,5 / 10** | 94 tests Go (+ 4 suites d'intégration PostgreSQL) et 23 fichiers / 171 tests frontend, CI verte à chaque push. Couverture Go encore hétérogène (`customer`/`database` 0 %). | 6 → 7,5 |
 | Fonctionnel livré | **9 / 10** | Commandes, caisse, catalogue, clients, équipe, multi-sites, dépenses, rapports + exports, notifications WhatsApp/SMS, abonnement/quotas, console éditeur (dont **suppression définitive**). | 8 → 9 |
 | Robustesse en production | **6,5 / 10** | Bascule mémoire décidée sur `Ping`, `/ready` 503, arrêt gracieux, erreurs normalisées. Manquent : sauvegardes/restauration, observabilité, encaissement des abonnements. | **4 → 6,5** |
-| Documentation | **7,5 / 10** | 5 documents `docs/` réconciliés avec le code (API, architecture, base, installation, journal des correctifs) + `.env.example`. Restent 3 documents racine périmés et aucun contrat OpenAPI. | 7 → 7,5 |
+| Documentation | **7,5 / 10** | 5 documents `docs/` réconciliés avec le code (API, architecture, base, installation, journal des correctifs) + `.env.example` ; les 3 documents racine périmés ont été supprimés le 11/10. Manque encore un contrat OpenAPI. | 7 → 7,5 |
 
 **Les 3 risques qui empêchent encore une commercialisation** :
 
@@ -51,7 +51,7 @@
 
 ## 2. Objectifs visés (reformulés depuis les documents du projet)
 
-1. **Objectif produit** : « ERP SaaS multi-tenant de gestion des pressings et buanderies en Côte d'Ivoire » (`RAPPORT_PROJET_PRESSPRO.md` §1.1) — dépôt, atelier, caisse, clients, tarifs, personnel, pilotage, pour un prix mensuel par établissement.
+1. **Objectif produit** : « ERP SaaS multi-tenant de gestion des pressings et buanderies en Côte d'Ivoire » — dépôt, atelier, caisse, clients, tarifs, personnel, pilotage, pour un prix mensuel par établissement.
 2. **Objectifs de robustesse de l'audit** (Sprints 0 et 1) : rendre l'application exploitable en mode PostgreSQL (catalogue, repli mémoire), garantir l'intégrité financière (surpaiement), durcir la sécurité (secret JWT, erreurs, force brute, fail-closed), brancher les verrous de plan, industrialiser (CI).
 3. **Objectifs de complétion fonctionnelle** (Sprints 2 et 3) : console éditeur sur données réelles, écrans multi-établissements et équipe, notifications WhatsApp/SMS, rapports avancés/consolidés + exports, module dépenses, impression ESC/POS, mode hors-ligne, observabilité, sauvegardes.
 4. **Objectifs exprimés ensuite par le commanditaire** (sessions 4 à 7) : composants d'interface ReUI réels, habillage « survols foncés + relief », composant tableau correctement implémenté puis partagé, exports de rapports, impression thermique, affectation employé ↔ établissement, notifications clients WhatsApp/SMS, et **suppression de toutes les données des entreprises fictives (base + jeu de démonstration) via une vraie fonctionnalité d'administration**.
@@ -333,16 +333,16 @@ Le cycle complet « vendre → encaisser → contrôler » fonctionne donc **san
 | A8 | Couverture de tests faible | 🟡 partiel | 94 tests Go + 4 suites d'intégration, mais `customer`/`database` 0 %, `order` 21 %, `catalog` 16 %, `pricelist` 7,5 % |
 | A9 | Codes HTTP incohérents | ✅ corrigé | `403`/`404` normalisés (audit final 34/34) |
 | A10 | Quota restant négatif | ✅ corrigé | Valeurs bornées à 0 |
-| A11 | Documentation désynchronisée | 🟡 partiel | `docs/` réconcilié ; 3 documents racine périmés subsistent |
+| A11 | Documentation désynchronisée | ✅ corrigé | `docs/` réconcilié avec le code ; rapports racine périmés supprimés le 11/10 (voir A17) |
 | A12 | Verrous de plan non branchés | ✅ corrigé | 6 routes sous `RequireFeature` + 402 testés |
 | A13 | Aucune prestation par défaut pour un nouveau tenant | ✅ corrigé | 49 prestations créées à l'inscription |
 | A14 | Zéro test frontend, pas de lint/format, bundle monolithique | ✅ corrigé | 171 tests, ESLint/Prettier, bundle découpé (vendors) |
 | A15 | Aucune CI | ✅ corrigé | 2 jobs GitHub Actions, PostgreSQL 16 de service |
 | A16 | Ticket public exposant le nom du client | ❌ **ouvert** | `VerifyTicketResponse.CustomerName` toujours renvoyé en clair |
-| A17 | Documents obsolètes (`analyse.md`, `rapports_audit_consolide.md`) | ❌ ouvert | Toujours présents à la racine |
+| A17 | Documents obsolètes (`analyse.md`, `rapports_audit_consolide.md`) | ✅ corrigé | Supprimés du dépôt le 11/10 (chiffres non reproductibles) ; le présent document les remplace |
 | A18 | `npm ci` exige `--legacy-peer-deps` | ❌ ouvert | Aucun `.npmrc` ni `overrides` dans `package.json` |
 
-**Bilan** : **14 anomalies corrigées**, 2 partiellement, 3 ouvertes (A16, A17, A18) — les P0/P1 de la sécurité et de la robustesse sont tous traités.
+**Bilan** : **15 anomalies corrigées**, 1 partiellement (A8, couverture de tests), 2 ouvertes (A16, A18) — les P0/P1 de la sécurité et de la robustesse sont tous traités.
 
 ### 4.2 Feuille de route de l'audit (points 1 → 20)
 
@@ -363,7 +363,7 @@ Le cycle complet « vendre → encaisser → contrôler » fonctionne donc **san
 | 17 | Rapports avancés/consolidés + exports | ✅ | `reports.advanced`, `reports.consolidated`, CSV/PDF |
 | 18 | Module dépenses + journal d'audit avancé | 🟡 | Dépenses ✅ ; **journal d'audit** ❌ (droit `audit.advanced` déclaré mais aucun module) |
 | 19 | Impression ESC/POS native + mode hors-ligne | 🟡 | ESC/POS WebUSB ✅ (USB, Chrome/Edge) ; **PWA hors-ligne** ❌, pas d'imprimante réseau |
-| 20 | Hygiène documentaire | 🟡 | `docs/` réconcilié ; 2 documents périmés non archivés ; scripts de vérification hors dépôt |
+| 20 | Hygiène documentaire | 🟡 | `docs/` réconcilié ; rapports racine périmés supprimés le 11/10 ; restent les scripts de vérification hors dépôt et l'absence de contrat OpenAPI |
 
 ### 4.3 Objectifs exprimés par le commanditaire (sessions livrées)
 
