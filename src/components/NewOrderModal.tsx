@@ -104,7 +104,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/75 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] max-h-[90vh] overflow-y-auto shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -116,7 +116,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+            className="rounded p-1 text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -163,7 +163,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
               <button
                 type="button"
                 onClick={handleAddItem}
-                className="flex items-center gap-1 text-[11px] text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"
+                className="flex items-center gap-1 text-[11px] text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200"
               >
                 <Plus className="h-3 w-3" />
                 <span>Ajouter un vêtement</span>
@@ -179,7 +179,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                   <select
                     value={item.serviceName}
                     onChange={(e) => handleItemChange(idx, e.target.value)}
-                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   >
                     {services
                       .filter((s) => s.isActive !== false)
@@ -195,7 +195,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                     min={1}
                     value={item.quantity}
                     onChange={(e) => handleQuantityChange(idx, parseInt(e.target.value, 10))}
-                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   />
 
                   <div className="w-24 text-right font-mono text-xs font-medium text-neutral-900 dark:text-neutral-100 tabular-nums">
@@ -206,7 +206,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                     <button
                       type="button"
                       onClick={() => handleRemoveItem(idx)}
-                      className="text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 p-1"
+                      className="text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200 p-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -258,13 +258,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Annuler
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
               >
                 Valider le Dépôt
               </button>

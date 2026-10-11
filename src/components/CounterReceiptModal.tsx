@@ -188,7 +188,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyText}
-              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:hover:bg-white/[0.06] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               title="Copier le texte du ticket pour WhatsApp"
             >
               {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -197,7 +197,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
 
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
             >
               <Printer className="h-3.5 w-3.5" />
               <span>Imprimer Reçu ({format})</span>
@@ -205,7 +205,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
 
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               <X className="h-4 w-4" />
             </button>
@@ -228,7 +228,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
                     format === '80mm'
                       ? 'border-neutral-900 bg-white font-bold text-neutral-900 shadow-xs dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100 ring-1 ring-neutral-900 dark:ring-neutral-100'
-                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400'
+                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   <span className="font-mono text-xs font-bold">80 mm</span>
@@ -246,7 +246,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
                     format === '58mm'
                       ? 'border-neutral-900 bg-white font-bold text-neutral-900 shadow-xs dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100 ring-1 ring-neutral-900 dark:ring-neutral-100'
-                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400'
+                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   <span className="font-mono text-xs font-bold">58 mm</span>
@@ -270,7 +270,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
                     contentMode === 'essentials'
                       ? 'border-neutral-900 bg-white font-semibold text-neutral-900 dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100'
-                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400'
+                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
                     contentMode === 'category'
                       ? 'border-neutral-900 bg-white font-semibold text-neutral-900 dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100'
-                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400'
+                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -301,7 +301,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                     <select
                       value={selectedCategory}
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                     >
                       {categoriesList.map((c) => (
                         <option key={c} value={c}>
@@ -318,7 +318,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                   className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
                     contentMode === 'all'
                       ? 'border-neutral-900 bg-white font-semibold text-neutral-900 dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100'
-                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400'
+                      : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -335,7 +335,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                     className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
                       contentMode === 'quote'
                         ? 'border-emerald-600 bg-emerald-50/80 font-semibold text-emerald-900 dark:border-emerald-400 dark:bg-emerald-950/60 dark:text-emerald-100'
-                        : 'border-neutral-200 bg-white/50 text-neutral-600 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400'
+                        : 'border-neutral-200 bg-white/50 text-neutral-600 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
             </div>
 
             {/* Renseignements établissement */}
-            <div className="rounded-xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 text-[11px] space-y-1">
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 text-[11px] space-y-1 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
                 <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                 <span>Réglementation Commerciale</span>
@@ -657,13 +657,13 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="rounded-lg border border-neutral-200 px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="rounded-lg border border-neutral-200 px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               Fermer
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white shadow-xs"
+              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white shadow-xs"
             >
               <Printer className="h-3.5 w-3.5" />
               <span>Imprimer le Reçu ({format})</span>

@@ -420,7 +420,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleStartCreate}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Créer une prestation</span>
@@ -428,7 +428,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
 
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors"
+              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               <XCircle className="h-5 w-5" />
             </button>
@@ -440,7 +440,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
           {/* COLONNE GAUCHE (5 COLUMNS) : FILTRES & LISTE DES PRESTATIONS */}
           <div className="flex h-full flex-col overflow-hidden md:col-span-5 bg-neutral-50/50 dark:bg-neutral-950/40">
             {/* Barre de recherche & filtres rapides */}
-            <div className="p-3.5 space-y-2.5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c0c0c]">
+            <div className="p-3.5 space-y-2.5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c0c0c] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
                 <input
@@ -448,7 +448,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                   placeholder="Rechercher vêtement, soin..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:bg-white focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:bg-white focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                 />
               </div>
 
@@ -457,7 +457,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 <select
                   value={activeCategory}
                   onChange={(e) => setActiveCategory(e.target.value)}
-                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                 >
                   <option value="all">Toutes les catégories</option>
                   {categoriesList.map((c) => (
@@ -470,7 +470,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                 >
                   <option value="all">Tous statuts ({services.length})</option>
                   <option value="active">Actives uniquement</option>
@@ -497,7 +497,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                       className={`group flex items-center justify-between rounded-xl p-3 cursor-pointer transition-all ${
                         isSelected
                           ? 'border border-neutral-900/15 bg-white shadow-xs dark:border-neutral-100/20 dark:bg-neutral-900'
-                          : 'border border-transparent hover:bg-white/80 dark:hover:bg-neutral-900/50'
+                          : 'border border-transparent hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                       }`}
                     >
                       <div className="space-y-0.5 pr-2">
@@ -568,7 +568,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                     const current = services.find((s) => s.id === selectedServiceId);
                     if (current) handleDuplicate(current);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                   title="Créer une variante à partir de cette référence"
                 >
                   <Copy className="h-3.5 w-3.5" />
@@ -699,7 +699,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
               </div>
 
               {/* Options & Attributs métier */}
-              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -776,7 +776,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
               </div>
 
               {/* Bascule Actif / Inactif */}
-              <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
+              <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <div className="space-y-0.5">
                   <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                     Statut Actif au Comptoir
@@ -819,7 +819,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(null)}
-                            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                            className="text-xs text-neutral-500 hover:text-neutral-950 dark:hover:text-neutral-300"
                           >
                             Annuler
                           </button>
@@ -848,7 +848,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50 transition-colors"
                   >
                     <Database className="h-3.5 w-3.5" />
                     <span>

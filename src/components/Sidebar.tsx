@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenLoginModal}
               title="Changer de rôle ou d'établissement"
-              className="text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-200 p-1 rounded hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition-colors"
+              className="text-neutral-400 dark:text-neutral-500 dark:hover:text-neutral-200 p-1 rounded hover:bg-neutral-950 hover:text-white transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />
             </button>
@@ -147,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`group flex w-full items-center justify-between rounded-md px-2.5 py-2 text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950 font-semibold shadow-2xs'
-                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-100'
+                    : 'text-neutral-600 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -183,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`group relative w-full overflow-hidden rounded-xl border p-3 text-left transition-all ${
               currentView === 'billing'
                 ? 'border-neutral-900 bg-neutral-900 shadow-sm dark:border-neutral-100 dark:bg-neutral-100'
-                : 'border-neutral-200 bg-gradient-to-br from-neutral-50 to-neutral-100 hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950 dark:hover:border-neutral-700'
+                : 'border-neutral-200 bg-gradient-to-br from-neutral-50 to-neutral-100 shadow-[0_1px_2px_rgba(17,17,17,0.06),0_10px_30px_-18px_rgba(17,17,17,0.35)] hover:-translate-y-0.5 hover:border-neutral-950 hover:shadow-[0_2px_5px_rgba(17,17,17,0.08),0_22px_48px_-20px_rgba(17,17,17,0.55)] dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950 dark:hover:border-white/70 dark:hover:shadow-[0_2px_6px_rgba(0,0,0,0.7),0_26px_60px_-24px_rgba(0,0,0,1)]'
             }`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -223,10 +223,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User Card & Switch button */}
-        <div className="border-t border-neutral-200 p-3 bg-neutral-50/50 dark:border-neutral-800 dark:bg-[#0D0D0D]">
+        <div className="border-t border-neutral-200 p-3 bg-neutral-50/50 dark:border-neutral-800 dark:bg-[#0D0D0D] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <button
             onClick={onOpenLoginModal}
-            className="w-full flex items-center justify-between rounded-md p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors text-left"
+            className="w-full flex items-center justify-between rounded-md p-1.5 hover:bg-neutral-950 hover:text-white dark:hover:bg-neutral-900 transition-colors text-left dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
           >
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-800 text-white text-[11px] font-semibold shrink-0 dark:bg-neutral-200 dark:text-neutral-900">

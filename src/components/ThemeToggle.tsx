@@ -17,7 +17,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', showLa
       onClick={toggleTheme}
       aria-label={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
       title={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
-      className={`group relative flex items-center gap-2 rounded-md p-1.5 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 ${className}`}
+      className={`group relative flex items-center gap-2 rounded-md p-1.5 text-neutral-600 transition-colors hover:bg-neutral-900/[0.08] hover:text-neutral-950 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 ${className}`}
     >
       <div className="relative h-4 w-4">
         {isDark ? (

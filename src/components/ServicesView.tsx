@@ -496,7 +496,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   return (
     <div className="space-y-6">
       {/* BANNIÈRE SUPÉRIEURE : EN-TÊTE ERP & SYNC STATUS */}
-      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-xs dark:border-neutral-800 dark:bg-[#0c0c0c] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#0c0c0c] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
@@ -531,7 +531,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
               isQuoteCalcOpen
                 ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
             }`}
           >
             <Calculator className="h-3.5 w-3.5" />
@@ -541,7 +541,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Affichage Reçu Comptoir (Format Ticket 80mm/58mm) */}
           <button
             onClick={() => setIsPrintModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             title="Imprimer le barème au format reçu thermique (80mm / 58mm comme en pharmacie, boulangerie ou supermarché)"
           >
             <Receipt className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -555,7 +555,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <button
             onClick={triggerSync}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors disabled:opacity-50 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
             <span>
@@ -572,7 +572,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Module de Gestion de Catalogue (Créer, Modifier, Supprimer, Désactiver) */}
               <button
                 onClick={() => setIsCatalogManagerOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors shadow-2xs"
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                 title="Ouvrir le module complet de gestion du catalogue et synchronisation PostgreSQL"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-600 dark:text-neutral-400" />
@@ -585,7 +585,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Ajuster grille */}
               <button
                 onClick={() => setIsBulkAdjustOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>Ajuster Grille</span>
@@ -594,7 +594,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Ajouter prestation */}
               <button
                 onClick={handleOpenAdd}
-                className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+                className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Nouvelle Prestation</span>
@@ -611,7 +611,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
             mainTab === 'catalog'
               ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <Layers className="h-4 w-4" />
@@ -623,7 +623,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
             mainTab === 'subscriptions'
               ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <Calendar className="h-4 w-4" />
@@ -635,7 +635,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
             mainTab === 'contracts'
               ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <Briefcase className="h-4 w-4" />
@@ -645,7 +645,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       {/* PANNEAU CALCULATEUR DE DEVIS INSTANTANÉ (SIMULATEUR DE COMPTOIR) */}
       {isQuoteCalcOpen && (
-        <div className="rounded-xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-5 shadow-xs dark:border-neutral-800 dark:from-neutral-900 dark:to-[#0d0d0d]">
+        <div className="rounded-xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-5 dark:border-neutral-800 dark:from-neutral-900 dark:to-[#0d0d0d] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
             <div className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -725,14 +725,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     <button
                       onClick={() => handleUpdateQuoteQty(item.id, -1)}
                       disabled={qty === 0}
-                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 disabled:opacity-30 dark:bg-neutral-800 dark:text-neutral-200"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-900/[0.16] dark:hover:bg-white/[0.16] disabled:opacity-30 dark:bg-neutral-800 dark:text-neutral-200"
                     >
                       -
                     </button>
                     <span className="w-5 text-center font-mono font-semibold">{qty}</span>
                     <button
                       onClick={() => handleUpdateQuoteQty(item.id, 1)}
-                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-900 text-white hover:bg-black dark:hover:bg-white dark:bg-neutral-100 dark:text-neutral-900"
                     >
                       +
                     </button>
@@ -759,7 +759,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                     isSelected
                       ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
-                      : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+                      : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
                   }`}
                 >
                   <span className="hidden md:inline">{cat.label}</span>
@@ -787,7 +787,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 placeholder="Rechercher article, soin (ex: boubou, couette, cintre, bazin)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100"
+                className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               />
             </div>
 
@@ -796,7 +796,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={modelFilter}
                 onChange={(e) => setModelFilter(e.target.value as ServiceFilter)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               >
                 <option value="all">Tous les modes de facturation</option>
                 <option value="piece">Paiement à la pièce</option>
@@ -808,7 +808,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               >
                 <option value="all">Tous les états</option>
                 <option value="active">Actives au comptoir</option>
@@ -819,7 +819,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as any)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               >
                 <option value="name">Trier par nom (A-Z)</option>
                 <option value="price-asc">Tarif croissant (FCFA)</option>
@@ -859,7 +859,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                           {canEdit && (
                             <button
                               onClick={handleOpenAdd}
-                              className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                              className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                             >
                               <Plus className="h-3 w-3" />
                               <span>Ajouter une prestation</span>
@@ -877,7 +877,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                           className={`transition-colors ${
                             !isActive
                               ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
-                              : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
+                              : 'hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50'
                           }`}
                         >
                           {/* Article & Traitement */}
@@ -903,7 +903,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                           {/* Catégorie */}
                           <td className="px-4 py-3.5">
-                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                               {item.category}
                             </span>
                           </td>
@@ -989,14 +989,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                               <div className="flex items-center justify-end gap-1">
                                 <button
                                   onClick={() => handleDuplicate(item)}
-                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors"
+                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-950 hover:text-white transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                                   title="Décliner cet article (ex: Repassage seul)"
                                 >
                                   <Copy className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleOpenEdit(item)}
-                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors"
+                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                                   title="Modifier la prestation et le tarif"
                                 >
                                   <Edit2 className="h-3.5 w-3.5" />
@@ -1025,7 +1025,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* VUE 2 : MODÈLE 3 — FORFAITS & ABONNEMENTS MENSUELS */}
       {mainTab === 'subscriptions' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Modèle 3 — Abonnements Mensuels & Forfaits Prédéfinis
             </h2>
@@ -1095,7 +1095,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     onClick={() => {
                       if (showToast) showToast(`Souscription pour "${plan.name}" disponible au comptoir.`);
                     }}
-                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                   >
                     Souscrire client
                   </button>
@@ -1109,7 +1109,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* VUE 3 : MODÈLE 4 — CONTRATS PROFESSIONNELS B2B */}
       {mainTab === 'contracts' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Modèle 4 — Contrats Professionnels & Partenariats B2B
             </h2>
@@ -1134,12 +1134,12 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </thead>
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
                 {b2bContracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50">
+                  <tr key={contract.id} className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50">
                     <td className="px-5 py-3.5 font-semibold text-neutral-900 dark:text-neutral-100">
                       {contract.clientName}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                         {contract.businessType}
                       </span>
                     </td>
@@ -1182,7 +1182,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL AJOUT PRESTATION DÉTAILLÉ */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1199,7 +1199,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1326,7 +1326,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
 
               {/* Options & Attributs modernes */}
-              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -1421,14 +1421,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                 >
                   {isSubmitting ? 'Enregistrement...' : 'Enregistrer dans la DB'}
                 </button>
@@ -1441,7 +1441,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL MODIFICATION PRESTATION */}
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1458,7 +1458,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setEditingItem(null)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1582,7 +1582,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -1674,14 +1674,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setEditingItem(null)}
-                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                    className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                   >
                     {isSubmitting ? 'Mise à jour...' : 'Mettre à jour'}
                   </button>
@@ -1695,7 +1695,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL DIALOGUE DE SUPPRESSION SÉCURISÉE (REQUÊTE DELETE VERS API GO / POSTGRESQL) */}
       {deletingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0e0e0e]">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0e0e0e] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             {/* EN-TÊTE DU DIALOGUE */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -1715,16 +1715,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingItem(null)}
-                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors disabled:opacity-50"
+                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 transition-colors disabled:opacity-50 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* CARTE DÉTAILLÉE DE LA PRESTATION CIBLÉE */}
-            <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800/80 dark:bg-neutral-900/50">
+            <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800/80 dark:bg-neutral-900/50 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                   {deletingItem.category}
                 </span>
                 <span className="font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100">
@@ -1749,7 +1749,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-start gap-2 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-2.5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
+              <div className="flex items-start gap-2 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-2.5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <Info className="h-4 w-4 shrink-0 text-neutral-400 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
                   Cette action supprimera l'article du catalogue actif via l'API Go. Pour suspendre
@@ -1775,7 +1775,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeactivateInstead}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 text-center"
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 text-center"
                 title="Conserver dans la base mais retirer de la vue comptoir"
               >
                 Désactiver plutôt
@@ -1786,7 +1786,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setDeletingItem(null)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -1817,7 +1817,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL AJUSTEUR DE GRILLE TARIFAIRE EN MASSE */}
       {isBulkAdjustOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1834,7 +1834,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setIsBulkAdjustOpen(false)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1876,7 +1876,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${
                         bulkPercent === pct
                           ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                          : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                          : 'border-neutral-200 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
                       }`}
                     >
                       {pct > 0 ? `+${pct}%` : `${pct}%`}
@@ -1889,7 +1889,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsBulkAdjustOpen(false)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
@@ -1897,7 +1897,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   type="button"
                   onClick={handleApplyBulkAdjust}
                   disabled={isSyncing}
-                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                 >
                   {isSyncing ? 'Mise à jour...' : 'Appliquer & Synchroniser DB'}
                 </button>

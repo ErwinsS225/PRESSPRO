@@ -47,7 +47,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Controls */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
             Gestion du Linge & Dépôts
@@ -59,7 +59,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
         <button
           onClick={onNewOrder}
-          className="flex items-center gap-1.5 self-start rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors sm:self-auto"
+          className="flex items-center gap-1.5 self-start rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors sm:self-auto"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Créer un Dépôt</span>
@@ -86,7 +86,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 filter === tab.id
                   ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
-                  : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
               }`}
             >
               {tab.label}
@@ -102,7 +102,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             placeholder="Rechercher ticket, client, tél..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-neutral-200 bg-white pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100"
+            className="w-full rounded-md border border-neutral-200 bg-white pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
           />
         </div>
       </div>
@@ -136,12 +136,12 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                   return (
                     <tr
                       key={order.id}
-                      className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                      className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
                     >
                       <td className="px-5 py-3.5">
                         <button
                           onClick={() => onOpenThermalTicket(order)}
-                          className="flex items-center gap-1.5 font-mono font-semibold text-neutral-900 hover:text-neutral-600 dark:text-neutral-100 dark:hover:text-neutral-300"
+                          className="flex items-center gap-1.5 font-mono font-semibold text-neutral-900 hover:text-neutral-950 dark:text-neutral-100 dark:hover:text-neutral-300"
                           title="Voir / Imprimer le ticket thermique"
                         >
                           <Printer className="h-3 w-3 text-neutral-400" />
@@ -195,7 +195,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => onOpenThermalTicket(order)}
-                            className="rounded p-1 text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-200"
+                            className="rounded p-1 text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200"
                             title="Imprimer le ticket 80mm"
                           >
                             <Printer className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                           {nextAction ? (
                             <button
                               onClick={() => onAdvanceStatus(order.id)}
-                              className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-colors"
+                              className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                             >
                               <span>{nextAction}</span>
                               <ArrowRight className="h-3 w-3 text-neutral-400 dark:text-neutral-500" />

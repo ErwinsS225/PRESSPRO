@@ -69,7 +69,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
 
   if (!isSuperadmin) {
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-[#0B0B0B]">
+      <div className="flex h-full flex-col items-center justify-center rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-[#0B0B0B] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <Shield className="h-8 w-8 text-neutral-400 dark:text-neutral-500" />
         <h1 className="mt-3 text-lg font-semibold text-neutral-900 dark:text-neutral-100">Accès refusé</h1>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
@@ -145,7 +145,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
   return (
     <div className="space-y-6">
       {/* Header Strip */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 shadow-xs">
             <Shield className="h-5 w-5" />
@@ -169,14 +169,14 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => void load()}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Actualiser</span>
           </button>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Enregistrer un Pressing</span>
@@ -203,7 +203,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
 
       {/* Global SaaS KPIs — données réelles */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Pressings Souscrits</span>
             <Building2 className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -219,7 +219,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
           </div>
         </div>
 
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Revenu Mensuel (MRR)</span>
             <TrendingUp className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -237,7 +237,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
           </div>
         </div>
 
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Comptes Actifs</span>
             <CheckCircle className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -253,7 +253,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
           </div>
         </div>
 
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Utilisateurs Plateforme</span>
             <Shield className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -289,7 +289,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
               placeholder="Rechercher pressing, ville..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 bg-white pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100"
+              className="w-full rounded-md border border-neutral-200 bg-white pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
             />
           </div>
         </div>
@@ -327,7 +327,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
               {filteredTenants.map((t) => (
                 <tr
                   key={t.tenant_id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                  className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
                 >
                   <td className="px-5 py-3.5">
                     <div className="font-semibold text-neutral-900 dark:text-neutral-100">
@@ -378,7 +378,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
                       disabled={busyTenant === t.tenant_id}
                       className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium border transition-colors disabled:opacity-50 ${
                         t.active
-                          ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                          ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                       }`}
                     >
@@ -396,7 +396,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
       {/* Add Tenant Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Inscrire un Nouveau Pressing
             </h2>
@@ -499,14 +499,14 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                 >
                   {creating && <Loader2 className="h-3 w-3 animate-spin" />}
                   Créer le Pressing

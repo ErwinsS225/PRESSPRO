@@ -143,7 +143,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 dark:bg-black/80 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-[#111111] max-h-[95vh] overflow-y-auto">
+      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-[#111111] max-h-[95vh] overflow-y-auto shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
         {/* Header bar */}
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+            className="rounded p-1 text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -352,7 +352,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
                 </span>
                 <button
                   onClick={() => setIsSettling(true)}
-                  className="rounded bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+                  className="rounded bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-black dark:hover:bg-white dark:bg-neutral-100 dark:text-neutral-900"
                 >
                   Encaisser le Solde
                 </button>
@@ -361,7 +361,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
           )}
 
           {isSettling && (
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 space-y-2">
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 space-y-2 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                 Moyen de Règlement du Solde ({remainingDue.toLocaleString('fr-FR')} FCFA)
               </span>
@@ -379,7 +379,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
                     className={`rounded border p-2 text-left text-[11px] font-medium transition-colors ${
                       paymentMethod === m.id
                         ? 'border-neutral-900 bg-white font-semibold dark:border-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-                        : 'border-neutral-200 hover:bg-white dark:border-neutral-700 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                        : 'border-neutral-200 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                     }`}
                   >
                     {m.label}
@@ -409,7 +409,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               Fermer
             </button>
@@ -417,7 +417,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
               <button
                 type="button"
                 onClick={() => setApercuFlux((v) => !v)}
-                className="flex items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="flex items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 title="Afficher le flux ESC/POS tel que l’imprimante l’interprète"
               >
                 <Eye className="h-3.5 w-3.5" />
@@ -440,7 +440,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
               <button
                 type="button"
                 onClick={handlePrint}
-                className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
               >
                 <Printer className="h-3.5 w-3.5" />
                 <span>Imprimer Ticket (80mm)</span>
@@ -462,7 +462,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
           )}
 
           {apercuFlux && (
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
                 <span>Aperçu du flux ESC/POS ({fluxEscPos.length} octets, 80 mm)</span>
                 <span>{impressionDirecteSupportee() ? 'WebUSB disponible' : 'WebUSB indisponible'}</span>

@@ -155,7 +155,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-2xl rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="w-full max-w-2xl rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900 shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-emerald-500" />
@@ -172,7 +172,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
@@ -196,7 +196,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
           <div className="space-y-3">
             <div>
               <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-300">Canal</span>
-              <div className="mt-1 inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="mt-1 inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 {NOTIFICATION_CHANNELS.map((option) => (
                   <button
                     key={option.value}
@@ -205,7 +205,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
                     className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
                       channel === option.value
                         ? 'bg-emerald-600 text-white'
-                        : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                        : 'text-neutral-600 hover:bg-neutral-900/[0.06] dark:text-neutral-300 dark:hover:bg-neutral-800'
                     }`}
                   >
                     {option.value === 'whatsapp' ? (
@@ -230,7 +230,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
                     className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                       !messageEdite && template === option.value
                         ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                        : 'border-neutral-200 text-neutral-600 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
                     }`}
                   >
                     {option.label}
@@ -251,7 +251,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
                   setMessageEdite(true);
                 }}
                 rows={6}
-                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white p-2 font-mono text-[11px] leading-relaxed text-neutral-800 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white p-2 font-mono text-[11px] leading-relaxed text-neutral-800 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
               />
               <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                 {apercu.length} caractères · {messageEdite ? 'message personnalisé' : 'modèle appliqué'}
@@ -292,7 +292,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
               <button
                 type="button"
                 onClick={() => void copier()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 <Copy className="h-3.5 w-3.5" />
                 Copier

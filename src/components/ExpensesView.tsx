@@ -124,13 +124,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
             type="month"
             value={mois}
             onChange={(e) => setMois(e.target.value || moisCourant())}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 outline-none focus:border-rose-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 outline-none focus:border-rose-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
             aria-label="Mois"
           />
           <button
             type="button"
             onClick={() => void load()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Actualiser
@@ -159,7 +159,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
             Total du mois
@@ -172,7 +172,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
           </p>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs md:col-span-2 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 md:col-span-2 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             <Coins className="h-3.5 w-3.5 text-amber-500" />
             Répartition par poste
@@ -261,7 +261,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                         type="button"
                         disabled={busyId === expense.id}
                         onClick={() => void handleDelete(expense)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 transition-colors hover:bg-neutral-900/[0.06] disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                       >
                         {busyId === expense.id ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -281,7 +281,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900 shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-rose-500" />
@@ -292,7 +292,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-950 hover:text-white dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
@@ -319,7 +319,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.label}
                     onChange={(e) => setForm({ ...form, label: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                     placeholder="Lessive en poudre (5 kg)"
                   />
                 </div>
@@ -333,7 +333,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                       min={1}
                       value={form.amount_xof || ''}
                       onChange={(e) => setForm({ ...form, amount_xof: Number(e.target.value) })}
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                       placeholder="25000"
                     />
                   </div>
@@ -345,7 +345,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                       type="date"
                       value={form.spent_at}
                       onChange={(e) => setForm({ ...form, spent_at: e.target.value })}
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                     />
                   </div>
                 </div>
@@ -356,7 +356,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <select
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   >
                     {EXPENSE_CATEGORIES.map((categorie) => (
                       <option key={categorie.value} value={categorie.value}>
@@ -372,7 +372,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.note ?? ''}
                     onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                     placeholder="Fournisseur, référence de facture…"
                   />
                 </div>
@@ -387,7 +387,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Annuler
                   </button>

@@ -25,7 +25,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
   return (
     <div className="space-y-6">
       {/* Top Welcome & Architecture Strip */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 shadow-2xs dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-neutral-900 tracking-tight dark:text-neutral-100">
@@ -43,7 +43,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={onNewOrder}
-            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
           >
             <Shirt className="h-3.5 w-3.5" />
             <span>Enregistrer Dépôt</span>
@@ -54,7 +54,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* KPI 1: Chiffre d'Affaires */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Encaissements (Jour)</span>
             <TrendingUp className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -71,7 +71,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
         </div>
 
         {/* KPI 2: Commandes en cours */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Dépôts en Traitement</span>
             <Clock className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -88,7 +88,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
         </div>
 
         {/* KPI 3: Linge Prêt au Retrait */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Prêts au Retrait</span>
             <CheckCircle className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -105,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
         </div>
 
         {/* KPI 4: Infrastructure Backend */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111]">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>Socle Go & PostgreSQL</span>
             <Database className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
@@ -124,7 +124,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
       </div>
 
       {/* Laundry Lifecycle Flow Tracker */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111]">
+      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -143,7 +143,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
           {Object.entries(statusLabels).map(([key, item]) => (
             <div
               key={key}
-              className="flex flex-col justify-between rounded-md border border-neutral-200/80 bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60"
+              className="flex flex-col justify-between rounded-md border border-neutral-200/80 bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
             >
               <div className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
                 {item.label}
@@ -172,7 +172,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
           </div>
           <button
             onClick={() => onNavigate('orders')}
-            className="flex items-center gap-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
+            className="flex items-center gap-1 text-xs font-medium text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
           >
             <span>Voir toutes les commandes</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -195,7 +195,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
               {orders.slice(0, 5).map((order) => (
                 <tr
                   key={order.id}
-                  className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors"
+                  className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
                 >
                   <td className="px-5 py-3 font-mono font-medium text-neutral-900 dark:text-neutral-100">
                     {order.orderNumber}

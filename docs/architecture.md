@@ -181,7 +181,25 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 ## 7. Qualité, outillage et intégration continue
 
 - **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
-- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **13 fichiers / 108 tests**, vues métier, clients API, modale de notification client et flux d'impression ESC/POS) et `npm run build`.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **16 fichiers / 116 tests**, vues métier, clients API, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
 - Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).
+### Jeu de styles : cadres surélevés et survols foncés
+
+Deux utilitaires Tailwind v4 portent l'identité visuelle des surfaces (`src/index.css`) :
+- **`ps-elevated`** — cadre surélevé : liseré d'ombre **sur les bords** (`inset 0 0 0 1px`),
+  ombre de contact et ombre portée profonde ; au survol le cadre se soulève
+  (`translateY(-2px)`), son trait devient **noir** (`hover:border-neutral-950`) et l'ombre
+  se densifie. En thème sombre, le liseré devient clair et l'ombre noire est renforcée
+  (`.dark .ps-elevated`).
+- **`ps-elevated-static`** — même relief, sans soulèvement (panneaux et encarts non
+  interactifs).
+
+Les **survols** sont foncés partout : les contrôles (boutons, icônes, entrées de menu,
+onglets) passent au **noir plein avec texte blanc** en thème clair — et blanc avec texte
+noir en thème sombre ; les lignes de tableau et de liste reçoivent une **tinte noire**
+(6 à 16 %) plutôt qu'un gris. Les fenêtres modales conservent leur ombre portée profonde
+(`shadow-2xl` teinté) sans effet de survol. Le fichier `src/styles.test.ts` verrouille ces
+règles : utilitaires présents, cadres équipés et absence de retour aux survols gris clair.
+
 - **Impression des tickets** : le rendu 80 mm est disponible en HTML (modale ticket) et en **flux ESC/POS** (`src/lib/escpos.ts`) — CP437, encodage tolérant aux accents absents de la table, transport **WebUSB** (Chrome/Edge sur ordinateur) avec aperçu du flux avant envoi ; l'impression HTML reste le repli.

@@ -196,7 +196,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
           <button
             type="button"
             onClick={() => void load()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Actualiser
@@ -223,7 +223,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
           <Users className="h-3 w-3" />
           {actifs} compte(s) actif(s) sur {members.length}
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           Plafond selon la formule : 2 (Gratuit) · 5 (PRO) · 15 (BUSINESS)
         </span>
         {!fromApi && !loading && (
@@ -302,7 +302,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                     <button
                       type="button"
                       onClick={() => void ouvrirAffectation(member)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                       title="Choisir les établissements sur lesquels cet employé peut travailler"
                     >
                       <Store className="h-3 w-3" />
@@ -344,7 +344,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
       {/* Modal d'affectation aux établissements */}
       {affectationPour && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900 shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-sky-500" />
@@ -360,7 +360,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
               <button
                 type="button"
                 onClick={() => setAffectationPour(null)}
-                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
@@ -394,7 +394,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                     className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs transition-colors ${
                       selectionSites.includes(site.id)
                         ? 'border-sky-300 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30'
-                        : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                        : 'border-neutral-200 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:hover:bg-neutral-800'
                     }`}
                   >
                     <span className="flex items-center gap-2">
@@ -429,7 +429,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
               <button
                 type="button"
                 onClick={() => setAffectationPour(null)}
-                className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 Annuler
               </button>
@@ -454,7 +454,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
       {/* Modal de création */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900 shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-violet-500" />
@@ -465,7 +465,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-950 hover:text-white dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
@@ -480,7 +480,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                 <input
                   value={form.full_name}
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   placeholder="Awa Koné"
                 />
               </div>
@@ -492,7 +492,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   placeholder="awa@pressing-ivoire.ci"
                 />
               </div>
@@ -504,7 +504,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                   <input
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                     placeholder="+225 …"
                   />
                 </div>
@@ -515,7 +515,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                   <select
                     value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   >
                     {TEAM_ROLES.map((role) => (
                       <option key={role.value} value={role.value}>
@@ -533,7 +533,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                   type="password"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
                   placeholder="••••••••"
                 />
               </div>
@@ -556,7 +556,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>

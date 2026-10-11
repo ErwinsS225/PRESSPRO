@@ -18,6 +18,54 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Cadres surélevés : liseré d'ombre sur les bords + ombre portée profonde, et
+   au survol le cadre se soulève avec un trait noir et une ombre plus dense.
+   Utilisé par toutes les cartes, encarts et panneaux de l'application.
+   --------------------------------------------------------------------------- */
+@utility ps-elevated {
+  box-shadow:
+    inset 0 0 0 1px rgb(17 17 17 / 5%),
+    0 1px 2px rgb(17 17 17 / 6%),
+    0 10px 30px -18px rgb(17 17 17 / 35%);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease,
+    border-color 200ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgb(17 17 17 / 8%),
+      0 2px 5px rgb(17 17 17 / 8%),
+      0 22px 48px -20px rgb(17 17 17 / 55%);
+  }
+
+  .dark & {
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 8%),
+      0 1px 2px rgb(0 0 0 / 55%),
+      0 12px 32px -18px rgb(0 0 0 / 85%);
+
+    &:hover {
+      box-shadow:
+        inset 0 0 0 1px rgb(255 255 255 / 14%),
+        0 2px 6px rgb(0 0 0 / 70%),
+        0 26px 60px -24px rgb(0 0 0 / 100%);
+    }
+  }
+}
+
+/* Variante non interactive : même relief, sans soulèvement au survol (panneaux,
+   encarts d'information, tableaux). */
+@utility ps-elevated-static {
+  box-shadow:
+    inset 0 0 0 1px rgb(17 17 17 / 5%),
+    0 1px 2px rgb(17 17 17 / 6%),
+    0 10px 30px -18px rgb(17 17 17 / 35%);
+  transition: box-shadow 200ms ease;
+}
+
 /* Styles d'impression haute fidélité pour Ticket de Caisse / Reçu Thermique (80mm & 58mm) */
 @media print {
   html,

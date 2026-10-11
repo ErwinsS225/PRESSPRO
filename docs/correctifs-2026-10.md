@@ -280,12 +280,23 @@ comptoir n'attend jamais la passerelle. Les autres transitions n'envoient rien, 
   dépense (session 5) et l'abonnement l'utilisent désormais au lieu de conversions `::uuid`
   divergentes — c'est la classe de bug qui avait produit le `400 22P02` de la session 5.
 
+### 6. Habillage : cadres surélevés et survols foncés
+- Nouveaux utilitaires `ps-elevated` / `ps-elevated-static` (`src/index.css`) : liseré
+  d'ombre sur les bords, ombre portée profonde, soulèvement au survol avec trait **noir**
+  (et variante sombre dédiée).
+- **96 cadres** (cartes, encarts, panneaux, lignes de synthèse) équipés ; les **survols**
+  deviennent foncés : 33 contrôles passent au noir plein avec texte blanc, les listes et
+  tableaux reçoivent une tinte noire, les modales gardent leur ombre profonde sans
+  soulèvement. Plus aucun survol gris clair dans l'application (vérifié par test).
+- `src/styles.test.ts` verrouille le jeu de styles (utilitaires, cadres équipés, absence de
+  régression vers les survols clairs).
+
 ### Preuves d'exécution (session 6)
 | Preuve | Résultat |
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | propres |
 | `go test ./...` | **13 paquets ok**, dont `notification` (11 tests : composition, validations, passerelle `httptest` — payload, Bearer, échec 429/injoignable, hook automatique, isolation tenant) et `billing` (`notifications.advanced` réservé aux formules payantes) |
-| Frontend | `tsc --noEmit`, ESLint, Prettier, **108 tests Vitest** (13 fichiers, dont `notificationsApi` et `ClientNotificationModal`), build Vite ✅ |
+| Frontend | `tsc --noEmit`, ESLint, Prettier, **116 tests Vitest** (16 fichiers : `notificationsApi`, `ClientNotificationModal`, fumée de l'application, garde-fou du jeu de styles), build Vite ✅ |
 | Live `/tmp/verif_tour6.py` (passerelle webhook de test) | **57/57** — journal vide puis 2 messages (`envoye`, `provider: passerelle`), payload et jeton Bearer reçus par la passerelle, filtres, persistance SQL, refus `400`/`404`, repli du message blanc, messages automatiques `ready`/`delivered` réellement transmis, **isolation inter-pressings**, **402 après la fin de l'essai** avec configuration toujours lisible, non-régression des autres modules |
 
 ---
@@ -340,7 +351,7 @@ python3 /tmp/verif_fix_demo.py
 # récepteur /tmp/passerelle.py lancés, puis npm run dev
 python3 /tmp/verif_tour6.py
 
-# Frontend : types, ESLint, formatage, tests (108), build
+# Frontend : types, ESLint, formatage, tests (116), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

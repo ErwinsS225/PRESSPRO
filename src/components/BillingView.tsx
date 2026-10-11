@@ -178,7 +178,7 @@ export const BillingView: React.FC<{
       </div>
 
       {/* État courant */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -272,8 +272,8 @@ export const BillingView: React.FC<{
               key={plan.code}
               className={`relative flex flex-col rounded-2xl border bg-white p-6 transition-shadow dark:bg-neutral-900 ${
                 plan.popular
-                  ? 'border-neutral-900 shadow-lg ring-1 ring-neutral-900/10 dark:border-neutral-100 dark:ring-neutral-100/10'
-                  : 'border-neutral-200 shadow-xs hover:shadow-md dark:border-neutral-800'
+                  ? 'border-neutral-950 shadow-[0_2px_6px_rgba(17,17,17,0.09),0_26px_55px_-22px_rgba(17,17,17,0.6)] ring-1 ring-neutral-900/15 -translate-y-0.5 dark:border-neutral-100 dark:ring-neutral-100/20 dark:shadow-[0_2px_8px_rgba(0,0,0,0.75),0_30px_65px_-24px_rgba(0,0,0,1)]'
+                  : 'border-neutral-200 shadow-[0_1px_2px_rgba(17,17,17,0.06),0_10px_30px_-18px_rgba(17,17,17,0.35)] hover:-translate-y-0.5 hover:border-neutral-950 hover:shadow-[0_2px_5px_rgba(17,17,17,0.08),0_22px_48px_-20px_rgba(17,17,17,0.55)] dark:border-neutral-800 dark:shadow-[0_1px_2px_rgba(0,0,0,0.55),0_12px_32px_-18px_rgba(0,0,0,0.85)] dark:hover:border-white/70'
               }`}
             >
               {plan.popular && (
@@ -340,8 +340,8 @@ export const BillingView: React.FC<{
                     requested === plan.code
                       ? 'bg-emerald-600 text-white'
                       : plan.popular
-                        ? 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200'
-                        : 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700'
+                        ? 'bg-neutral-900 text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200'
+                        : 'bg-neutral-100 text-neutral-900 hover:bg-neutral-950 hover:text-white dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                   }`}
                 >
                   {requested === plan.code ? (
@@ -359,7 +359,7 @@ export const BillingView: React.FC<{
       </div>
 
       {/* Pied de page informatif */}
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400">
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         Besoin d'une formule sur-mesure ou d'une facturation groupée multi-sites ?{' '}
         <span className="font-medium text-neutral-700 dark:text-neutral-200">
           Contactez notre équipe commerciale

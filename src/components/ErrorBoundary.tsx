@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 p-6 font-sans text-neutral-900 dark:bg-[#050505] dark:text-neutral-100">
-        <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950 shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
           <h1 className="text-base font-semibold">Une erreur d’affichage est survenue</h1>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             L’application a intercepté l’erreur au lieu de rester sur un écran vide. Vos données enregistrées
@@ -41,14 +41,14 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
             <button
               type="button"
               onClick={this.reinitialiser}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-950 hover:text-white dark:border-neutral-700 dark:hover:bg-neutral-900 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               Réessayer
             </button>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-black dark:hover:bg-white dark:bg-neutral-100 dark:text-neutral-900"
             >
               Recharger la page
             </button>
