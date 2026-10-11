@@ -225,6 +225,12 @@ func NewRouter(deps ServerDependencies) http.Handler {
 							team.With(RequireFeatureQuota(deps.Billing, billing.FeatureUsersMax)).
 								Post("/users", deps.AuthHandler.CreateUser)
 							team.Patch("/users/{id}/status", deps.AuthHandler.SetUserStatus)
+							// Affectation d'un employé aux établissements du pressing
+							// (un caissier n'opère que sur ses sites).
+							if deps.BranchHandler != nil {
+								team.Get("/users/{id}/branches", deps.BranchHandler.ListMemberBranches)
+								team.Put("/users/{id}/branches", deps.BranchHandler.UpdateMemberBranches)
+							}
 						})
 					}
 
@@ -265,6 +271,10 @@ func NewRouter(deps ServerDependencies) http.Handler {
 							reportRouter.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
 							reportRouter.With(RequireFeature(deps.Billing, billing.FeatureReportsAdvanced)).
 								Get("/summary", deps.ReportHandler.Summary)
+							// Export du rapport (CSV/PDF) : même garde-fou que l'écran,
+							// les chiffres exportés sont ceux du rapport affiché.
+							reportRouter.With(RequireFeature(deps.Billing, billing.FeatureReportsAdvanced)).
+								Get("/export", deps.ReportHandler.Export)
 						})
 					}
 

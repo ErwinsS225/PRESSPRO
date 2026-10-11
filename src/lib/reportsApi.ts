@@ -78,6 +78,39 @@ export async function fetchReportSummary(
   }
 }
 
+/** Format de l'export de rapport proposé par l'écran Rapports. */
+export type ReportExportFormat = 'csv' | 'pdf';
+
+/**
+ * Télécharge le rapport au format demandé. Le fichier est produit par le
+ * serveur à partir du même rapport que l'écran : les chiffres exportés sont
+ * ceux qui sont affichés. Renvoie le contenu et le nom de fichier suggéré.
+ */
+export async function exportReport(
+  format: ReportExportFormat,
+  period: ReportPeriod,
+  token?: string
+): Promise<{ ok: boolean; blob?: Blob; filename?: string; error?: string; planLocked?: boolean }> {
+  const params = new URLSearchParams({ from: period.from, to: period.to, format });
+  try {
+    const res = await fetch(`/api/v1/reports/export?${params.toString()}`, { headers: authHeaders(token) });
+    if (!res.ok) {
+      const corps = (await res.json().catch(() => ({}))) as { error?: string };
+      return {
+        ok: false,
+        error: corps.error ?? `erreur HTTP ${res.status}`,
+        planLocked: res.status === 402,
+      };
+    }
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const trouve = /filename="?([^";]+)"?/.exec(disposition);
+    const filename = trouve?.[1] ?? `rapport-${period.from}_${period.to}.${format}`;
+    return { ok: true, blob: await res.blob(), filename };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'réseau indisponible' };
+  }
+}
+
 /** Bornes de la période courante : « ce mois », « mois dernier » ou « 30 jours ». */
 export function periodBounds(kind: 'mois' | 'mois_dernier' | 'trente_jours'): ReportPeriod {
   const aujourdhui = new Date();

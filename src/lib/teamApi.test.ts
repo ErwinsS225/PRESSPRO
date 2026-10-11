@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTeamMember, fetchTeam, roleLabel, setTeamMemberStatus, statusLabel } from './teamApi';
+import {
+  branchStatusLabel,
+  createTeamMember,
+  fetchMemberBranches,
+  fetchTeam,
+  roleLabel,
+  setMemberBranches,
+  setTeamMemberStatus,
+  statusLabel,
+} from './teamApi';
 
 const MEMBRES = [
   {
@@ -168,5 +177,98 @@ describe('libellés', () => {
     expect(roleLabel('role-inconnu')).toBe('role-inconnu');
     expect(statusLabel('active')).toBe('Actif');
     expect(statusLabel('inactive')).toBe('Désactivé');
+  });
+});
+
+describe('fetchMemberBranches / setMemberBranches', () => {
+  const SITES = [
+    {
+      id: 'br-principal',
+      name: 'Pressing Ivoire — Plateau',
+      is_primary: true,
+      status: 'active',
+      assigned: true,
+    },
+    {
+      id: 'br-lagune',
+      name: 'Pressing Ivoire — Cocody',
+      is_primary: false,
+      status: 'active',
+      assigned: false,
+    },
+  ];
+
+  it('liste les établissements du pressing et l’affectation du compte', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({ user_id: 'usr-awa-002', branches: SITES })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await fetchMemberBranches('usr-awa-002', 'jeton-gerant');
+
+    expect(resultat.ok).toBe(true);
+    expect(resultat.branches?.map((site) => site.name)).toHaveLength(2);
+    expect(resultat.branches?.[0].is_primary).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/users/usr-awa-002/branches', {
+      headers: expect.objectContaining({ Authorization: 'Bearer jeton-gerant' }),
+    });
+  });
+
+  it('remplace l’affectation par les sites envoyés (PUT branch_ids)', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(init?.method).toBe('PUT');
+      expect(JSON.parse(String(init?.body))).toEqual({ branch_ids: ['br-principal', 'br-lagune'] });
+      return jsonResponse({
+        user_id: 'usr-awa-002',
+        branches: SITES.map((site) => ({ ...site, assigned: true })),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await setMemberBranches('usr-awa-002', ['br-principal', 'br-lagune'], 'jeton-gerant');
+
+    expect(resultat.ok).toBe(true);
+    expect(resultat.branches?.every((site) => site.assigned)).toBe(true);
+  });
+
+  it('relaie le refus d’une sélection vide (fail-closed côté serveur)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'au moins un établissement doit être affecté' }, 400))
+    );
+
+    const resultat = await setMemberBranches('usr-awa-002', [], 'jeton-gerant');
+
+    expect(resultat.ok).toBe(false);
+    expect(resultat.error).toContain('au moins un établissement');
+  });
+
+  it('remonte le cas d’un compte hors du pressing (404)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'utilisateur introuvable' }, 404))
+    );
+
+    const resultat = await fetchMemberBranches('usr-inconnu', 'jeton-gerant');
+
+    expect(resultat.ok).toBe(false);
+    expect(resultat.error).toBe('utilisateur introuvable');
+  });
+
+  it('retourne une erreur explicite quand le réseau est indisponible', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('Failed to fetch');
+      })
+    );
+
+    expect((await fetchMemberBranches('usr-awa-002')).error).toBe('Failed to fetch');
+    expect((await setMemberBranches('usr-awa-002', ['br-1'])).error).toBe('Failed to fetch');
+  });
+
+  it('libelle les statuts d’établissement', () => {
+    expect(branchStatusLabel('active')).toBe('actif');
+    expect(branchStatusLabel('archived')).toBe('archivé');
   });
 });

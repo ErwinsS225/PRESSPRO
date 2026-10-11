@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchReportSummary, orderStatusLabel, periodBounds } from './reportsApi';
+import { exportReport, fetchReportSummary, orderStatusLabel, periodBounds } from './reportsApi';
 
 const RAPPORT = {
   period: { from: '2026-10-01', to: '2026-10-31' },
@@ -121,5 +121,98 @@ describe('orderStatusLabel', () => {
     expect(orderStatusLabel('delivered')).toBe('Livrée');
     expect(orderStatusLabel('ready')).toBe('Prête');
     expect(orderStatusLabel('inconnu')).toBe('inconnu');
+  });
+});
+
+describe('exportReport', () => {
+  function fichierResponse(filename: string, contenu = 'periode;revenu_xof\n2026-10\n') {
+    return {
+      ok: true,
+      status: 200,
+      headers: {
+        get: (nom: string) =>
+          nom.toLowerCase() === 'content-disposition' ? `attachment; filename="${filename}"` : null,
+      } as Headers,
+      blob: async () => new Blob([contenu], { type: 'text/csv' }),
+      json: async () => ({}),
+    } as unknown as Response;
+  }
+
+  it('télécharge le CSV de la période et reprend le nom de fichier du serveur', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      fichierResponse('rapport-pressing-ivoire-2026-10-01_2026-10-31.csv')
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await exportReport('csv', { from: '2026-10-01', to: '2026-10-31' }, 'jeton');
+
+    expect(resultat.ok).toBe(true);
+    expect(resultat.filename).toBe('rapport-pressing-ivoire-2026-10-01_2026-10-31.csv');
+    expect(await resultat.blob?.text()).toContain('revenu_xof');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/api/v1/reports/export?');
+    expect(url).toContain('format=csv');
+    expect(url).toContain('from=2026-10-01');
+    expect(url).toContain('to=2026-10-31');
+  });
+
+  it('demande le PDF et retombe sur un nom de fichier local si l’en-tête est absent', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        ({
+          ok: true,
+          status: 200,
+          headers: { get: () => null } as unknown as Headers,
+          blob: async () => new Blob(['%PDF-1.4'], { type: 'application/pdf' }),
+          json: async () => ({}),
+        }) as unknown as Response
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await exportReport('pdf', { from: '2026-09-01', to: '2026-09-30' }, 'jeton');
+
+    expect(resultat.ok).toBe(true);
+    expect(resultat.filename).toBe('rapport-2026-09-01_2026-09-30.pdf');
+    expect(fetchMock.mock.calls[0][0]).toContain('format=pdf');
+  });
+
+  it('signale un export réservé aux formules payantes (402)', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({ error: 'fonctionnalité réservée', feature: 'reports.advanced' }, 402)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await exportReport('csv', { from: '2026-10-01', to: '2026-10-31' }, 'jeton');
+
+    expect(resultat.ok).toBe(false);
+    expect(resultat.planLocked).toBe(true);
+    expect(resultat.error).toContain('réservée');
+  });
+
+  it('remonte une erreur de période invalide (400)', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({ error: 'période invalide (AAAA-MM-JJ attendu)' }, 400)
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const resultat = await exportReport('csv', { from: '01/10/2026', to: '2026-10-31' }, 'jeton');
+
+    expect(resultat.ok).toBe(false);
+    expect(resultat.planLocked).toBeFalsy();
+    expect(resultat.error).toBe('période invalide (AAAA-MM-JJ attendu)');
+  });
+
+  it('retourne une erreur explicite quand le réseau est indisponible', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('Failed to fetch');
+      })
+    );
+
+    const resultat = await exportReport('pdf', { from: '2026-10-01', to: '2026-10-31' });
+
+    expect(resultat.ok).toBe(false);
+    expect(resultat.error).toBe('Failed to fetch');
   });
 });

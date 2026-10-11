@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   BadgeCheck,
+  Building2,
   CircleSlash,
   Loader2,
   Plus,
   RefreshCw,
   ShieldAlert,
+  Store,
   UserPlus,
   Users,
   WifiOff,
@@ -14,11 +16,15 @@ import {
 import { User } from '../types';
 import {
   CreateMemberInput,
+  MemberBranch,
   TEAM_ROLES,
   TeamMember,
+  branchStatusLabel,
   createTeamMember,
+  fetchMemberBranches,
   fetchTeam,
   roleLabel,
+  setMemberBranches,
   setTeamMemberStatus,
   statusLabel,
 } from '../lib/teamApi';
@@ -54,6 +60,14 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
   const [formError, setFormError] = useState<string | null>(null);
   const [quotaReached, setQuotaReached] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Affectation d'un employé à un ou plusieurs établissements.
+  const [affectationPour, setAffectationPour] = useState<TeamMember | null>(null);
+  const [sites, setSites] = useState<MemberBranch[]>([]);
+  const [selectionSites, setSelectionSites] = useState<string[]>([]);
+  const [chargementSites, setChargementSites] = useState(false);
+  const [enregistrementSites, setEnregistrementSites] = useState(false);
+  const [erreurSites, setErreurSites] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +127,57 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
 
   const modifiable = (member: TeamMember) =>
     member.id !== currentUser.id && member.role !== 'owner' && member.role !== 'superadmin';
+
+  /** Ouvre le sélecteur d'établissements d'un employé et charge son affectation. */
+  const ouvrirAffectation = async (member: TeamMember) => {
+    setAffectationPour(member);
+    setErreurSites(null);
+    setSites([]);
+    setSelectionSites([]);
+    setChargementSites(true);
+    const result = await fetchMemberBranches(member.id, token);
+    setChargementSites(false);
+    if (!result.ok) {
+      setErreurSites(result.error ?? 'affectation indisponible');
+      return;
+    }
+    const liste = result.branches ?? [];
+    setSites(liste);
+    setSelectionSites(liste.filter((site) => site.assigned).map((site) => site.id));
+  };
+
+  const basculerSite = (siteId: string) => {
+    setSelectionSites((courante) =>
+      courante.includes(siteId) ? courante.filter((id) => id !== siteId) : [...courante, siteId]
+    );
+  };
+
+  /** Enregistre l'affectation : l'employé ne pourra agir que sur ces sites. */
+  const enregistrerAffectation = async () => {
+    if (!affectationPour) return;
+    if (selectionSites.length === 0) {
+      setErreurSites('Sélectionnez au moins un établissement : un employé sans site ne peut rien saisir.');
+      return;
+    }
+    setEnregistrementSites(true);
+    setErreurSites(null);
+    const result = await setMemberBranches(affectationPour.id, selectionSites, token);
+    setEnregistrementSites(false);
+    if (!result.ok) {
+      setErreurSites(result.error ?? 'enregistrement impossible');
+      return;
+    }
+    const liste = result.branches ?? [];
+    setSites(liste);
+    setSelectionSites(liste.filter((site) => site.assigned).map((site) => site.id));
+    const noms = liste.filter((site) => site.assigned).map((site) => site.name);
+    showToast?.(
+      noms.length === 1
+        ? `${affectationPour.full_name} agit désormais sur « ${noms[0]} »`
+        : `${affectationPour.full_name} agit désormais sur ${noms.length} établissements`
+    );
+    setAffectationPour(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -193,6 +258,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                 <th className="px-4 py-3 font-medium">Employé</th>
                 <th className="px-4 py-3 font-medium">Rôle</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3 font-medium">Établissements</th>
                 <th className="px-4 py-3 text-right font-medium">Action</th>
               </tr>
             </thead>
@@ -232,6 +298,17 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                       {statusLabel(member.status)}
                     </span>
                   </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => void ouvrirAffectation(member)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                      title="Choisir les établissements sur lesquels cet employé peut travailler"
+                    >
+                      <Store className="h-3 w-3" />
+                      Affecter
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {modifiable(member) ? (
                       <button
@@ -263,6 +340,116 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
           </table>
         )}
       </div>
+
+      {/* Modal d'affectation aux établissements */}
+      {affectationPour && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-sky-500" />
+                <div>
+                  <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    Établissements de {affectationPour.full_name}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Cochez les sites sur lesquels ce compte peut encaisser et saisir des commandes.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAffectationPour(null)}
+                className="rounded-lg p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {chargementSites && (
+              <div className="mt-4 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Chargement des établissements…
+              </div>
+            )}
+
+            {!chargementSites && erreurSites && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                <WifiOff className="h-3.5 w-3.5" />
+                {erreurSites}
+              </div>
+            )}
+
+            {!chargementSites && !erreurSites && (
+              <div className="mt-4 space-y-2">
+                {sites.length === 0 && (
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Aucun établissement déclaré pour ce pressing.
+                  </p>
+                )}
+                {sites.map((site) => (
+                  <label
+                    key={site.id}
+                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                      selectionSites.includes(site.id)
+                        ? 'border-sky-300 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30'
+                        : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        aria-label={site.name}
+                        checked={selectionSites.includes(site.id)}
+                        onChange={() => basculerSite(site.id)}
+                      />
+                      <span className="font-medium text-neutral-800 dark:text-neutral-100">{site.name}</span>
+                      {site.is_primary && (
+                        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                          principal
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                      {branchStatusLabel(site.status)}
+                    </span>
+                  </label>
+                ))}
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {selectionSites.length} établissement{selectionSites.length > 1 ? 's' : ''} sélectionné
+                  {selectionSites.length > 1 ? 's' : ''} · un site retiré ferme immédiatement l’accès aux
+                  commandes qui y sont rattachées.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAffectationPour(null)}
+                className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void enregistrerAffectation()}
+                disabled={enregistrementSites || chargementSites || Boolean(erreurSites)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+              >
+                {enregistrementSites ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Building2 className="h-3.5 w-3.5" />
+                )}
+                Enregistrer l’affectation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de création */}
       {isModalOpen && (

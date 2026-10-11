@@ -3,6 +3,9 @@ import {
   BarChart3,
   Building2,
   CreditCard,
+  Download,
+  FileSpreadsheet,
+  FileText,
   Loader2,
   Lock,
   RefreshCw,
@@ -15,8 +18,10 @@ import { User } from '../types';
 import { formatXOF } from '../lib/adminApi';
 import { categoryLabel } from '../lib/expensesApi';
 import {
+  ReportExportFormat,
   ReportPeriod,
   ReportSummary,
+  exportReport,
   fetchReportSummary,
   orderStatusLabel,
   periodBounds,
@@ -42,13 +47,15 @@ const PERIODES: { id: 'mois' | 'mois_dernier' | 'trente_jours'; label: string }[
  * établissement n'apparaît que si la formule inclut « reports.consolidated »
  * (BUSINESS) — sinon une invitation commerciale remplace le tableau.
  */
-export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token }) => {
+export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token, showToast }) => {
   const [periode, setPeriode] = useState<'mois' | 'mois_dernier' | 'trente_jours'>('mois');
   const [bornes, setBornes] = useState<ReportPeriod>(() => periodBounds('mois'));
   const [rapport, setRapport] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [planLocked, setPlanLocked] = useState(false);
+  const [exportEnCours, setExportEnCours] = useState<ReportExportFormat | null>(null);
+  const [messageExport, setMessageExport] = useState<string | null>(null);
 
   const gestionnaire = ['owner', 'manager', 'superadmin'].includes(currentUser.role);
 
@@ -72,6 +79,32 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token }) 
   const changerPeriode = (id: 'mois' | 'mois_dernier' | 'trente_jours') => {
     setPeriode(id);
     setBornes(periodBounds(id));
+  };
+
+  /** Télécharge le rapport de la période courante (CSV pour Excel, PDF à partager). */
+  const telechargerRapport = async (format: ReportExportFormat) => {
+    setExportEnCours(format);
+    setMessageExport(null);
+    const result = await exportReport(format, bornes, token);
+    if (!result.ok || !result.blob) {
+      const message = result.error ?? 'export indisponible';
+      setMessageExport(message);
+      showToast?.(message);
+      setPlanLocked(Boolean(result.planLocked));
+    } else {
+      const url = URL.createObjectURL(result.blob);
+      const lien = document.createElement('a');
+      lien.href = url;
+      lien.download = result.filename ?? `rapport.${format}`;
+      document.body.appendChild(lien);
+      lien.click();
+      document.body.removeChild(lien);
+      URL.revokeObjectURL(url);
+      const message = `Rapport exporté : ${lien.download}`;
+      setMessageExport(message);
+      showToast?.(message);
+    }
+    setExportEnCours(null);
   };
 
   const statuts = rapport ? Object.entries(rapport.orders_by_status) : [];
@@ -114,8 +147,41 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token }) 
             <RefreshCw className="h-3.5 w-3.5" />
             Actualiser
           </button>
+          <div className="inline-flex items-center gap-1.5">
+            <Download className="h-3.5 w-3.5 text-neutral-400" />
+            <button
+              type="button"
+              onClick={() => void telechargerRapport('csv')}
+              disabled={planLocked || exportEnCours !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70"
+              title="Exporter la période au format CSV (séparateur « ; » et BOM UTF-8 : s'ouvre directement dans Excel)"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              {exportEnCours === 'csv' ? 'Export…' : 'CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void telechargerRapport('pdf')}
+              disabled={planLocked || exportEnCours !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
+              title="Exporter la période en PDF (imprimable et partageable)"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {exportEnCours === 'pdf' ? 'Export…' : 'PDF'}
+            </button>
+          </div>
         </div>
       </div>
+
+      {messageExport && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-[11px] text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {messageExport}
+        </div>
+      )}
 
       <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
         Période analysée : du {bornes.from} au {bornes.to}

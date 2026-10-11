@@ -92,6 +92,57 @@ func (h *Handler) UpdateBranch(w http.ResponseWriter, r *http.Request) {
 	ecrireJSON(w, http.StatusOK, b)
 }
 
+// ListMemberBranches traite GET /api/v1/users/{id}/branches — établissements du
+// pressing et affectation du compte visé (écran Équipe).
+func (h *Handler) ListMemberBranches(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil || claims.TenantID == "" {
+		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		return
+	}
+	membre := chi.URLParam(r, "id")
+	sites, err := h.service.GetMemberBranches(r.Context(), claims.TenantID, membre)
+	if err != nil {
+		ecrireJSON(w, statutErreurAffectation(err), map[string]string{"error": err.Error()})
+		return
+	}
+	ecrireJSON(w, http.StatusOK, map[string]interface{}{"user_id": membre, "branches": sites})
+}
+
+// UpdateMemberBranches traite PUT /api/v1/users/{id}/branches : remplace
+// l'affectation du compte. Corps : {"branch_ids":["…","…"]}.
+func (h *Handler) UpdateMemberBranches(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil || claims.TenantID == "" {
+		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		return
+	}
+
+	var req struct {
+		BranchIDs []string `json:"branch_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ecrireJSON(w, http.StatusBadRequest, map[string]string{"error": "format de requête JSON invalide"})
+		return
+	}
+
+	membre := chi.URLParam(r, "id")
+	sites, err := h.service.SetMemberBranches(r.Context(), claims.TenantID, membre, req.BranchIDs)
+	if err != nil {
+		ecrireJSON(w, statutErreurAffectation(err), map[string]string{"error": err.Error()})
+		return
+	}
+	ecrireJSON(w, http.StatusOK, map[string]interface{}{"user_id": membre, "branches": sites})
+}
+
+// statutErreurAffectation traduit une erreur d'affectation en code HTTP.
+func statutErreurAffectation(err error) int {
+	if errors.Is(err, ErrMemberNotFound) {
+		return http.StatusNotFound
+	}
+	return http.StatusBadRequest
+}
+
 // statutErreurBranche traduit une erreur métier en code HTTP.
 func statutErreurBranche(err error) int {
 	switch {

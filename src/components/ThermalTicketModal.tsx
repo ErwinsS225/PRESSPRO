@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { X, Printer } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Printer, Usb, Eye } from 'lucide-react';
 import { Order, Tenant } from '../types';
+import {
+  buildTicketBytes,
+  impressionDirecteSupportee,
+  renderEscPosPreview,
+  sendToEscPosPrinter,
+  ticketDepuisCommande,
+} from '../lib/escpos';
 
 interface ThermalTicketModalProps {
   order: Order;
@@ -27,6 +34,21 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
   const [isSending] = useState<boolean>(false);
   const remainingDue = order.totalAmount - order.paidAmount;
 
+  // Impression thermique directe (ESC/POS via WebUSB) : le flux est construit à
+  // partir de la même commande que le ticket affiché, et l'aperçu montre
+  // exactement ce que l'imprimante recevra.
+  const [impressionDirecte, setImpressionDirecte] = useState<boolean>(false);
+  const [messageDirect, setMessageDirect] = useState<string | null>(null);
+  const [apercuFlux, setApercuFlux] = useState<boolean>(false);
+  const fluxEscPos = useMemo(
+    () =>
+      buildTicketBytes(
+        ticketDepuisCommande(order, tenant, `${window.location.origin}/verify/${tenant.id}/${order.id}`)
+      ),
+    [order, tenant]
+  );
+  const apercuImprimante = useMemo(() => renderEscPosPreview(fluxEscPos), [fluxEscPos]);
+
   // Générer le QR code automatiquement à l'ouverture
   useEffect(() => {
     const qrContent = generateQRContent(order, tenant);
@@ -43,6 +65,19 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
     window.print();
     // Supprimer la classe après impression
     setTimeout(() => document.body.classList.remove('printing-thermal-ticket'), 1000);
+  };
+
+  // Envoi du flux à l'imprimante thermique connectée en USB (Chrome/Edge).
+  const handleDirectPrint = async () => {
+    setImpressionDirecte(true);
+    setMessageDirect(null);
+    const resultat = await sendToEscPosPrinter(fluxEscPos);
+    setMessageDirect(
+      resultat.ok
+        ? 'Ticket transmis à l’imprimante thermique.'
+        : `Impression directe impossible : ${resultat.error ?? 'imprimante indisponible'}`
+    );
+    setImpressionDirecte(false);
   };
 
   const handleSettle = () => {
@@ -378,15 +413,65 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             >
               Fermer
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              <span>Imprimer Ticket (80mm)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setApercuFlux((v) => !v)}
+                className="flex items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                title="Afficher le flux ESC/POS tel que l’imprimante l’interprète"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Aperçu ESC/POS</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectPrint}
+                disabled={impressionDirecte}
+                className="flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                title={
+                  impressionDirecteSupportee()
+                    ? 'Envoyer le ticket directement à l’imprimante thermique (WebUSB)'
+                    : 'Impression directe non prise en charge par ce navigateur'
+                }
+              >
+                <Usb className="h-3.5 w-3.5" />
+                <span>{impressionDirecte ? 'Envoi…' : 'Imprimer en direct (ESC/POS)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Imprimer Ticket (80mm)</span>
+              </button>
+            </div>
           </div>
+
+          {messageDirect && (
+            <div
+              className={`rounded-md border px-3 py-2 text-[11px] ${
+                messageDirect.startsWith('Ticket transmis')
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+              }`}
+              role="status"
+            >
+              {messageDirect}
+            </div>
+          )}
+
+          {apercuFlux && (
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
+              <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                <span>Aperçu du flux ESC/POS ({fluxEscPos.length} octets, 80 mm)</span>
+                <span>{impressionDirecteSupportee() ? 'WebUSB disponible' : 'WebUSB indisponible'}</span>
+              </div>
+              <pre className="max-h-64 overflow-auto whitespace-pre rounded bg-white p-2 font-mono text-[10px] leading-tight text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+                {apercuImprimante}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
     </div>

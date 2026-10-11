@@ -178,3 +178,100 @@ func (s *dbStore) UpdateBranch(ctx context.Context, tenantID, id string, req Upd
 	}
 	return s.GetBranch(ctx, tenantID, id)
 }
+
+// GetMemberBranches liste les établissements actifs du pressing en indiquant
+// ceux auxquels le compte est affecté. Un compte hors périmètre est traité
+// comme inexistant (aucune fuite inter-tenant).
+func (s *dbStore) GetMemberBranches(ctx context.Context, tenantID, userID string) ([]*MemberBranch, error) {
+	var membre bool
+	if err := s.database.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND tenant_id = $2)`,
+		userID, tenantID).Scan(&membre); err != nil {
+		return nil, err
+	}
+	if !membre {
+		return nil, ErrMemberNotFound
+	}
+
+	lignes, err := s.database.QueryContext(ctx, `
+		SELECT b.id, b.name, b.is_primary, b.status,
+		       EXISTS (
+		           SELECT 1 FROM branch_memberships bm
+		           WHERE bm.branch_id = b.id AND bm.user_id = $2
+		       ) AS assigned
+		FROM branches b
+		WHERE b.tenant_id = $1 AND b.status <> 'archived'
+		ORDER BY b.is_primary DESC, lower(b.name) ASC`, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer lignes.Close()
+
+	sites := make([]*MemberBranch, 0, 4)
+	for lignes.Next() {
+		var m MemberBranch
+		if err := lignes.Scan(&m.ID, &m.Name, &m.IsPrimary, &m.Status, &m.Assigned); err != nil {
+			return nil, err
+		}
+		sites = append(sites, &m)
+	}
+	if err := lignes.Err(); err != nil {
+		return nil, err
+	}
+	trierSites(sites)
+	return sites, nil
+}
+
+// SetMemberBranches remplace l'affectation d'un compte dans une transaction :
+// validation des établissements puis suppression/insertion des rattachements.
+// La suppression d'un rattachement ferme immédiatement l'accès du compte aux
+// opérations de l'établissement concerné (contrôle de périmètre fail-closed).
+func (s *dbStore) SetMemberBranches(ctx context.Context, tenantID, userID string, branchIDs []string) ([]*MemberBranch, error) {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var membre bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND tenant_id = $2)`,
+		userID, tenantID).Scan(&membre); err != nil {
+		return nil, err
+	}
+	if !membre {
+		return nil, ErrMemberNotFound
+	}
+
+	var connus int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM branches
+		WHERE tenant_id = $1 AND status <> 'archived' AND id::text = ANY($2)`,
+		tenantID, branchIDs).Scan(&connus); err != nil {
+		return nil, err
+	}
+	if connus != len(branchIDs) {
+		return nil, ErrUnknownBranch
+	}
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM branch_memberships
+		WHERE tenant_id = $1 AND user_id = $2 AND NOT (branch_id::text = ANY($3))`,
+		tenantID, userID, branchIDs); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO branch_memberships (tenant_id, branch_id, user_id)
+		SELECT $1::uuid, choix::uuid, $2::uuid
+		FROM unnest($3::text[]) AS choix
+		ON CONFLICT (branch_id, user_id) DO NOTHING`,
+		tenantID, userID, branchIDs); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return s.GetMemberBranches(ctx, tenantID, userID)
+}

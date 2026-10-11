@@ -34,6 +34,15 @@ export const TEAM_ROLES = [
   { value: 'operator', label: 'Opérateur' },
 ] as const;
 
+/** Établissement du pressing tel que vu depuis l'écran Équipe. */
+export interface MemberBranch {
+  id: string;
+  name: string;
+  is_primary: boolean;
+  status: string;
+  assigned: boolean;
+}
+
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Propriétaire',
   manager: 'Gérant',
@@ -119,6 +128,56 @@ export async function setTeamMemberStatus(
     if (res.ok) return { ok: true };
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     return { ok: false, error: body.error ?? `erreur HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'réseau indisponible' };
+  }
+}
+
+/** Libellé du statut d'un établissement dans le sélecteur d'affectation. */
+export function branchStatusLabel(status: string): string {
+  return status === 'archived' ? 'archivé' : 'actif';
+}
+
+/** Liste les établissements du pressing et l'affectation du compte. */
+export async function fetchMemberBranches(
+  memberId: string,
+  token?: string
+): Promise<{ ok: boolean; branches?: MemberBranch[]; error?: string }> {
+  try {
+    const res = await fetch(`/api/v1/users/${memberId}/branches`, { headers: authHeaders(token) });
+    const body = (await res.json().catch(() => ({}))) as {
+      branches?: MemberBranch[];
+      error?: string;
+    };
+    if (!res.ok) return { ok: false, error: body.error ?? `erreur HTTP ${res.status}` };
+    return { ok: true, branches: body.branches ?? [] };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'réseau indisponible' };
+  }
+}
+
+/**
+ * Remplace l'affectation du compte. Un tableau vide est refusé par l'API
+ * (l'employé doit toujours avoir accès à au moins un établissement) : l'écran
+ * Équipe empêche donc de tout décocher.
+ */
+export async function setMemberBranches(
+  memberId: string,
+  branchIds: string[],
+  token?: string
+): Promise<{ ok: boolean; branches?: MemberBranch[]; error?: string }> {
+  try {
+    const res = await fetch(`/api/v1/users/${memberId}/branches`, {
+      method: 'PUT',
+      headers: authHeaders(token),
+      body: JSON.stringify({ branch_ids: branchIds }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      branches?: MemberBranch[];
+      error?: string;
+    };
+    if (!res.ok) return { ok: false, error: body.error ?? `erreur HTTP ${res.status}` };
+    return { ok: true, branches: body.branches ?? [] };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'réseau indisponible' };
   }

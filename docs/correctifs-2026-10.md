@@ -190,17 +190,48 @@ Une tranche nulle Go était sérialisée `null` ; le client frontend en déduisa
 
 **Compteurs** : 67 tests Go (+ 3 d'intégration), 63 tests frontend, **35 + 24 + 89 = 148 assertions live** vertes.
 
-## 8. Reste à faire (backlog priorisé)
+## 8. Session 5 — export des rapports, impression ESC/POS et affectation multi-sites
+
+Trois sujets issus du backlog, livrés avec leurs preuves d'exécution sur la pile réelle.
+
+### 1. Export des rapports (CSV & PDF) — `GET /api/v1/reports/export`
+- `backend/internal/report/export.go` produit un **CSV** `;` + **BOM UTF-8** + CRLF (ouverture directe dans Excel FR, accents préservés) ; `backend/internal/report/pdf.go` compose un **PDF 1.4** sans dépendance : Helvetica + encodage WinAnsi, A4 (595 × 842), pagination automatique au-delà de 46 lignes, `startxref`/`%%EOF` valides. Les caractères typographiques français (`–`, `—`, `œ`, `€`) passent par une table CP1252 explicite ; les octets Latin-1 (160-255) sont écrits tels quels.
+- La réponse est une pièce jointe : `Content-Disposition: attachment; filename="rapport-<slug>-<from>_<to>.<ext>"`, le slug étant dérivé du nom du pressing (`Pressing Étoile d'Or` → `rapport-pressing-toile-d-or-…`).
+- Les chiffres exportés sont **ceux de l'écran** : le même `Summary` alimente `/reports/summary` et l'export (dépenses, marge et consolidation incluses). Le mur payant est identique (`RequireFeature(reports.advanced)`, `402` en formule gratuite), et `400` couvre un format inconnu ou une période invalide (`from > to`, date illisible).
+- Interface : boutons **CSV** / **PDF** dans l'en-tête de l'écran Rapports (avec état de chargement, message de confirmation, et désactivation lorsque la formule ne débloque pas les rapports).
+- Tests : `internal/report/export_test.go` — **7 tests** (séparateur/BOM/contenu, `NomFichier` avec accents, structure PDF et `startxref`, échappement, pagination `/Count 2`, WinAnsi `activit\xe9`, absence de consolidation hors BUSINESS) ; côté front, `reportsApi.test.ts` (**5 tests** d'export) et `ReportsView.test.tsx` (téléchargement réel via ancre, nom de fichier serveur, message d'erreur non commercial).
+
+### 2. Impression ESC/POS native (WebUSB)
+- `src/lib/escpos.ts` construit le **flux binaire** d'une imprimante thermique 80 mm : `ESC @` + `ESC t 0` (CP437), en-tête double taille centrée, séparateurs sur 42 colonnes, articles tronqués, totaux (`TOTAL`, `Payé`, `RESTE A PAYER` / `SOLDÉ`), URL de vérification du ticket, coupe `ESC d 3` + `GS V B`.
+- Encodage CP437 avec replis progressifs : ponctuation typographique → ASCII (`’` → `'`, `«»` → `"`, `–—` → `-`), puis perte d'accent (`À` → `A`) ; les montants `fr-FR` (espaces fines U+202F/U+00A0) sont normalisés.
+- La modale ticket gagne **« Imprimer en direct (ESC/POS) »** (transport WebUSB : filtre classe 7, endpoint bulk out, messages d'erreur explicites si le navigateur ne supporte pas WebUSB — Chrome/Edge sur ordinateur requis) et un **aperçu du flux** reconstitué (`renderEscPosPreview`) pour vérifier avant impression. L'impression HTML 80 mm reste disponible en repli.
+- Tests : `src/lib/escpos.test.ts` — **16 tests** (encodage CP437, perte d'accent, troncature, totaux, coupe, aperçu, transport WebUSB simulé avec transfert du flux, absence d'octet de contrôle).
+
+### 3. Affectation d'un employé à un établissement
+- `backend/internal/branch/assignment.go` + SQL transactionnel (`branch/persist.go`) : lecture et **remplacement exclusif** des `branch_memberships` d'un compte (`GET`/`PUT /api/v1/users/{id}/branches`). Une sélection vide est refusée (`400` fail-closed : un employé agit toujours sur au moins un site), un site inconnu ou **archivé** est refusé (`400`), un compte d'un autre pressing est introuvable (`404`).
+- Garde-fou de concurrence : `memberBranchesLocked` (le verrou n'est jamais repris par une méthode déjà verrouillée — un interblocage a été détecté puis éliminé par les tests).
+- Effet immédiat : `RequireBranchScope` s'appuie sur ces affectations ; retirer un site ferme l'accès aux commandes rattachées (`403`) dès l'enregistrement, sans reconnexion. Vérifié sur la pile réelle.
+- Interface : bouton **« Affecter »** par employé dans l'écran Équipe, sélecteur des sites (principal signalé, statut affiché), refus local d'une sélection vide, message de confirmation.
+- Tests : `branch/service_test.go` (`TestAffectation_MembreAuxEtablissements`, 6 étapes : défaut, non-affecté, remplacement exclusif, cas limites, isolation entre pressings, archivage) ; front, `teamApi.test.ts` (**6 tests**) et `TeamView.test.tsx` (sélection d'un site, enregistrement, refus de la sélection vide).
+
+### Preuves d'exécution
+- **Live (pile réelle 3000 → 8085 → PostgreSQL 16)** : `/tmp/verif_tour5.py` — **30/30** (export CSV/PDF conforme et chiffres identiques à l'écran, garde-fous `400`/`401`/`402`, affectation par défaut puis exclusive, effet réel sur `X-Branch-ID` — `200` sur le site affecté, `403` sur le site retiré).
+- **Non-régression** : 35/35 (modules payants), 24/24 (Équipe), 34/34 (E2E), 17/17 (SuperAdmin), 14/14 (fail-closed & quotas) → **154 assertions live** vertes.
+- **Backend** : `gofmt` propre, `go vet ./...` muet, `go test ./...` **12 paquets `ok`**, binaire `backend/bin/api` reconstruit et rechargé par le serveur de développement.
+- **Frontend** : `tsc --noEmit` OK · `eslint .` **0 erreur** (46 avertissements plafonnés) · `prettier --check .` conforme · **11 fichiers / 94 tests Vitest** · `npm run build` OK.
+
+**Compteurs** : 67 tests Go (+ 3 d'intégration), 94 tests frontend, **154 assertions live** vertes.
+
+## 9. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
 | 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
-| 🟢 Basse | Notifications WhatsApp/SMS, impression ESC/POS native (WebUSB), mode hors-ligne, export PDF/CSV des rapports |
-| 🟢 Basse | Contrôle d'accès fin par établissement dans l'interface (affecter un employé à un site depuis l'écran Équipe) |
+| 🟢 Basse | Notifications WhatsApp/SMS, mode hors-ligne (PWA), transfert d'un ticket vers une imprimante réseau |
 
 ---
 
-## 9. Vérification finale de bout en bout — 34/34 ✅
+## 10. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -214,7 +245,7 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 10. Comment reproduire les vérifications
+## 11. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique
@@ -230,7 +261,10 @@ python3 /tmp/verif_modules.py
 # Module Équipe de bout en bout (inscription, création, plafond, désactivation)
 python3 /tmp/verif_equipe.py
 
-# Frontend : types, ESLint, formatage, tests, build
+# Tour 5 : export CSV/PDF des rapports et affectation employé ↔ établissement
+python3 /tmp/verif_tour5.py
+
+# Frontend : types, ESLint, formatage, tests (94), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

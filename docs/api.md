@@ -44,9 +44,27 @@ Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/stat
 |---|---|---|---|
 | GET | `/api/v1/users` | owner, manager (superadmin) | Liste les comptes de l'établissement (isolation par `tenant_id` du jeton). La gestion d'équipe remplace l'ancienne route `GET /api/v1/auth/users`, retirée. |
 | POST | `/api/v1/users` | owner, manager (superadmin) | Crée un compte employé dans **une seule transaction** (`users` + `tenant_memberships` + `branch_memberships` sur l'établissement principal). Corps : `{"full_name","email","phone","role","password"}`. Rôles attribuables : `manager`, `cashier`, `operator` (le rôle `superadmin` est refusé `400`). `201` avec la fiche créée (email normalisé en minuscules, mot de passe ≥ 6 caractères). |
+| GET | `/api/v1/users/{id}/branches` | owner, manager (superadmin) | Établissements du pressing avec l'affectation du compte : `{"user_id":"…","branches":[{"id","name","is_primary","status","assigned"}]}`. |
+| PUT | `/api/v1/users/{id}/branches` | owner, manager (superadmin) | **Remplace** l'affectation du compte. Corps : `{"branch_ids":["…","…"]}`. Réponse identique au `GET` (état après enregistrement). |
 | PATCH | `/api/v1/users/{id}/status` | owner, manager (superadmin) | Active (`active`) ou désactive (`inactive`) un compte. Corps : `{"status":"active"\|"inactive"}`. La mise à jour du compte **et** de l'appartenance est transactionnelle : la désactivation ferme immédiatement les routes métier, y compris pour un jeton déjà émis. |
 
 Réponses : `402` `{"error":"plafond atteint (N) — passez à une formule supérieure","feature":"users.max","usage":N,"upgrade_required":"true"}` à la création au-delà du plafond de la formule ; `409` si l'email est déjà utilisé ; `404` si l'identifiant est inconnu **ou appartient à un autre établissement** ; `400` pour un rôle/statut invalide, un mot de passe trop court ou une auto-désactivation (un gérant ne peut pas se fermer l'accès lui-même) ; `403` pour un caissier ou un opérateur.
+
+### Affectation d'un employé à un établissement (périmètre d'exploitation)
+Un compte n'opère que sur les établissements qui lui sont affectés (`branch_memberships`) :
+à la création, il est rattaché à l'**établissement principal** ; tant qu'aucune sélection
+explicite n'existe, ce site principal reste son périmètre par défaut.
+
+Sémantique du `PUT` :
+- **remplacement exclusif** — les sites absents de `branch_ids` sont retirés, les nouveaux ajoutés (transaction unique) ;
+- `400` `{"error":"au moins un établissement doit être affecté"}` pour une sélection vide (fail-closed : un employé sans site ne peut ni encaisser ni saisir) ;
+- `400` pour un site inconnu du pressing **ou archivé** ;
+- `404` si le compte visé appartient à un autre pressing ;
+- `403` pour un caissier ou un opérateur (gestion réservée au propriétaire/gérant).
+
+Effet immédiat : le middleware `RequireBranchScope` valide l'en-tête `X-Branch-ID`
+contre ces affectations ; retirer un site ferme donc l'accès aux commandes qui y sont
+rattachées dès l'enregistrement, sans reconnexion.
 
 Le module est placé dans le groupe des **modules métier** : un abonnement suspendu le gèle également (`402`, message d'abonnement), tandis que `/tenant/current` et `/me/entitlements` restent ouverts.
 
@@ -209,6 +227,13 @@ invalide.
 | Méthode | Route | Rôle | Description |
 |---|---|---|---|
 | GET | `/api/v1/reports/summary?from=AAAA-MM-JJ&to=AAAA-MM-JJ` | owner, manager (superadmin) | Rapport d'activité de la période (défaut : mois courant). Calcule sur les données réelles : CA **encaissé**, nombre de commandes, `orders_by_status`, ticket moyen, dépenses de la période et leur répartition par poste, **marge = CA encaissé − dépenses**, top 5 des prestations. `data_source` indique `postgresql` ou `memoire`. `400` (`ErrInvalidPeriod`) si `from` > `to` ou si une date est illisible. |
+| GET | `/api/v1/reports/export?format=csv\|pdf&from=AAAA-MM-JJ&to=AAAA-MM-JJ` | owner, manager (superadmin) | **Export du rapport** (`format` par défaut `csv`). Mêmes chiffres que `/summary` (dépenses et consolidation incluses). Réponse en pièce jointe : `Content-Disposition: attachment; filename="rapport-<slug>-<from>_<to>.<ext>"` (slug dérivé du nom du pressing). `400` pour un format inconnu ou une période invalide ; `402` (`reports.advanced`) en formule gratuite, comme l'écran. |
+
+**Formats d'export** : le **CSV** utilise le séparateur `;` et un BOM UTF-8 (ouverture
+directe dans Excel FR), avec CRLF et des en-têtes français ; le **PDF** est au format 1.4
+(Helvetica/WinAnsi, A4, pagination automatique au-delà de 46 lignes) et se compose sans
+aucune dépendance externe. Les montants y sont formatés comme à l'écran (espaces fines) et
+les métadonnées (période, établissement, source de données) rappellent le contexte.
 
 Consolidation multi-sites : quand la formule inclut `reports.consolidated` (BUSINESS,
 essai actif inclus), la réponse porte `consolidated: true` et `by_branch` (CA, dépenses

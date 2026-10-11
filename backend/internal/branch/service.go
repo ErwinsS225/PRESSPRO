@@ -16,6 +16,10 @@ type Store interface {
 	GetBranch(ctx context.Context, tenantID, id string) (*Branch, error)
 	CreateBranch(ctx context.Context, tenantID string, req CreateBranchRequest) (*Branch, error)
 	UpdateBranch(ctx context.Context, tenantID, id string, req UpdateBranchRequest) (*Branch, error)
+
+	// Affectation des comptes aux établissements (branch_memberships).
+	GetMemberBranches(ctx context.Context, tenantID, userID string) ([]*MemberBranch, error)
+	SetMemberBranches(ctx context.Context, tenantID, userID string, branchIDs []string) ([]*MemberBranch, error)
 }
 
 // Service expose la logique métier multi-sites. Sans base de données, il
@@ -24,9 +28,10 @@ type Store interface {
 type Service struct {
 	store Store
 
-	mu       sync.RWMutex
-	memoire  map[string][]*Branch
-	sequence int
+	mu           sync.RWMutex
+	memoire      map[string][]*Branch
+	affectations map[string]map[string]map[string]bool // tenant -> compte -> établissement
+	sequence     int
 }
 
 // NewService crée le service en mode mémoire.

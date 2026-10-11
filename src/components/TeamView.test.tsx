@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamView } from './TeamView';
 import { User } from '../types';
@@ -102,5 +102,101 @@ describe('TeamView', () => {
     fireEvent.click(screen.getByRole('button', { name: /Créer le compte/ }));
 
     await waitFor(() => expect(screen.getByText(/formule supérieure/)).toBeInTheDocument());
+  });
+
+  it('affecte un employé à un autre établissement depuis l’écran Équipe', async () => {
+    const SITES = [
+      {
+        id: 'br-principal',
+        name: 'Pressing Ivoire — Plateau',
+        is_primary: true,
+        status: 'active',
+        assigned: true,
+      },
+      {
+        id: 'br-lagune',
+        name: 'Pressing Ivoire — Cocody',
+        is_primary: false,
+        status: 'active',
+        assigned: false,
+      },
+    ];
+    let affectations = ['br-principal'];
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const cible = String(url);
+      if (cible.includes('/branches')) {
+        if (init?.method === 'PUT') {
+          affectations = JSON.parse(String(init.body)).branch_ids as string[];
+        }
+        return jsonResponse({
+          user_id: 'usr-awa-002',
+          branches: SITES.map((site) => ({ ...site, assigned: affectations.includes(site.id) })),
+        });
+      }
+      return jsonResponse(MEMBRES);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const toasts: string[] = [];
+    render(<TeamView currentUser={gerant} token="jeton-gerant" showToast={(m) => toasts.push(m)} />);
+    await waitFor(() => expect(screen.getByText('Awa Koné')).toBeInTheDocument());
+
+    fireEvent.click(
+      within(screen.getByText('Awa Koné').closest('tr') as HTMLElement).getByRole('button', {
+        name: 'Affecter',
+      })
+    );
+    await waitFor(() => expect(screen.getByText('Pressing Ivoire — Cocody')).toBeInTheDocument());
+    expect(screen.getByText('Pressing Ivoire — Plateau')).toBeInTheDocument();
+    expect(screen.getByLabelText('Pressing Ivoire — Plateau')).toBeChecked();
+
+    fireEvent.click(screen.getByLabelText('Pressing Ivoire — Cocody'));
+    expect(screen.getByLabelText('Pressing Ivoire — Cocody')).toBeChecked();
+
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer l’affectation/ }));
+
+    await waitFor(() =>
+      expect(toasts.some((m) => m.includes('agit désormais sur 2 établissements'))).toBe(true)
+    );
+    expect(affectations).toEqual(['br-principal', 'br-lagune']);
+    expect(screen.queryByText('Cochez les sites sur lesquels ce compte peut encaisser')).toBeNull();
+  });
+
+  it('refuse de laisser un employé sans établissement', async () => {
+    const SITE_UNIQUE = [
+      {
+        id: 'br-principal',
+        name: 'Pressing Ivoire — Plateau',
+        is_primary: true,
+        status: 'active',
+        assigned: true,
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/branches')) {
+          return jsonResponse({ user_id: 'usr-awa-002', branches: SITE_UNIQUE });
+        }
+        return jsonResponse(MEMBRES);
+      })
+    );
+
+    render(<TeamView currentUser={gerant} token="jeton-gerant" />);
+    await waitFor(() => expect(screen.getByText('Awa Koné')).toBeInTheDocument());
+
+    fireEvent.click(
+      within(screen.getByText('Awa Koné').closest('tr') as HTMLElement).getByRole('button', {
+        name: 'Affecter',
+      })
+    );
+    await waitFor(() => expect(screen.getByLabelText('Pressing Ivoire — Plateau')).toBeChecked());
+
+    fireEvent.click(screen.getByLabelText('Pressing Ivoire — Plateau'));
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer l’affectation/ }));
+
+    await waitFor(() => expect(screen.getByText(/au moins un établissement/i)).toBeInTheDocument());
+    expect(screen.getByText(/un employé sans site ne peut rien saisir/)).toBeInTheDocument();
   });
 });

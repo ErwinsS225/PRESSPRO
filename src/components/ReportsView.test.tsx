@@ -144,4 +144,83 @@ describe('ReportsView', () => {
       expect(urls.some((u) => u.includes('from=') && u !== urls[0])).toBe(true);
     });
   });
+
+  it('exporte la période en CSV puis en PDF avec le nom de fichier du serveur', async () => {
+    const noms: string[] = [];
+    const clics: HTMLAnchorElement[] = [];
+    const creationLien = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((balise: string) => {
+      const element = creationLien(balise);
+      if (balise === 'a') {
+        const ancre = element as HTMLAnchorElement;
+        ancre.click = () => clics.push(ancre);
+      }
+      return element;
+    });
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:rapport'),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const fetchMock = vi.fn(async (url: string) => {
+      const cible = String(url);
+      if (cible.includes('/reports/export')) {
+        const format = cible.includes('format=pdf') ? 'pdf' : 'csv';
+        noms.push(format);
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: (nom: string) =>
+              nom.toLowerCase() === 'content-disposition'
+                ? `attachment; filename="rapport-pressing-ivoire-2026-10-01_2026-10-31.${format}"`
+                : null,
+          } as unknown as Headers,
+          blob: async () => new Blob(['contenu'], { type: 'application/octet-stream' }),
+          json: async () => ({}),
+        } as unknown as Response;
+      }
+      return jsonResponse(BASE_RAPPORT);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const toasts: string[] = [];
+    render(<ReportsView currentUser={gerant} token="jeton" showToast={(m) => toasts.push(m)} />);
+    await waitFor(() => expect(screen.getAllByText('7 000 FCFA').length).toBeGreaterThanOrEqual(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'CSV' }));
+    await waitFor(() =>
+      expect(clics.some((a) => a.download.endsWith('2026-10-01_2026-10-31.csv'))).toBe(true)
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'PDF' }));
+    await waitFor(() =>
+      expect(clics.some((a) => a.download.endsWith('2026-10-01_2026-10-31.pdf'))).toBe(true)
+    );
+
+    expect(noms).toEqual(['csv', 'pdf']);
+    expect(toasts.filter((m) => m.startsWith('Rapport exporté :')).length).toBe(2);
+    expect(screen.getAllByText(/Rapport exporté/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('explique qu’un export impossible n’est pas réservé à la formule payante', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/reports/export')) {
+          return jsonResponse({ error: 'erreur HTTP 500' }, 500);
+        }
+        return jsonResponse(BASE_RAPPORT);
+      })
+    );
+
+    render(<ReportsView currentUser={gerant} token="jeton" />);
+    await waitFor(() => expect(screen.getAllByText('7 000 FCFA').length).toBeGreaterThanOrEqual(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'CSV' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('erreur HTTP 500'));
+    // L'invitation commerciale reste absente : ce n'est pas un verrouillage de formule.
+    expect(screen.queryByText(/réservés aux formules payantes/)).not.toBeInTheDocument();
+  });
 });
