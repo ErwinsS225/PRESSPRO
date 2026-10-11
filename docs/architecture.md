@@ -181,7 +181,7 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 ## 7. Qualité, outillage et intégration continue
 
 - **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
-- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **20 fichiers / 153 tests**, vues métier, clients API, analyses du tableau de bord, dessin réel des graphiques, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **21 fichiers / 162 tests**, vues métier, clients API, analyses du tableau de bord, dessin réel des graphiques, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
 - Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).
 ### Bibliothèque d'interface : primitives shadcn/ui et composants ReUI
@@ -221,6 +221,29 @@ Contextes d'utilisation retenus :
 | Barres groupées | c-chart bar | Tableau de bord : dépôts et pièces reçues par jour d'activité |
 | Anneaux concentriques (radial) | c-chart radial | Tableau de bord : taux de recouvrement des règlements, pourcentage au centre |
 | Entonnoir du parcours du linge | c-chart funnel | Tableau de bord : conversion réception → livraison, dépôts encore en atelier |
+
+### Tableaux de données
+
+La primitive `src/components/ui/table.tsx` (shadcn/ui) porte l'habillage maison : en-tête
+discret (`neutral-50/75`, `dark:neutral-900/60`), filets `neutral-100`/`neutral-800`, survol
+foncé des lignes et **conteneur défilant intégré** — plus aucune vue ne gère son
+`overflow-x`. Elle expose `Table`, `TableHeader`, `TableBody`, `TableFooter`, `TableRow`,
+`TableHead`, `TableCell`, `TableCaption` et `TableEmpty` (ligne d'état vide occupant toute la
+largeur, qui neutralise le survol).
+
+`src/components/reui/orders-table.tsx` (modèle c-table-10 enrichi) est le tableau des dépôts :
+tri par colonne (ticket, client, article, échéance, montant) avec `aria-sort`,
+filtre par étape d'atelier **avec compteurs**, recherche libre insensible aux accents
+(ticket, client, téléphone, article), actions de comptoir par ligne (imprimer, notifier,
+faire avancer), affichage par paliers (« Afficher plus ») et pied récapitulatif aligné sur les
+colonnes (facturé, encaissé, pièces, dépôts en atelier, soldés). Il sert au comptoir (avec
+barre d'outils) et au tableau de bord (version condensée de cinq lignes). Les métadonnées
+d'étape et de règlement (`ETAPES_COMMANDE`, `PROCHAINE_ETAPE`, `ETAT_REGLEMENT`) y sont
+exportées pour que les vues partagent les mêmes libellés et badges.
+
+Toutes les vues métier passent par cette primitive — clients, dépenses, rapports,
+prestations (deux tableaux), équipe, abonnements de l'espace éditeur et dépôts : plus aucune
+balise `<table>` brute dans `src/`.
 
 Les séries qui alimentent ces graphiques sont calculées par des **fonctions pures** dans
 `src/lib/analytique.ts` (`serieMensuelle`, `serieJournaliere`, `recouvrement`,

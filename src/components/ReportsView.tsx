@@ -26,6 +26,7 @@ import {
   orderStatusLabel,
   periodBounds,
 } from '../lib/reportsApi';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface ReportsViewProps {
   currentUser: User;
@@ -341,49 +342,47 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token, sh
                   Le rapport global ci-dessus reste complet.
                 </p>
               ) : (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                      <tr>
-                        <th className="py-2 font-medium">Établissement</th>
-                        <th className="py-2 font-medium">Commandes</th>
-                        <th className="py-2 text-right font-medium">Encaissé</th>
-                        <th className="py-2 text-right font-medium">Dépenses</th>
-                        <th className="py-2 text-right font-medium">Marge</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(rapport.by_branch ?? []).map((ligne) => (
-                        <tr
-                          key={ligne.branch_id}
-                          className="border-t border-neutral-100 dark:border-neutral-800/60"
+                <Table containerClassName="mt-3" className="w-full text-left text-xs">
+                  <TableHeader className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    <TableRow>
+                      <TableHead className="py-2 font-medium">Établissement</TableHead>
+                      <TableHead className="py-2 font-medium">Commandes</TableHead>
+                      <TableHead className="py-2 text-right font-medium">Encaissé</TableHead>
+                      <TableHead className="py-2 text-right font-medium">Dépenses</TableHead>
+                      <TableHead className="py-2 text-right font-medium">Marge</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(rapport.by_branch ?? []).map((ligne) => (
+                      <TableRow
+                        key={ligne.branch_id}
+                        className="border-t border-neutral-100 dark:border-neutral-800/60"
+                      >
+                        <TableCell className="py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                          {ligne.name}
+                        </TableCell>
+                        <TableCell className="py-2 text-neutral-600 dark:text-neutral-300">
+                          {ligne.orders_count}
+                        </TableCell>
+                        <TableCell className="py-2 text-right text-neutral-600 dark:text-neutral-300">
+                          {formatXOF(ligne.revenue_xof)}
+                        </TableCell>
+                        <TableCell className="py-2 text-right text-neutral-600 dark:text-neutral-300">
+                          {formatXOF(ligne.expenses_xof)}
+                        </TableCell>
+                        <TableCell
+                          className={`py-2 text-right font-medium ${
+                            ligne.margin_xof >= 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                          }`}
                         >
-                          <td className="py-2 font-medium text-neutral-900 dark:text-neutral-100">
-                            {ligne.name}
-                          </td>
-                          <td className="py-2 text-neutral-600 dark:text-neutral-300">
-                            {ligne.orders_count}
-                          </td>
-                          <td className="py-2 text-right text-neutral-600 dark:text-neutral-300">
-                            {formatXOF(ligne.revenue_xof)}
-                          </td>
-                          <td className="py-2 text-right text-neutral-600 dark:text-neutral-300">
-                            {formatXOF(ligne.expenses_xof)}
-                          </td>
-                          <td
-                            className={`py-2 text-right font-medium ${
-                              ligne.margin_xof >= 0
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-rose-600 dark:text-rose-400'
-                            }`}
-                          >
-                            {formatXOF(ligne.margin_xof)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          {formatXOF(ligne.margin_xof)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </div>
 

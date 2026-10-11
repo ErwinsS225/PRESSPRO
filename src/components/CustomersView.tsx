@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { Search, UserPlus } from 'lucide-react';
 import { Customer } from '../types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -78,57 +87,55 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
 
       {/* Customers Table */}
       <div className="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#111111]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                <th className="px-5 py-2.5">Nom Complet</th>
-                <th className="px-4 py-2.5">Contact GSM / WhatsApp</th>
-                <th className="px-4 py-2.5">Quartier (Abidjan)</th>
-                <th className="px-4 py-2.5 text-center">Historique</th>
-                <th className="px-4 py-2.5">Dernière Visite</th>
-                <th className="px-5 py-2.5 text-right">Solde Dû</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-              {filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-neutral-500 dark:text-neutral-400">
-                    Aucun client ne correspond à votre recherche.
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
-                  >
-                    <td className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">
-                      {c.fullName}
-                    </td>
-                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
-                      {c.phone}
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">{c.neighborhood}</td>
-                    <td className="px-4 py-3.5 text-center font-mono text-neutral-700 dark:text-neutral-300 tabular-nums">
-                      {c.totalOrders} dépôts
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-500 dark:text-neutral-400">{c.lastVisit}</td>
-                    <td className="px-5 py-3.5 text-right font-mono tabular-nums">
-                      {c.balanceDue > 0 ? (
-                        <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                          {c.balanceDue.toLocaleString('fr-FR')} F
-                        </span>
-                      ) : (
-                        <span className="text-neutral-400 dark:text-neutral-500">À jour (0 F)</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table className="w-full text-left text-xs">
+          <TableHeader>
+            <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+              <TableHead className="px-5 py-2.5">Nom Complet</TableHead>
+              <TableHead className="px-4 py-2.5">Contact GSM / WhatsApp</TableHead>
+              <TableHead className="px-4 py-2.5">Quartier (Abidjan)</TableHead>
+              <TableHead className="px-4 py-2.5 text-center">Historique</TableHead>
+              <TableHead className="px-4 py-2.5">Dernière Visite</TableHead>
+              <TableHead className="px-5 py-2.5 text-right">Solde Dû</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {filteredCustomers.length === 0 ? (
+              <TableEmpty colSpan={6}>Aucun client ne correspond à votre recherche.</TableEmpty>
+            ) : (
+              filteredCustomers.map((c) => (
+                <TableRow
+                  key={c.id}
+                  className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
+                >
+                  <TableCell className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">
+                    {c.fullName}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
+                    {c.phone}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    {c.neighborhood}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-center font-mono text-neutral-700 dark:text-neutral-300 tabular-nums">
+                    {c.totalOrders} dépôts
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-neutral-500 dark:text-neutral-400">
+                    {c.lastVisit}
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 text-right font-mono tabular-nums">
+                    {c.balanceDue > 0 ? (
+                      <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                        {c.balanceDue.toLocaleString('fr-FR')} F
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400 dark:text-neutral-500">À jour (0 F)</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* New Customer Modal */}

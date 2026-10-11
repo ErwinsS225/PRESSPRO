@@ -13,6 +13,7 @@ import {
   monthBounds,
 } from '../lib/expensesApi';
 import { formatXOF } from '../lib/adminApi';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface ExpensesViewProps {
   currentUser: User;
@@ -224,39 +225,39 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
             </p>
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
-              <tr>
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Libellé</th>
-                <th className="px-4 py-3 font-medium">Poste</th>
-                <th className="px-4 py-3 text-right font-medium">Montant</th>
-                {gestionnaire && <th className="px-4 py-3 text-right font-medium">Action</th>}
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full text-left text-sm">
+            <TableHeader className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
+              <TableRow>
+                <TableHead className="px-4 py-3 font-medium">Date</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Libellé</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Poste</TableHead>
+                <TableHead className="px-4 py-3 text-right font-medium">Montant</TableHead>
+                {gestionnaire && <TableHead className="px-4 py-3 text-right font-medium">Action</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {depenses.map((expense) => (
-                <tr
+                <TableRow
                   key={expense.id}
                   className="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60"
                 >
-                  <td className="px-4 py-3 text-xs text-neutral-500 dark:text-neutral-400">
+                  <TableCell className="px-4 py-3 text-xs text-neutral-500 dark:text-neutral-400">
                     {expense.spent_at}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">{expense.label}</div>
                     {expense.note && (
                       <div className="text-[11px] text-neutral-500 dark:text-neutral-400">{expense.note}</div>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-300">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-300">
                     {categoryLabel(expense.category)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-neutral-900 dark:text-neutral-100">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right font-medium text-neutral-900 dark:text-neutral-100">
                     {formatXOF(expense.amount_xof)}
-                  </td>
+                  </TableCell>
                   {gestionnaire && (
-                    <td className="px-4 py-3 text-right">
+                    <TableCell className="px-4 py-3 text-right">
                       <button
                         type="button"
                         disabled={busyId === expense.id}
@@ -270,12 +271,12 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                         )}
                         Supprimer
                       </button>
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </div>
 

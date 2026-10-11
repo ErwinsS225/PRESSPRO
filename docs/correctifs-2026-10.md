@@ -323,7 +323,31 @@ ont été étoffés et branchés sur des calculs dédiés (`src/lib/analytique.t
 | Anneaux concentriques | `reui/collection-radial-chart` | Tableau de bord : dépôts soldés, acomptes, reste à percevoir — pourcentage recouvré au centre |
 | Entonnoir | `reui/orders-pipeline-chart` | Tableau de bord : conversion réception → livraison, dépôts encore en atelier, étiquettes par étape |
 
-Vérifications d'exécution : 153 tests Vitest (dont 13 sur les analyses, 6 sur le **dessin**
+### 8. Composant Tableau : primitive durcie et tableau des dépôts partagé
+La primitive shadcn/ui a été complétée puis retenue comme **seul** moyen d'afficher un
+tableau : habillage maison (en-tête discret, filets, survol foncé), conteneur défilant
+intégré, `TableEmpty` pour les états vides, `containerClassName` pour les marges du
+conteneur. Les vues qui dessinaient encore des balises brutes ont été migrées :
+
+| Vue | Balises migrées | Conteneur redondant retiré |
+|---|---|---|
+| `CustomersView` | 38 | oui |
+| `ExpensesView` | 30 | — |
+| `ReportsView` | 30 | oui (`mt-3` déplacé sur `containerClassName`) |
+| `ServicesView` (deux tableaux) | 84 | oui |
+| `TeamView` | 30 | — |
+
+Contrôle : `grep '<table\|<tr\|<td\|<th'` ne renvoie plus rien dans `src/components` hors
+de la primitive elle-même.
+
+`reui/orders-table.tsx` devient le tableau des dépôts de l'application : tri par colonne
+(`aria-sort`), filtre par étape avec compteurs, recherche insensible aux accents, actions
+de comptoir par ligne (imprimer, notifier, faire avancer), affichage par paliers et pied
+récapitulatif aligné sur les colonnes. Le comptoir (avec barre d'outils) et le tableau de
+bord (cinq lignes, colonnes réduites) partagent ce composant ; `OrdersView` passe de 237 à
+56 lignes et `App` branche l'impression du ticket depuis le tableau de bord.
+
+Vérifications d'exécution : 162 tests Vitest (dont 13 sur les analyses, 6 sur le **dessin**
 réel des tracés avec un cadre de 420 × 230 px imposé au conteneur), `tsc`, ESLint, Prettier
 et build Vite verts ; l'aperçu sert bien les nouveaux modules.
 
@@ -393,7 +417,7 @@ python3 /tmp/verif_fix_demo.py
 # récepteur /tmp/passerelle.py lancés, puis npm run dev
 python3 /tmp/verif_tour6.py
 
-# Frontend : types, ESLint, formatage, tests (153), build
+# Frontend : types, ESLint, formatage, tests (162), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

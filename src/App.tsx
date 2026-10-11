@@ -396,6 +396,7 @@ function PressingOSApp() {
                   health={health}
                   onNavigate={setCurrentView}
                   onNewOrder={() => setIsNewOrderModalOpen(true)}
+                  onOpenTicket={(ord) => setSelectedTicketOrder(ord)}
                 />
               )}
 

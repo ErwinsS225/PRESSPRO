@@ -28,6 +28,7 @@ import {
   setTeamMemberStatus,
   statusLabel,
 } from '../lib/teamApi';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface TeamViewProps {
   currentUser: User;
@@ -252,23 +253,23 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
             </p>
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
-              <tr>
-                <th className="px-4 py-3 font-medium">Employé</th>
-                <th className="px-4 py-3 font-medium">Rôle</th>
-                <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium">Établissements</th>
-                <th className="px-4 py-3 text-right font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full text-left text-sm">
+            <TableHeader className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
+              <TableRow>
+                <TableHead className="px-4 py-3 font-medium">Employé</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Rôle</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Statut</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Établissements</TableHead>
+                <TableHead className="px-4 py-3 text-right font-medium">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {members.map((member) => (
-                <tr
+                <TableRow
                   key={member.id}
                   className="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60"
                 >
-                  <td className="px-4 py-3">
+                  <TableCell className="px-4 py-3">
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">
                       {member.full_name}
                       {member.id === currentUser.id && (
@@ -278,11 +279,11 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                       )}
                     </div>
                     <div className="text-xs text-neutral-500 dark:text-neutral-400">{member.email}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-300">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-300">
                     {roleLabel(member.role)}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         member.status === 'active'
@@ -297,8 +298,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                       )}
                       {statusLabel(member.status)}
                     </span>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     <button
                       type="button"
                       onClick={() => void ouvrirAffectation(member)}
@@ -308,8 +309,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                       <Store className="h-3 w-3" />
                       Affecter
                     </button>
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right">
                     {modifiable(member) ? (
                       <button
                         type="button"
@@ -333,11 +334,11 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
                         {member.id === currentUser.id ? 'compte courant' : 'compte protégé'}
                       </span>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </div>
 

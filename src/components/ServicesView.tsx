@@ -36,6 +36,15 @@ import {
 import { DEMO_SUBSCRIPTION_PLANS, DEMO_B2B_CONTRACTS } from '../lib/demoData';
 import { CounterReceiptModal } from './CounterReceiptModal';
 import { CatalogManagerModal } from './CatalogManagerModal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface ServicesViewProps {
   services: ServiceItem[];
@@ -830,194 +839,190 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
           {/* TABLEAU DES PRESTATIONS */}
           <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0f0f0f]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                    <th className="px-5 py-3">Article & Traitement Spécifique</th>
-                    <th className="px-4 py-3">Catégorie</th>
-                    <th className="px-4 py-3">Unité & Modèle</th>
-                    <th className="px-4 py-3">Délai Estimé</th>
-                    <th className="px-4 py-3">Options & Particularités</th>
-                    <th className="px-4 py-3 text-right">Tarif (FCFA)</th>
-                    <th className="px-4 py-3 text-center">Statut</th>
-                    {canEdit && <th className="px-5 py-3 text-right">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
-                  {filteredServices.length === 0 ? (
-                    <tr>
-                      <td colSpan={canEdit ? 8 : 7} className="px-5 py-16 text-center">
-                        <div className="mx-auto flex max-w-xs flex-col items-center justify-center text-center">
-                          <Tag className="h-8 w-8 text-neutral-300 dark:text-neutral-700 mb-2" />
-                          <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                            Aucune prestation correspondante
-                          </p>
-                          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                            Essayez de modifier vos critères de recherche ou ajoutez un nouveau service.
-                          </p>
-                          {canEdit && (
-                            <button
-                              onClick={handleOpenAdd}
-                              className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-                            >
-                              <Plus className="h-3 w-3" />
-                              <span>Ajouter une prestation</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredServices.map((item) => {
-                      const isActive = item.isActive !== false;
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`transition-colors ${
-                            !isActive
-                              ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
-                              : 'hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50'
-                          }`}
+            <Table className="w-full text-left text-xs">
+              <TableHeader>
+                <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+                  <TableHead className="px-5 py-3">Article & Traitement Spécifique</TableHead>
+                  <TableHead className="px-4 py-3">Catégorie</TableHead>
+                  <TableHead className="px-4 py-3">Unité & Modèle</TableHead>
+                  <TableHead className="px-4 py-3">Délai Estimé</TableHead>
+                  <TableHead className="px-4 py-3">Options & Particularités</TableHead>
+                  <TableHead className="px-4 py-3 text-right">Tarif (FCFA)</TableHead>
+                  <TableHead className="px-4 py-3 text-center">Statut</TableHead>
+                  {canEdit && <TableHead className="px-5 py-3 text-right">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
+                {filteredServices.length === 0 ? (
+                  <TableEmpty colSpan={canEdit ? 8 : 7} className="px-5 py-16 text-center">
+                    <div className="mx-auto flex max-w-xs flex-col items-center justify-center text-center">
+                      <Tag className="h-8 w-8 text-neutral-300 dark:text-neutral-700 mb-2" />
+                      <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        Aucune prestation correspondante
+                      </p>
+                      <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Essayez de modifier vos critères de recherche ou ajoutez un nouveau service.
+                      </p>
+                      {canEdit && (
+                        <button
+                          onClick={handleOpenAdd}
+                          className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                         >
-                          {/* Article & Traitement */}
-                          <td className="px-5 py-3.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                                  {item.article || item.name}
-                                </span>
-                                {item.treatment && (
-                                  <span className="font-normal text-neutral-500 dark:text-neutral-400">
-                                    — {item.treatment}
-                                  </span>
-                                )}
-                              </div>
-                              {item.description && (
-                                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-sm line-clamp-1">
-                                  {item.description}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Catégorie */}
-                          <td className="px-4 py-3.5">
-                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
-                              {item.category}
-                            </span>
-                          </td>
-
-                          {/* Unité & Modèle */}
-                          <td className="px-4 py-3.5">
-                            <div className="space-y-0.5 font-mono text-[11px]">
-                              <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                                {item.unit}
+                          <Plus className="h-3 w-3" />
+                          <span>Ajouter une prestation</span>
+                        </button>
+                      )}
+                    </div>
+                  </TableEmpty>
+                ) : (
+                  filteredServices.map((item) => {
+                    const isActive = item.isActive !== false;
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className={`transition-colors ${
+                          !isActive
+                            ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
+                            : 'hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50'
+                        }`}
+                      >
+                        {/* Article & Traitement */}
+                        <TableCell className="px-5 py-3.5">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                                {item.article || item.name}
                               </span>
-                              {item.pricingModel === 'kilogram' && (
-                                <span className="block text-[10px] text-indigo-600 dark:text-indigo-400">
-                                  Au kilogramme
+                              {item.treatment && (
+                                <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                                  — {item.treatment}
                                 </span>
                               )}
                             </div>
-                          </td>
+                            {item.description && (
+                              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-sm line-clamp-1">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
 
-                          {/* Délai estimé */}
-                          <td className="px-4 py-3.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-neutral-400" />
-                              {item.durationHours}h ({Math.max(1, Math.round(item.durationHours / 24))}j)
+                        {/* Catégorie */}
+                        <TableCell className="px-4 py-3.5">
+                          <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
+                            {item.category}
+                          </span>
+                        </TableCell>
+
+                        {/* Unité & Modèle */}
+                        <TableCell className="px-4 py-3.5">
+                          <div className="space-y-0.5 font-mono text-[11px]">
+                            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                              {item.unit}
                             </span>
-                          </td>
+                            {item.pricingModel === 'kilogram' && (
+                              <span className="block text-[10px] text-indigo-600 dark:text-indigo-400">
+                                Au kilogramme
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
 
-                          {/* Options & Badges (Express, Pickup, Devis, Sous-traitance) */}
-                          <td className="px-4 py-3.5">
-                            <div className="flex flex-wrap items-center gap-1">
-                              {item.isExpressAvailable && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                                  <Zap className="h-2.5 w-2.5" />
-                                  <span>Express</span>
-                                </span>
-                              )}
-                              {item.isPickupAvailable && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
-                                  <Truck className="h-2.5 w-2.5" />
-                                  <span>Collecte</span>
-                                </span>
-                              )}
-                              {item.isOutsourced && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
-                                  <span>Externalisé</span>
-                                </span>
-                              )}
-                              {item.requiresQuote && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                                  <span>Sur devis</span>
-                                </span>
-                              )}
+                        {/* Délai estimé */}
+                        <TableCell className="px-4 py-3.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-neutral-400" />
+                            {item.durationHours}h ({Math.max(1, Math.round(item.durationHours / 24))}j)
+                          </span>
+                        </TableCell>
+
+                        {/* Options & Badges (Express, Pickup, Devis, Sous-traitance) */}
+                        <TableCell className="px-4 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {item.isExpressAvailable && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                                <Zap className="h-2.5 w-2.5" />
+                                <span>Express</span>
+                              </span>
+                            )}
+                            {item.isPickupAvailable && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                                <Truck className="h-2.5 w-2.5" />
+                                <span>Collecte</span>
+                              </span>
+                            )}
+                            {item.isOutsourced && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                                <span>Externalisé</span>
+                              </span>
+                            )}
+                            {item.requiresQuote && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                                <span>Sur devis</span>
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        {/* Tarif en FCFA */}
+                        <TableCell className="px-4 py-3.5 text-right font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
+                          {item.requiresQuote ? 'Dès ' : ''}
+                          {item.price.toLocaleString('fr-FR')} FCFA
+                        </TableCell>
+
+                        {/* Statut Actif / Inactif */}
+                        <TableCell className="px-4 py-3.5 text-center">
+                          <button
+                            onClick={() => canEdit && handleToggleActive(item)}
+                            disabled={!canEdit}
+                            title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                              isActive
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
+                                : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`}
+                            />
+                            <span>{isActive ? 'Actif' : 'Inactif'}</span>
+                          </button>
+                        </TableCell>
+
+                        {/* Actions Admin */}
+                        {canEdit && (
+                          <TableCell className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleDuplicate(item)}
+                                className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-950 hover:text-white transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
+                                title="Décliner cet article (ex: Repassage seul)"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEdit(item)}
+                                className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
+                                title="Modifier la prestation et le tarif"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleRequestDelete(item)}
+                                className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+                                title="Supprimer définitivement cette prestation"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
-                          </td>
-
-                          {/* Tarif en FCFA */}
-                          <td className="px-4 py-3.5 text-right font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
-                            {item.requiresQuote ? 'Dès ' : ''}
-                            {item.price.toLocaleString('fr-FR')} FCFA
-                          </td>
-
-                          {/* Statut Actif / Inactif */}
-                          <td className="px-4 py-3.5 text-center">
-                            <button
-                              onClick={() => canEdit && handleToggleActive(item)}
-                              disabled={!canEdit}
-                              title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                isActive
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
-                                  : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
-                              }`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`}
-                              />
-                              <span>{isActive ? 'Actif' : 'Inactif'}</span>
-                            </button>
-                          </td>
-
-                          {/* Actions Admin */}
-                          {canEdit && (
-                            <td className="px-5 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => handleDuplicate(item)}
-                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-950 hover:text-white transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
-                                  title="Décliner cet article (ex: Repassage seul)"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleOpenEdit(item)}
-                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
-                                  title="Modifier la prestation et le tarif"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleRequestDelete(item)}
-                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
-                                  title="Supprimer définitivement cette prestation"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -1120,61 +1125,64 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0f0f0f]">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                  <th className="px-5 py-3">Établissement Client</th>
-                  <th className="px-4 py-3">Secteur d'Activité</th>
-                  <th className="px-4 py-3">Mode de Facturation</th>
-                  <th className="px-4 py-3">Tarif Négocié</th>
-                  <th className="px-4 py-3">Cycle de Facturation</th>
-                  <th className="px-4 py-3">Contact & Téléphone</th>
-                  <th className="px-4 py-3 text-center">Statut Contrat</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
+            <Table className="w-full text-left text-xs">
+              <TableHeader>
+                <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+                  <TableHead className="px-5 py-3">Établissement Client</TableHead>
+                  <TableHead className="px-4 py-3">Secteur d'Activité</TableHead>
+                  <TableHead className="px-4 py-3">Mode de Facturation</TableHead>
+                  <TableHead className="px-4 py-3">Tarif Négocié</TableHead>
+                  <TableHead className="px-4 py-3">Cycle de Facturation</TableHead>
+                  <TableHead className="px-4 py-3">Contact & Téléphone</TableHead>
+                  <TableHead className="px-4 py-3 text-center">Statut Contrat</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
                 {b2bContracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50">
-                    <td className="px-5 py-3.5 font-semibold text-neutral-900 dark:text-neutral-100">
+                  <TableRow
+                    key={contract.id}
+                    className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50"
+                  >
+                    <TableCell className="px-5 py-3.5 font-semibold text-neutral-900 dark:text-neutral-100">
                       {contract.clientName}
-                    </td>
-                    <td className="px-4 py-3.5">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5">
                       <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
                         {contract.businessType}
                       </span>
-                    </td>
-                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
                       {contract.billingType === 'kilogram'
                         ? 'Au kilogramme'
                         : contract.billingType === 'piece'
                           ? 'À la pièce'
                           : 'Forfait mensuel'}
-                    </td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-neutral-900 dark:text-neutral-100">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 font-mono font-bold text-neutral-900 dark:text-neutral-100">
                       {contract.ratePerUnit.toLocaleString('fr-FR')} FCFA{' '}
                       {contract.billingType === 'kilogram'
                         ? '/ kg'
                         : contract.billingType === 'piece'
                           ? '/ pièce'
                           : '/ mois'}
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                       {contract.billingCycle}
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                       <div>{contract.contactPerson}</div>
                       <div className="font-mono text-[11px] text-neutral-400">{contract.phone}</div>
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-center">
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>Actif</span>
                       </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

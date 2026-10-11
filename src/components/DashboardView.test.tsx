@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DashboardView } from './DashboardView';
 import type { Order } from '../types';
@@ -37,7 +37,16 @@ const COMMANDES: Order[] = [
 
 describe('DashboardView — sections ReUI', () => {
   it('branche les composants ReUI sur les données réelles du pressing', () => {
-    render(<DashboardView orders={COMMANDES} health={null} onNavigate={() => {}} onNewOrder={() => {}} />);
+    const onOpenTicket = vi.fn();
+    render(
+      <DashboardView
+        orders={COMMANDES}
+        health={null}
+        onNavigate={() => {}}
+        onNewOrder={() => {}}
+        onOpenTicket={onOpenTicket}
+      />
+    );
 
     // c-card-15 : indicateur avec variation calculée entre les deux mois des dépôts.
     expect(screen.getByText("Chiffre d'affaires encaissé")).toBeInTheDocument();
@@ -61,6 +70,12 @@ describe('DashboardView — sections ReUI', () => {
     expect(screen.getByText('Charge du comptoir')).toBeInTheDocument();
     expect(screen.getByText('Parcours du linge en atelier')).toBeInTheDocument();
     expect(screen.getByText(/Conversion réception → livraison : 50 %/)).toBeInTheDocument();
+
+    // Tableau des dépôts : composant partagé avec le comptoir (colonnes triables).
+    expect(screen.getByRole('button', { name: 'Trier par montant' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /statut atelier/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Imprimer le ticket CMD-2026-101/ }));
+    expect(onOpenTicket).toHaveBeenCalledWith(expect.objectContaining({ orderNumber: 'CMD-2026-101' }));
 
     // c-card-17 : raccourcis vers le comptoir, les rapports et la saisie.
     expect(screen.getByRole('button', { name: 'Nouveau dépôt de linge' })).toBeInTheDocument();

@@ -25,6 +25,7 @@ import { DepositsCarousel } from '@/components/reui/deposits-carousel';
 import { OrdersPipelineChart } from '@/components/reui/orders-pipeline-chart';
 import { RevenueTrendChart } from '@/components/reui/revenue-trend-chart';
 import { OrdersStatusChart } from '@/components/reui/orders-status-chart';
+import { OrdersTable } from '@/components/reui/orders-table';
 import { QuickActionCard } from '@/components/reui/quick-action-card';
 import { RevenueDonutChart } from '@/components/reui/revenue-donut-chart';
 import { StatCard } from '@/components/reui/stat-card';
@@ -34,9 +35,17 @@ interface DashboardViewProps {
   health: HealthCheckResult | null;
   onNavigate: (view: ViewMode) => void;
   onNewOrder: () => void;
+  /** Ouvre le ticket thermique d'un dépôt (fourni par l'application). */
+  onOpenTicket?: (order: Order) => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, onNavigate, onNewOrder }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({
+  orders,
+  health,
+  onNavigate,
+  onNewOrder,
+  onOpenTicket,
+}) => {
   const totalRevenue = orders.reduce((sum, o) => sum + o.paidAmount, 0);
   const activeCount = orders.filter((o) => o.status !== 'delivered').length;
   const readyCount = orders.filter((o) => o.status === 'ready').length;
@@ -348,82 +357,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ orders, health, on
         </div>
       </div>
 
-      {/* Recent Orders Table */}
+      {/* Dépôts récents — tableau de données (tri, filtre, pied récapitulatif) */}
       <div className="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#111111]">
-        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3.5 dark:border-neutral-800">
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Dépôts Récents & Suivi des Tickets
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Commandes enregistrées au comptoir avec statut de traitement
+              Commandes enregistrées au comptoir : triez les colonnes, filtrez une étape, ouvrez un ticket.
             </p>
           </div>
           <button
             onClick={() => onNavigate('orders')}
-            className="flex items-center gap-1 text-xs font-medium text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
+            className="flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
           >
             <span>Voir toutes les commandes</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                <th className="px-5 py-2.5">Ticket</th>
-                <th className="px-4 py-2.5">Client & Téléphone</th>
-                <th className="px-4 py-2.5">Articles</th>
-                <th className="px-4 py-2.5">Statut Atelier</th>
-                <th className="px-4 py-2.5">Règlement</th>
-                <th className="px-5 py-2.5 text-right">Montant (FCFA)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 font-normal">
-              {orders.slice(0, 5).map((order) => (
-                <tr
-                  key={order.id}
-                  className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
-                >
-                  <td className="px-5 py-3 font-mono font-medium text-neutral-900 dark:text-neutral-100">
-                    {order.orderNumber}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-neutral-900 dark:text-neutral-100">
-                      {order.customerName}
-                    </div>
-                    <div className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {order.customerPhone}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                    {order.items.map((it) => `${it.quantity}x ${it.serviceName}`).join(', ')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                      {order.status === 'received' && '1. Réceptionné'}
-                      {order.status === 'washing' && '2. En lavage'}
-                      {order.status === 'ironing' && '3. Repassage'}
-                      {order.status === 'ready' && '4. Prêt au comptoir'}
-                      {order.status === 'delivered' && '5. Livré au client'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                      {order.paymentStatus === 'paid' && 'Payé intégral'}
-                      {order.paymentStatus === 'partially_paid' && `Acompte (${order.paidAmount} F)`}
-                      {order.paymentStatus === 'unpaid' && 'À payer au retrait'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right font-mono font-medium text-neutral-900 dark:text-neutral-100 tabular-nums">
-                    {order.totalAmount.toLocaleString('fr-FR')} F
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <OrdersTable
+          orders={orders}
+          pageSize={5}
+          onOpenTicket={onOpenTicket}
+          columns={
+            onOpenTicket
+              ? ['ticket', 'client', 'articles', 'statut', 'reglement', 'montant', 'actions']
+              : ['ticket', 'client', 'articles', 'statut', 'reglement', 'montant']
+          }
+        />
       </div>
     </div>
   );
