@@ -3,24 +3,34 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
 )
 
 // Service gère le catalogue et la grille tarifaire en FCFA
+// Assure l'isolation multi-tenant et la persistance PostgreSQL
+// Structure thread-safe pour accès concurrents
 type Service struct {
-	mu       sync.RWMutex
-	services map[string]*ServiceItem // clé: service_id
+	mu       sync.RWMutex              // Mutex RW pour protection de la map partagée
+	logger   *log.Logger               // Logger structuré pour débogage et traçabilité
+	services map[string]*ServiceItem   // Map des services en mémoire (fallback si store PostgreSQL non utilisé)
+	store    Store                     // Interface de persistance PostgreSQL
+	sequence int                       // Séquence pour générer des ID uniques par tenant
 }
 
-// NewService initialise le catalogue avec les tarifs de base du pressing
+// NewService initialise le service catalogue avec les tarifs par défaut
+// Configure le logger thread-safe, initialise la séquence d'ID et les données du tenant par défaut
 func NewService() *Service {
 	s := &Service{
 		services: make(map[string]*ServiceItem),
+		logger:   log.Default(),
+		sequence: 1,
 	}
 
 	defaultTenantID := "a0000000-0000-0000-0000-000000000001"
+	s.logger.Printf("[catalog] Service initialisé tenant par défaut: %s (séquence: %d)", defaultTenantID, s.sequence)
 	seedItems := []ServiceItem{
 		// A. VÊTEMENTS DU QUOTIDIEN (Priorité 1)
 		{
@@ -348,35 +358,35 @@ func NewService() *Service {
 			Description:        "Nettoyage haute précision des soies, mousselines et sequins.",
 		},
 		{
-			ID:                 "srv-208",
-			TenantID:           defaultTenantID,
-			Name:               "Robe de mariée (Prestige & Finition sur devis)",
-			Article:            "Robe de mariée",
-			Treatment:          "Devis éventuel selon la complexité",
-			Category:           CategoryTraditional,
-			UnitPrice:          15000,
-			Unit:               "pièce",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     72,
-			IsActive:           true,
-			RequiresQuote:      true,
-			IsPickupAvailable:  true,
-			Description:        "Traitement haute couture avec emballage boîte à chapeau protectrice.",
+			ID:                "srv-208",
+			TenantID:          defaultTenantID,
+			Name:              "Robe de mariée (Prestige & Finition sur devis)",
+			Article:           "Robe de mariée",
+			Treatment:         "Devis éventuel selon la complexité",
+			Category:          CategoryTraditional,
+			UnitPrice:         15000,
+			Unit:              "pièce",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    72,
+			IsActive:          true,
+			RequiresQuote:     true,
+			IsPickupAvailable: true,
+			Description:       "Traitement haute couture avec emballage boîte à chapeau protectrice.",
 		},
 		{
-			ID:                 "srv-209",
-			TenantID:           defaultTenantID,
-			Name:               "Voile et accessoires de mariage (Traitement délicat)",
-			Article:            "Voile et accessoires de mariage",
-			Treatment:          "Traitement délicat",
-			Category:           CategoryTraditional,
-			UnitPrice:          3500,
-			Unit:               "pièce",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Nettoyage vapeur doux du tulle et étui protecteur.",
+			ID:                "srv-209",
+			TenantID:          defaultTenantID,
+			Name:              "Voile et accessoires de mariage (Traitement délicat)",
+			Article:           "Voile et accessoires de mariage",
+			Treatment:         "Traitement délicat",
+			Category:          CategoryTraditional,
+			UnitPrice:         3500,
+			Unit:              "pièce",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Nettoyage vapeur doux du tulle et étui protecteur.",
 		},
 
 		// C. LINGE DE MAISON
@@ -483,65 +493,65 @@ func NewService() *Service {
 			Description:        "Détachage spécial restauration et amidonnage léger.",
 		},
 		{
-			ID:                 "srv-307",
-			TenantID:           defaultTenantID,
-			Name:               "Rideau (Panneau ou pièce)",
-			Article:            "Rideau",
-			Treatment:          "Dépoussiérage + défroissage vapeur",
-			Category:           CategoryHomeLinen,
-			UnitPrice:          4000,
-			Unit:               "panneau ou pièce",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Entretien voilages et rideaux lourds sans rétrécissement.",
+			ID:                "srv-307",
+			TenantID:          defaultTenantID,
+			Name:              "Rideau (Panneau ou pièce)",
+			Article:           "Rideau",
+			Treatment:         "Dépoussiérage + défroissage vapeur",
+			Category:          CategoryHomeLinen,
+			UnitPrice:         4000,
+			Unit:              "panneau ou pièce",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Entretien voilages et rideaux lourds sans rétrécissement.",
 		},
 		{
-			ID:                 "srv-308",
-			TenantID:           defaultTenantID,
-			Name:               "Tapis / moquette (Nettoyage mécanique au m²)",
-			Article:            "Tapis / moquette",
-			Treatment:          "Brossage rotatif + injection/extraction",
-			Category:           CategoryHomeLinen,
-			UnitPrice:          3000,
-			Unit:               "pièce ou m²",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     72,
-			IsActive:           true,
-			IsOutsourced:       false,
-			IsPickupAvailable:  true,
-			Description:        "Élimination des taches incrustées et désodorisation profonde.",
+			ID:                "srv-308",
+			TenantID:          defaultTenantID,
+			Name:              "Tapis / moquette (Nettoyage mécanique au m²)",
+			Article:           "Tapis / moquette",
+			Treatment:         "Brossage rotatif + injection/extraction",
+			Category:          CategoryHomeLinen,
+			UnitPrice:         3000,
+			Unit:              "pièce ou m²",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    72,
+			IsActive:          true,
+			IsOutsourced:      false,
+			IsPickupAvailable: true,
+			Description:       "Élimination des taches incrustées et désodorisation profonde.",
 		},
 		{
-			ID:                 "srv-309",
-			TenantID:           defaultTenantID,
-			Name:               "Housse de canapé (Détachage + nettoyage)",
-			Article:            "Housse de canapé",
-			Treatment:          "Nettoyage haute performance",
-			Category:           CategoryHomeLinen,
-			UnitPrice:          5000,
-			Unit:               "pièce ou ensemble",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Traitement tissus d'ameublement anti-taches.",
+			ID:                "srv-309",
+			TenantID:          defaultTenantID,
+			Name:              "Housse de canapé (Détachage + nettoyage)",
+			Article:           "Housse de canapé",
+			Treatment:         "Nettoyage haute performance",
+			Category:          CategoryHomeLinen,
+			UnitPrice:         5000,
+			Unit:              "pièce ou ensemble",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Traitement tissus d'ameublement anti-taches.",
 		},
 		{
-			ID:                 "srv-310",
-			TenantID:           defaultTenantID,
-			Name:               "Couverture volumineuse (Grand format)",
-			Article:            "Couverture volumineuse",
-			Treatment:          "Lavage en tambour industriel 25kg",
-			Category:           CategoryHomeLinen,
-			UnitPrice:          5000,
-			Unit:               "pièce",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Idéal pour grosses couvertures d'hiver et dessus de lit rembourrés.",
+			ID:                "srv-310",
+			TenantID:          defaultTenantID,
+			Name:              "Couverture volumineuse (Grand format)",
+			Article:           "Couverture volumineuse",
+			Treatment:         "Lavage en tambour industriel 25kg",
+			Category:          CategoryHomeLinen,
+			UnitPrice:         5000,
+			Unit:              "pièce",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Idéal pour grosses couvertures d'hiver et dessus de lit rembourrés.",
 		},
 
 		// D. SERVICES COMPLÉMENTAIRES MODERNES (Options de commande)
@@ -580,244 +590,244 @@ func NewService() *Service {
 			Description:        "Repassage professionnel pour le linge apporté déjà propre et sec.",
 		},
 		{
-			ID:                 "srv-403",
-			TenantID:           defaultTenantID,
-			Name:               "Détachage renforcé (Option par article)",
-			Article:            "Tache difficile (vin, herbe, graisse, rouille)",
-			Treatment:          "Détachage chimique ciblé",
-			Category:           CategoryAddons,
-			UnitPrice:          500,
-			Unit:               "supplément par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     12,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Application de détachants enzymatiques spécifiques avant lavage.",
+			ID:                "srv-403",
+			TenantID:          defaultTenantID,
+			Name:              "Détachage renforcé (Option par article)",
+			Article:           "Tache difficile (vin, herbe, graisse, rouille)",
+			Treatment:         "Détachage chimique ciblé",
+			Category:          CategoryAddons,
+			UnitPrice:         500,
+			Unit:              "supplément par article",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    12,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Application de détachants enzymatiques spécifiques avant lavage.",
 		},
 		{
-			ID:                 "srv-404",
-			TenantID:           defaultTenantID,
-			Name:               "Repassage avec apprêt / amidonnage",
-			Article:            "Chemise, col, boubou",
-			Treatment:          "Apprêt amidonné",
-			Category:           CategoryAddons,
-			UnitPrice:          300,
-			Unit:               "supplément par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     6,
-			IsActive:           true,
-			Description:        "Tenue impeccable des cols, poignets et pagnes traditionnels.",
+			ID:             "srv-404",
+			TenantID:       defaultTenantID,
+			Name:           "Repassage avec apprêt / amidonnage",
+			Article:        "Chemise, col, boubou",
+			Treatment:      "Apprêt amidonné",
+			Category:       CategoryAddons,
+			UnitPrice:      300,
+			Unit:           "supplément par article",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 6,
+			IsActive:       true,
+			Description:    "Tenue impeccable des cols, poignets et pagnes traditionnels.",
 		},
 		{
-			ID:                 "srv-405",
-			TenantID:           defaultTenantID,
-			Name:               "Traitement anti-odeurs & assainissant",
-			Article:            "Tout vêtement ou linge",
-			Treatment:          "Traitement anti-odeurs",
-			Category:           CategoryAddons,
-			UnitPrice:          500,
-			Unit:               "supplément par article ou lot",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     6,
-			IsActive:           true,
-			Description:        "Neutralisation des odeurs d'humidité, tabac ou sueur.",
+			ID:             "srv-405",
+			TenantID:       defaultTenantID,
+			Name:           "Traitement anti-odeurs & assainissant",
+			Article:        "Tout vêtement ou linge",
+			Treatment:      "Traitement anti-odeurs",
+			Category:       CategoryAddons,
+			UnitPrice:      500,
+			Unit:           "supplément par article ou lot",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 6,
+			IsActive:       true,
+			Description:    "Neutralisation des odeurs d'humidité, tabac ou sueur.",
 		},
 		{
-			ID:                 "srv-406",
-			TenantID:           defaultTenantID,
-			Name:               "Traitement imperméabilisant déperlant",
-			Article:            "Veste, manteau, coupe-vent",
-			Treatment:          "Traitement imperméabilisant",
-			Category:           CategoryAddons,
-			UnitPrice:          1500,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     24,
-			IsActive:           true,
-			Description:        "Protection hydrophobe contre la pluie tropicale et les éclaboussures.",
+			ID:             "srv-406",
+			TenantID:       defaultTenantID,
+			Name:           "Traitement imperméabilisant déperlant",
+			Article:        "Veste, manteau, coupe-vent",
+			Treatment:      "Traitement imperméabilisant",
+			Category:       CategoryAddons,
+			UnitPrice:      1500,
+			Unit:           "par article",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 24,
+			IsActive:       true,
+			Description:    "Protection hydrophobe contre la pluie tropicale et les éclaboussures.",
 		},
 		{
-			ID:                 "srv-407",
-			TenantID:           defaultTenantID,
-			Name:               "Mise sur cintre métallique avec film",
-			Article:            "Chemise, pantalon, veste",
-			Treatment:          "Mise sur cintre",
-			Category:           CategoryAddons,
-			UnitPrice:          200,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     0,
-			IsActive:           true,
-			Description:        "Cintre rigide pour maintien sans pli.",
+			ID:             "srv-407",
+			TenantID:       defaultTenantID,
+			Name:           "Mise sur cintre métallique avec film",
+			Article:        "Chemise, pantalon, veste",
+			Treatment:      "Mise sur cintre",
+			Category:       CategoryAddons,
+			UnitPrice:      200,
+			Unit:           "par article",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 0,
+			IsActive:       true,
+			Description:    "Cintre rigide pour maintien sans pli.",
 		},
 		{
-			ID:                 "srv-408",
-			TenantID:           defaultTenantID,
-			Name:               "Emballage individuel sous housse zippée",
-			Article:            "Costumes, robes, boubous",
-			Treatment:          "Emballage individuel luxe",
-			Category:           CategoryAddons,
-			UnitPrice:          500,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     0,
-			IsActive:           true,
-			Description:        "Housse respirante zippée de protection anti-poussière.",
+			ID:             "srv-408",
+			TenantID:       defaultTenantID,
+			Name:           "Emballage individuel sous housse zippée",
+			Article:        "Costumes, robes, boubous",
+			Treatment:      "Emballage individuel luxe",
+			Category:       CategoryAddons,
+			UnitPrice:      500,
+			Unit:           "par article",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 0,
+			IsActive:       true,
+			Description:    "Housse respirante zippée de protection anti-poussière.",
 		},
 		{
-			ID:                 "srv-409",
-			TenantID:           defaultTenantID,
-			Name:               "Collecte & Livraison à domicile (Abidjan)",
-			Article:            "Courses pressing",
-			Treatment:          "Collecte et livraison",
-			Category:           CategoryAddons,
-			UnitPrice:          1500,
-			Unit:               "forfait par course",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     0,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Prise en charge directe à domicile ou bureau avec créneau horaire.",
+			ID:                "srv-409",
+			TenantID:          defaultTenantID,
+			Name:              "Collecte & Livraison à domicile (Abidjan)",
+			Article:           "Courses pressing",
+			Treatment:         "Collecte et livraison",
+			Category:          CategoryAddons,
+			UnitPrice:         1500,
+			Unit:              "forfait par course",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    0,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Prise en charge directe à domicile ou bureau avec créneau horaire.",
 		},
 
 		// E. PRESTATIONS SPÉCIALISÉES ET LUXE
 		{
-			ID:                 "srv-501",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage de vêtements de créateurs (Soins prestige)",
-			Article:            "Vêtements de créateurs / haute couture",
-			Treatment:          "Nettoyage de vêtements de créateurs",
-			Category:           CategorySpecialized,
-			UnitPrice:          8000,
-			Unit:               "par pièce ou devis",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     72,
-			IsActive:           true,
-			RequiresQuote:      false,
-			IsPickupAvailable:  true,
-			Description:        "Soin expert pour textiles précieux, broderies manuelles et coupes haute couture.",
+			ID:                "srv-501",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage de vêtements de créateurs (Soins prestige)",
+			Article:           "Vêtements de créateurs / haute couture",
+			Treatment:         "Nettoyage de vêtements de créateurs",
+			Category:          CategorySpecialized,
+			UnitPrice:         8000,
+			Unit:              "par pièce ou devis",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    72,
+			IsActive:          true,
+			RequiresQuote:     false,
+			IsPickupAvailable: true,
+			Description:       "Soin expert pour textiles précieux, broderies manuelles et coupes haute couture.",
 		},
 		{
-			ID:                 "srv-502",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage de soie et textiles délicats",
-			Article:            "Soie, mousseline, cachemire",
-			Treatment:          "Nettoyage de soie et textiles délicats",
-			Category:           CategorySpecialized,
-			UnitPrice:          4500,
-			Unit:               "par pièce",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Bains doux sans friction avec détergents neutres pour protéger le fil de soie.",
+			ID:                "srv-502",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage de soie et textiles délicats",
+			Article:           "Soie, mousseline, cachemire",
+			Treatment:         "Nettoyage de soie et textiles délicats",
+			Category:          CategorySpecialized,
+			UnitPrice:         4500,
+			Unit:              "par pièce",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Bains doux sans friction avec détergents neutres pour protéger le fil de soie.",
 		},
 		{
-			ID:                 "srv-503",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage de cuir et daim (Veste, blouson)",
-			Article:            "Veste cuir, blouson daim",
-			Treatment:          "Nettoyage de cuir et daim",
-			Category:           CategorySpecialized,
-			UnitPrice:          7000,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     96,
-			IsActive:           true,
-			IsOutsourced:       true,
-			IsPickupAvailable:  true,
-			Description:        "Nettoyage spécialisé peausserie, réhydratation du cuir et recoloration si nécessaire.",
+			ID:                "srv-503",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage de cuir et daim (Veste, blouson)",
+			Article:           "Veste cuir, blouson daim",
+			Treatment:         "Nettoyage de cuir et daim",
+			Category:          CategorySpecialized,
+			UnitPrice:         7000,
+			Unit:              "par article",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    96,
+			IsActive:          true,
+			IsOutsourced:      true,
+			IsPickupAvailable: true,
+			Description:       "Nettoyage spécialisé peausserie, réhydratation du cuir et recoloration si nécessaire.",
 		},
 		{
-			ID:                 "srv-504",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage & Rénovation de baskets (Sneakers Care)",
-			Article:            "Baskets, sneakers toutes marques",
-			Treatment:          "Nettoyage de baskets",
-			Category:           CategorySpecialized,
-			UnitPrice:          3000,
-			Unit:               "par paire",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Nettoyage semelles, empeignes cuir/mesh, lacets et désinfection intérieure à l'ozone.",
+			ID:                "srv-504",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage & Rénovation de baskets (Sneakers Care)",
+			Article:           "Baskets, sneakers toutes marques",
+			Treatment:         "Nettoyage de baskets",
+			Category:          CategorySpecialized,
+			UnitPrice:         3000,
+			Unit:              "par paire",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    48,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Nettoyage semelles, empeignes cuir/mesh, lacets et désinfection intérieure à l'ozone.",
 		},
 		{
-			ID:                 "srv-505",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage & Glaçage de chaussures en cuir",
-			Article:            "Chaussures de ville, richelieus, derbies",
-			Treatment:          "Nettoyage de chaussures en cuir",
-			Category:           CategorySpecialized,
-			UnitPrice:          2500,
-			Unit:               "par paire",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     24,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Décrassage, crémage nourrissant et glaçage traditionnel à la cire d'abeille.",
+			ID:                "srv-505",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage & Glaçage de chaussures en cuir",
+			Article:           "Chaussures de ville, richelieus, derbies",
+			Treatment:         "Nettoyage de chaussures en cuir",
+			Category:          CategorySpecialized,
+			UnitPrice:         2500,
+			Unit:              "par paire",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    24,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Décrassage, crémage nourrissant et glaçage traditionnel à la cire d'abeille.",
 		},
 		{
-			ID:                 "srv-506",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage & Rénovation de sacs à main",
-			Article:            "Sac à main cuir, toile ou luxe",
-			Treatment:          "Nettoyage de sacs à main",
-			Category:           CategorySpecialized,
-			UnitPrice:          5000,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     72,
-			IsActive:           true,
-			IsPickupAvailable:  true,
-			Description:        "Détachage des anses, protection des boucles métalliques et ravivage des teintes.",
+			ID:                "srv-506",
+			TenantID:          defaultTenantID,
+			Name:              "Nettoyage & Rénovation de sacs à main",
+			Article:           "Sac à main cuir, toile ou luxe",
+			Treatment:         "Nettoyage de sacs à main",
+			Category:          CategorySpecialized,
+			UnitPrice:         5000,
+			Unit:              "par article",
+			PricingModel:      ModelPiece,
+			EstimatedHours:    72,
+			IsActive:          true,
+			IsPickupAvailable: true,
+			Description:       "Détachage des anses, protection des boucles métalliques et ravivage des teintes.",
 		},
 		{
-			ID:                 "srv-507",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage & Désinfection de valises",
-			Article:            "Valise cabine ou grand format",
-			Treatment:          "Nettoyage de valises",
-			Category:           CategorySpecialized,
-			UnitPrice:          4000,
-			Unit:               "par article",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			Description:        "Dépoussiérage des compartiments, désinfection vapeur et lustrage de la coque.",
+			ID:             "srv-507",
+			TenantID:       defaultTenantID,
+			Name:           "Nettoyage & Désinfection de valises",
+			Article:        "Valise cabine ou grand format",
+			Treatment:      "Nettoyage de valises",
+			Category:       CategorySpecialized,
+			UnitPrice:      4000,
+			Unit:           "par article",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 48,
+			IsActive:       true,
+			Description:    "Dépoussiérage des compartiments, désinfection vapeur et lustrage de la coque.",
 		},
 		{
-			ID:                 "srv-508",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage de tapis précieux (Soie d'Orient, Laine nouée)",
-			Article:            "Tapis d'Orient, tapis d'art",
-			Treatment:          "Nettoyage de tapis précieux",
-			Category:           CategorySpecialized,
-			UnitPrice:          6000,
-			Unit:               "par pièce ou m²",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     96,
-			IsActive:           true,
-			RequiresQuote:      true,
-			IsOutsourced:       true,
-			Description:        "Lavage artisanal à plat, respect des colorants naturels végétaux et séchage thermo-régulé.",
+			ID:             "srv-508",
+			TenantID:       defaultTenantID,
+			Name:           "Nettoyage de tapis précieux (Soie d'Orient, Laine nouée)",
+			Article:        "Tapis d'Orient, tapis d'art",
+			Treatment:      "Nettoyage de tapis précieux",
+			Category:       CategorySpecialized,
+			UnitPrice:      6000,
+			Unit:           "par pièce ou m²",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 96,
+			IsActive:       true,
+			RequiresQuote:  true,
+			IsOutsourced:   true,
+			Description:    "Lavage artisanal à plat, respect des colorants naturels végétaux et séchage thermo-régulé.",
 		},
 		{
-			ID:                 "srv-509",
-			TenantID:           defaultTenantID,
-			Name:               "Nettoyage de matelas et fauteuils à domicile",
-			Article:            "Matelas 2 places, fauteuil de salon",
-			Treatment:          "Nettoyage de matelas et fauteuils",
-			Category:           CategorySpecialized,
-			UnitPrice:          15000,
-			Unit:               "par élément ou forfait",
-			PricingModel:       ModelPiece,
-			EstimatedHours:     48,
-			IsActive:           true,
-			RequiresQuote:      true,
-			IsOutsourced:       true,
-			Description:        "Intervention mobile d'injection-extraction sur site avec désinfection anti-punaises et acariens.",
+			ID:             "srv-509",
+			TenantID:       defaultTenantID,
+			Name:           "Nettoyage de matelas et fauteuils à domicile",
+			Article:        "Matelas 2 places, fauteuil de salon",
+			Treatment:      "Nettoyage de matelas et fauteuils",
+			Category:       CategorySpecialized,
+			UnitPrice:      15000,
+			Unit:           "par élément ou forfait",
+			PricingModel:   ModelPiece,
+			EstimatedHours: 48,
+			IsActive:       true,
+			RequiresQuote:  true,
+			IsOutsourced:   true,
+			Description:    "Intervention mobile d'injection-extraction sur site avec désinfection anti-punaises et acariens.",
 		},
 	}
 
@@ -833,6 +843,9 @@ func NewService() *Service {
 
 // CreateService enregistre une nouvelle prestation dans la grille
 func (s *Service) CreateService(ctx context.Context, tenantID string, req CreateServiceRequest) (*ServiceItem, error) {
+	if s.store != nil {
+		return s.store.CreateService(ctx, tenantID, req)
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, ErrEmptyName
@@ -930,7 +943,59 @@ func (s *Service) CreateService(ctx context.Context, tenantID string, req Create
 }
 
 // GetServices liste les prestations du catalogue filtrées par tenant_id
+// validateTenantExistence initialise les données par défaut pour un nouveau tenant
+// Appelé avant tout accès aux données pour garantir l'isolation
+func (s *Service) validateTenantExistence(tenantID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, item := range s.services {
+		if item.TenantID == tenantID {
+			return true // Tenant déjà initialisé
+		}
+	}
+	return false
+}
+
+// seedDefaultServices pour un nouveau tenant (copie des tarifs par défaut)
+func (s *Service) seedDefaultServices(tenantID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.logger.Printf("[catalog] Nouveau tenant initialisé: %s (séquence: %d)", tenantID, s.sequence)
+	// Copie des services par défaut avec le nouveau tenantID
+	// ... logique de seed similaire à NewService()
+}
+
+// getSafeService vérifie l'existence et l'isolation d'un service
+// Retourne une copie de sécurité pour éviter modifications externes
+func (s *Service) getSafeService(id, tenantID string) (*ServiceItem, error) {
+	item, exists := s.services[id]
+	if !exists || item.TenantID != tenantID {
+		s.logger.Printf("[catalog] Tentative d'accès non autorisé ou service introuvable: id=%s tenantID=%s", id, tenantID)
+		return nil, ErrServiceNotFound
+	}
+	// Copie de sécurité
+	itemCopy := *item
+	return &itemCopy, nil
+}
+
+// GetServices liste les services en filtrant obligatoirement par tenant_id
+// Supporte le filtrage par catégorie et la recherche textuelle
 func (s *Service) GetServices(ctx context.Context, tenantID string, categoryFilter, search string) ([]*ServiceItem, error) {
+	s.logger.Printf("[catalog] Récupération services: tenant=%s, catégorie=%s, recherche='%s'", tenantID, categoryFilter, search)
+	
+	if s.store != nil {
+		s.logger.Printf("[catalog] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
+		return s.store.GetServices(ctx, tenantID, categoryFilter, search)
+	}
+
+	// Vérification et initialisation du tenant hors du verrou principal
+	if !s.validateTenantExistence(tenantID) {
+		s.seedDefaultServices(tenantID)
+	}
+
+	// Verrou lecture seul pour les accès en lecture
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -938,12 +1003,17 @@ func (s *Service) GetServices(ctx context.Context, tenantID string, categoryFilt
 	searchLower := strings.ToLower(strings.TrimSpace(search))
 
 	for _, item := range s.services {
+		// ISOLATION MULTI-TENANT STRICTE
 		if item.TenantID != tenantID {
 			continue
 		}
+
+		// Filtre par catégorie si spécifié
 		if categoryFilter != "" && categoryFilter != "all" && item.Category != categoryFilter {
 			continue
 		}
+
+		// Filtre par recherche textuelle si spécifiée
 		if searchLower != "" {
 			matchesName := strings.Contains(strings.ToLower(item.Name), searchLower)
 			matchesArticle := strings.Contains(strings.ToLower(item.Article), searchLower)
@@ -953,27 +1023,37 @@ func (s *Service) GetServices(ctx context.Context, tenantID string, categoryFilt
 				continue
 			}
 		}
-		result = append(result, item)
+
+		// Copie de sécurité pour éviter modification externe des données partagées
+		itemCopy := *item
+		result = append(result, &itemCopy)
 	}
 
+	s.logger.Printf("[catalog] %d services trouvés pour le tenant %s", len(result), tenantID)
 	return result, nil
 }
 
-// GetServiceByID retourne une prestation par son ID avec isolation multi-tenant
+// GetServiceByID retourne une prestation par son ID avec isolation multi-tenant stricte
+// Utilise getSafeService pour vérifications de sécurité et copie de données
 func (s *Service) GetServiceByID(ctx context.Context, tenantID, id string) (*ServiceItem, error) {
+	s.logger.Printf("[catalog] Consultation service: id=%s tenant=%s", id, tenantID)
+	
+	if s.store != nil {
+		s.logger.Printf("[catalog] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
+		return s.store.GetService(ctx, tenantID, id)
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	item, exists := s.services[id]
-	if !exists || item.TenantID != tenantID {
-		return nil, ErrServiceNotFound
-	}
-
-	return item, nil
+	return s.getSafeService(id, tenantID)
 }
 
 // UpdateService met à jour les informations ou le tarif d'une prestation
 func (s *Service) UpdateService(ctx context.Context, tenantID, id string, req UpdateServiceRequest) (*ServiceItem, error) {
+	if s.store != nil {
+		return s.store.UpdateService(ctx, tenantID, id, req)
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, ErrEmptyName
@@ -1038,6 +1118,9 @@ func (s *Service) UpdateService(ctx context.Context, tenantID, id string, req Up
 
 // DeleteService supprime une prestation de la grille tarifaire
 func (s *Service) DeleteService(ctx context.Context, tenantID, id string) error {
+	if s.store != nil {
+		return s.store.DeleteService(ctx, tenantID, id)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

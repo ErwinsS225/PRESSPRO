@@ -6,7 +6,6 @@ import {
   Clock,
   ArrowRight,
   Database,
-  Server,
 } from 'lucide-react';
 import { Order, HealthCheckResult, ViewMode } from '../types';
 
@@ -54,13 +53,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            onClick={() => onNavigate('system-health')}
-            className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-colors"
-          >
-            <Server className="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-400" />
-            <span>État Connexion & DB</span>
-          </button>
           <button
             onClick={onNewOrder}
             className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"

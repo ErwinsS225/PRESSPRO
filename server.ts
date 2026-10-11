@@ -1,4 +1,5 @@
 import express from 'express';
+import 'dotenv/config';
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -108,6 +109,13 @@ async function startServer() {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+    });
+    // Routage SPA : servir index.html sur /verify/:tenant/:order (QR scannés).
+    app.use((req, _res, next) => {
+      if (req.method === 'GET' && req.path.startsWith('/verify/')) {
+        req.url = '/';
+      }
+      next();
     });
     app.use(vite.middlewares);
   } else {

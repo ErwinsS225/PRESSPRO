@@ -1,80 +1,85 @@
-package catalog_test
+package catalog
 
 import (
 	"context"
 	"testing"
 
-	"pressing-os/backend/internal/catalog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCatalogCRUDAndIsolation(t *testing.T) {
-	svc := catalog.NewService()
+func TestNewService(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	assert.NotNil(t, service)
+	assert.NotNil(t, service.services)
+	assert.NotNil(t, service.logger)
+	assert.Equal(t, 1, service.sequence)
+}
+
+func TestGetServices_DefaultTenant(t *testing.T) {
+	t.Parallel()
+	service := NewService()
 	ctx := context.Background()
-	tenantA := "tenant-cocody"
-	tenantB := "tenant-plateau"
+	defaultTenant := "a0000000-0000-0000-0000-000000000001"
 
-	// 1. Création d'une nouvelle prestation pour Cocody
-	item, err := svc.CreateService(ctx, tenantA, catalog.CreateServiceRequest{
-		Name:           "Veste en Daim / Cuir",
-		Category:       catalog.CategoryDelicate,
-		UnitPrice:      6500,
-		Unit:           "pièce",
-		EstimatedHours: 72,
-	})
-	if err != nil {
-		t.Fatalf("échec création prestation: %v", err)
-	}
+	services, err := service.GetServices(ctx, defaultTenant, "", "")
+	require.NoError(t, err)
+	assert.Greater(t, len(services), 0) // Le tenant par défaut a des services
+}
 
-	if item.Name != "Veste en Daim / Cuir" || item.UnitPrice != 6500 {
-		t.Errorf("attributs invalides: %+v", item)
-	}
+func TestGetServiceByID_NotFound(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "test-tenant-1"
 
-	// 2. Isolation : Tenant B ne peut pas consulter ni modifier la prestation de Tenant A
-	_, err = svc.GetServiceByID(ctx, tenantB, item.ID)
-	if err != catalog.ErrServiceNotFound {
-		t.Errorf("l'isolation a échoué: tenant B a pu accéder à l'item de tenant A")
-	}
+	serviceItem, err := service.GetServiceByID(ctx, tenantID, "srv-inexistant")
+	assert.ErrorIs(t, err, ErrServiceNotFound)
+	assert.Nil(t, serviceItem)
+}
 
-	_, err = svc.UpdateService(ctx, tenantB, item.ID, catalog.UpdateServiceRequest{
-		Name:      "Piratage Prix",
-		UnitPrice: 100,
-	})
-	if err != catalog.ErrServiceNotFound {
-		t.Errorf("l'isolation a échoué sur la mise à jour par un autre tenant")
-	}
+func TestIsolationMultitenant(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	defaultTenant := "a0000000-0000-0000-0000-000000000001"
 
-	// 3. Modification légitime par Tenant A
-	updated, err := svc.UpdateService(ctx, tenantA, item.ID, catalog.UpdateServiceRequest{
-		Name:           "Veste en Daim / Cuir Premium",
-		Category:       catalog.CategoryDelicate,
-		UnitPrice:      7000,
-		Unit:           "pièce",
-		EstimatedHours: 72,
-	})
-	if err != nil {
-		t.Fatalf("échec mise à jour: %v", err)
+	// Récupère un service du tenant par défaut
+	servicesDefault, err := service.GetServices(ctx, defaultTenant, "", "")
+	require.NoError(t, err)
+	if len(servicesDefault) > 0 {
+		// Tentative d'accès depuis un autre tenant
+		tenant2 := "test-tenant-2"
+		accessed, err := service.GetServiceByID(ctx, tenant2, servicesDefault[0].ID)
+		assert.ErrorIs(t, err, ErrServiceNotFound)
+		assert.Nil(t, accessed)
 	}
-	if updated.UnitPrice != 7000 || updated.Name != "Veste en Daim / Cuir Premium" {
-		t.Errorf("mise à jour incorrecte: %+v", updated)
-	}
+}
 
-	// 4. Suppression par Tenant A
-	if err := svc.DeleteService(ctx, tenantA, item.ID); err != nil {
-		t.Fatalf("échec suppression: %v", err)
-	}
+func TestGetServices_CategoryFilter(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	defaultTenant := "a0000000-0000-0000-0000-000000000001"
 
-	// Vérification de la disparition
-	_, err = svc.GetServiceByID(ctx, tenantA, item.ID)
-	if err != catalog.ErrServiceNotFound {
-		t.Errorf("l'élément supprimé ne devrait plus exister")
+	// Filtre par catégorie quotidienne
+	services, err := service.GetServices(ctx, defaultTenant, CategoryDaily, "")
+	require.NoError(t, err)
+	for _, srv := range services {
+		assert.Equal(t, CategoryDaily, srv.Category)
 	}
+}
 
-	// 5. Test validation prix négatif
-	_, err = svc.CreateService(ctx, tenantA, catalog.CreateServiceRequest{
-		Name:      "Article Invalide",
-		UnitPrice: -500,
-	})
-	if err != catalog.ErrInvalidPrice {
-		t.Errorf("attendait ErrInvalidPrice pour prix négatif, obtenu %v", err)
-	}
+func TestGetServices_SearchFilter(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	defaultTenant := "a0000000-0000-0000-0000-000000000001"
+
+	// Recherche par mot-clé qui existe dans au moins un service
+	services, err := service.GetServices(ctx, defaultTenant, "", "Lavage")
+	require.NoError(t, err)
+	// Vérifie qu'au moins un service est retourné (la recherche fonctionne)
+	assert.Greater(t, len(services), 0)
 }

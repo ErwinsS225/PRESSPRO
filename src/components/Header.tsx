@@ -38,8 +38,6 @@ export const Header: React.FC<HeaderProps> = ({
         return 'Grille des tarifs (FCFA)';
       case 'superadmin':
         return 'SuperAdmin — Plateforme & Abonnements';
-      case 'system-health':
-        return 'Diagnostics Serveur, JWT & PostgreSQL';
       default:
         return 'Tableau de bord';
     }

@@ -4,8 +4,9 @@ import {
   Shirt,
   Users,
   Tag,
-  Activity,
   Building2,
+  Crown,
+  Sparkles,
   ShieldCheck,
   ArrowRightLeft,
 } from 'lucide-react';
@@ -39,7 +40,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'customers', label: 'Fichier Clients', icon: Users, roles: ['owner', 'manager', 'cashier', 'superadmin'] },
     { id: 'services', label: 'Prestations & Tarifs', icon: Tag, roles: ['owner', 'manager', 'superadmin'] },
     { id: 'superadmin', label: 'Plateforme SaaS', icon: ShieldCheck, roles: ['superadmin'], badge: '12 pressings' },
-    { id: 'system-health', label: 'Diagnostic & Base de Données', icon: Activity },
   ];
 
   const visibleNavItems = navItems.filter((item) => {
@@ -151,6 +151,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
+
+        {/* Billing / Upgrade — carte premium tout en bas */}
+        <div className="mt-auto border-t border-neutral-200 p-3 dark:border-neutral-800">
+          <button
+            onClick={() => handleNavClick('billing')}
+            className={`group relative w-full overflow-hidden rounded-xl border p-3 text-left transition-all ${
+              currentView === 'billing'
+                ? 'border-neutral-900 bg-neutral-900 shadow-sm dark:border-neutral-100 dark:bg-neutral-100'
+                : 'border-neutral-200 bg-gradient-to-br from-neutral-50 to-neutral-100 hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950 dark:hover:border-neutral-700'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div
+                  className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${
+                    currentView === 'billing'
+                      ? 'text-neutral-300 dark:text-neutral-600'
+                      : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                >
+                  <Crown className="h-3.5 w-3.5 text-amber-500" />
+                  Abonnement
+                </div>
+                <p
+                  className={`mt-1 truncate text-xs font-medium ${
+                    currentView === 'billing'
+                      ? 'text-white dark:text-neutral-900'
+                      : 'text-neutral-700 dark:text-neutral-200'
+                  }`}
+                >
+                  Passez au niveau supérieur
+                </p>
+              </div>
+              <span
+                className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-xs transition-transform group-hover:scale-105 ${
+                  currentView === 'billing'
+                    ? 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white'
+                    : 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                }`}
+              >
+                <Sparkles className="h-3 w-3" />
+                Upgrade
+              </span>
+            </div>
+          </button>
+        </div>
 
         {/* User Card & Switch button */}
         <div className="border-t border-neutral-200 p-3 bg-neutral-50/50 dark:border-neutral-800 dark:bg-[#0D0D0D]">

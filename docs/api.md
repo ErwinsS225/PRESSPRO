@@ -102,3 +102,21 @@ Génère le ticket de caisse thermique standard au format 80mm ESC/POS textuel.
 - **En-tête requis** : `Authorization: Bearer <token>`
 - **Content-Type** : `text/plain; charset=utf-8`
 - **Contenu** : En-tête pressing, dates, nom du client, tableau des articles, total, acompte, solde restant dû et code-barres textuel.
+
+### `GET /api/v1/public/verify/{tenantID}/{orderID}`
+Vérifie l'authenticité d'un ticket scanné depuis le QR du reçu thermique 80mm.
+- **Authentification** : Aucune (Public — projection limitée sans PII sensible)
+- **Codes HTTP** : `200 OK` (`{"valid": true, ...}`) ou `404` (`{"valid": false}`)
+- **Réponse** : `order_number`, `status`, `payment_status`, `total_amount`, `paid_amount`, `remaining_due`, `due_date`, `customer_name`, `items[]`
+
+---
+
+## 5. Endpoints Catalogue & Persistance PostgreSQL (v0.4.0+)
+
+La table `services` est alignée sur le modèle Go via la migration `000002_catalog_enrichi` :
+`article`, `treatment`, `pricing_model`, `is_express_available`, `express_surcharge`,
+`is_pickup_available`, `is_outsourced`, `requires_quote`, `description`.
+
+Au démarrage, le catalogue bascule sur PostgreSQL quand le pool est joignable,
+avec repli mémoire (seed) sinon. `GET /api/v1/services` accepte `category` et `q`
+avec pagination SQL `ORDER BY name ASC`.

@@ -22,6 +22,7 @@ type Service struct {
 	mu         sync.RWMutex
 	users      map[string]*User          // clé: email normalisé
 	tenants    map[string]*TenantSummary // clé: tenant_id
+	store      *dbStore                  // nil = mode mémoire ; non-nil = persistance PostgreSQL
 }
 
 // NewService initialise le service avec des comptes de démonstration prêts à l'emploi
@@ -91,14 +92,26 @@ func NewService(jwtManager *JWTManager) *Service {
 	return s
 }
 
-// Login vérifie l'email et le mot de passe et retourne un jeton JWT signé
+// Login vérifie l'email et le mot de passe et retourne un jeton JWT signé.
+// Priorité à la persistance PostgreSQL ; repli mémoire (comptes de démo) si absents.
 func (s *Service) Login(ctx context.Context, email, password string) (*LoginResponse, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	normEmail := strings.ToLower(strings.TrimSpace(email))
-	user, exists := s.users[normEmail]
-	if !exists {
+
+	var user *User
+	if s.store != nil {
+		if dbUser, derr := s.store.FindUserByEmail(ctx, normEmail); derr == nil && dbUser != nil {
+			user = dbUser
+		}
+	}
+	if user == nil {
+		s.mu.RLock()
+		if memUser, ok := s.users[normEmail]; ok {
+			cp := *memUser
+			user = &cp
+		}
+		s.mu.RUnlock()
+	}
+	if user == nil {
 		return nil, ErrInvalidCredentials
 	}
 
@@ -106,10 +119,24 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResp
 		return nil, ErrInvalidCredentials
 	}
 
+	return s.buildLoginResponse(user)
+}
+
+// buildLoginResponse résout le tenant (DB puis mémoire) et signe le jeton.
+func (s *Service) buildLoginResponse(user *User) (*LoginResponse, error) {
 	var tenant *TenantSummary
 	var tenantName string
 	if user.TenantID != "" {
-		tenant = s.tenants[user.TenantID]
+		if s.store != nil {
+			if t, terr := s.store.FindTenant(context.Background(), user.TenantID); terr == nil && t != nil {
+				tenant = t
+			}
+		}
+		if tenant == nil {
+			s.mu.RLock()
+			tenant = s.tenants[user.TenantID]
+			s.mu.RUnlock()
+		}
 		if tenant != nil {
 			tenantName = tenant.Name
 		}
@@ -129,30 +156,89 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResp
 	}, nil
 }
 
-// GetUserByID recherche un utilisateur par son identifiant
+// GetUsersByTenant retourne la liste des utilisateurs pour un tenant donné.
+// L'isolation est garantie par la couche de persistance (requête SQL) ou par filtrage en mémoire.
+func (s *Service) GetUsersByTenant(ctx context.Context, tenantID string) ([]*User, error) {
+	if tenantID == "" {
+		return nil, errors.New("l'identifiant du tenant est requis")
+	}
+
+	// Mode persistant (PostgreSQL)
+	if s.store != nil {
+		return s.store.FindUsersByTenant(ctx, tenantID)
+	}
+
+	// Repli mémoire (mode dégradé)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var tenantUsers []*User
+	for _, u := range s.users {
+		if u.TenantID == tenantID {
+			// On retourne une copie pour éviter les modifications concurrentes
+			cp := *u
+			tenantUsers = append(tenantUsers, &cp)
+		}
+	}
+
+	return tenantUsers, nil
+}
+
+// GetUserByID recherche un utilisateur par son identifiant.
+// Priorité à la persistance PostgreSQL ; repli mémoire (comptes de démo) si absent.
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, *TenantSummary, error) {
+	if s.store != nil {
+		if u, err := s.store.FindUserByID(ctx, userID); err == nil && u != nil {
+			var tenant *TenantSummary
+			if u.TenantID != "" {
+				if t, terr := s.store.FindTenant(ctx, u.TenantID); terr == nil && t != nil {
+					tenant = t
+				}
+			}
+			return u, tenant, nil
+		}
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for _, u := range s.users {
 		if u.ID == userID {
+			cp := *u
 			var tenant *TenantSummary
-			if u.TenantID != "" {
-				tenant = s.tenants[u.TenantID]
+			if cp.TenantID != "" {
+				tenant = s.tenants[cp.TenantID]
 			}
-			return u, tenant, nil
+			return &cp, tenant, nil
 		}
 	}
 
 	return nil, nil, ErrUserNotFound
 }
 
-// RegisterTenant crée un nouvel établissement et son compte propriétaire
+// RegisterTenant crée un nouvel établissement et son compte propriétaire.
+// Persistance prioritaire (tenant + branche + user + memberships + essai J7) ;
+// repli mémoire si PostgreSQL n'est pas disponible au démarrage.
 func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest) (*LoginResponse, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(req.OwnerEmail))
+
+	// Mode persistant : création transactionnelle complète adossée à PostgreSQL.
+	if s.store != nil {
+		user, tenant, err := s.store.RegisterTenant(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		token, terr := s.jwtManager.Generate(user, tenant.Name)
+		if terr != nil {
+			return nil, fmt.Errorf("impossible de générer le jeton: %w", terr)
+		}
+		return &LoginResponse{Token: token, User: *user, Tenant: tenant}, nil
+	}
+
+	// Repli mémoire (mode dégradé sans base de données).
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	normEmail := strings.ToLower(strings.TrimSpace(req.OwnerEmail))
 	if _, exists := s.users[normEmail]; exists {
 		return nil, ErrEmailAlreadyExists
 	}

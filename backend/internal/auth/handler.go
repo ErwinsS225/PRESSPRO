@@ -104,6 +104,28 @@ func (h *Handler) RegisterTenant(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// ListUsers traite GET /api/v1/auth/users
+func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	claims := GetUserFromContext(r.Context())
+	if claims == nil || claims.TenantID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
+		return
+	}
+
+	users, err := h.service.GetUsersByTenant(r.Context(), claims.TenantID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "impossible de récupérer la liste des utilisateurs"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(users)
+}
+
 // GetUserFromContext extrait les claims de l'utilisateur injectés par le middleware
 func GetUserFromContext(ctx context.Context) *UserClaims {
 	if val := ctx.Value(UserContextKey); val != nil {

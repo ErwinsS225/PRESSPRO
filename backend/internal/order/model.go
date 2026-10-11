@@ -91,6 +91,7 @@ type CreateOrderItemInput struct {
 // CreateOrderRequest corps de requête pour la création d'un dépôt
 type CreateOrderRequest struct {
 	CustomerID    string                 `json:"customer_id,omitempty"`
+	BranchID      string                 `json:"branch_id,omitempty"`
 	CustomerName  string                 `json:"customer_name"`
 	CustomerPhone string                 `json:"customer_phone"`
 	Items         []CreateOrderItemInput `json:"items"`

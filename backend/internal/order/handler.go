@@ -9,16 +9,23 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/billing"
 )
 
 // Handler gère les requêtes HTTP sur les commandes
 type Handler struct {
 	service *Service
+	quota   *billing.QuotaGuard
 }
 
 // NewHandler initialise le gestionnaire HTTP des commandes
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// SetQuotaGuard branche le garde-fou du quota mensuel (plan FREE = 50).
+func (h *Handler) SetQuotaGuard(guard *billing.QuotaGuard) {
+	h.quota = guard
 }
 
 // CreateOrder gère POST /api/v1/orders
@@ -43,6 +50,25 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "le nom du client et les vêtements sont obligatoires"})
 		return
+	}
+
+	// Établissement d'imputation : le header X-Branch-ID a déjà été validé par le
+	// contrôle de périmètre (#4 RequireBranchScope) en amont. Repli sur le corps
+	// de requête si le header est absent.
+	if hdr := strings.TrimSpace(r.Header.Get("X-Branch-ID")); hdr != "" {
+		req.BranchID = hdr
+	}
+
+	// Garde-fou quota mensuel : essai dépassé = FREE plafonné à 50 commandes.
+	if h.quota != nil {
+		if err := h.quota.CheckOrdersCreation(r.Context(), tenantID); err != nil {
+			w.WriteHeader(http.StatusPaymentRequired)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error":            err.Error(),
+				"upgrade_required": "true",
+			})
+			return
+		}
 	}
 
 	created, err := h.service.CreateOrder(r.Context(), tenantID, req)

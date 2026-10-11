@@ -7,13 +7,15 @@ import {
   CheckCircle,
   Search,
 } from 'lucide-react';
-import { Tenant } from '../types';
+import { Tenant, User } from '../types';
+import { canAccessSuperadmin } from '../lib/permissions';
 
 interface SuperAdminViewProps {
   onSelectTenantView: (tenantId: string) => void;
+  currentUser: User;
 }
 
-export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onSelectTenantView }) => {
+export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onSelectTenantView, currentUser }) => {
   const [tenants, setTenants] = useState<Tenant[]>([
     {
       id: 'a0000000-0000-0000-0000-000000000001',
@@ -88,6 +90,25 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onSelectTenantVi
       })
     );
   };
+
+  // Contrôle d'accès : seul un super-utilisateur de la plateforme peut ouvrir
+  // cette vue (en dehors du filtrage du menu, pour défense en profondeur).
+  const isSuperadmin = canAccessSuperadmin(currentUser);
+  if (!isSuperadmin) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-[#0B0B0B]">
+        <Shield className="h-8 w-8 text-neutral-400 dark:text-neutral-500" />
+        <h1 className="mt-3 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+          Accès refusé
+        </h1>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          Vous n&apos;avez pas l&apos;autorisation requise pour accéder à
+          l&apos;Espace Éditeur SaaS. Seuls les comptes de super-utilisateur de la
+          plateforme peuvent y accéder.
+        </p>
+      </div>
+    );
+  }
 
   const handleCreateTenant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -272,11 +293,10 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onSelectTenantVi
                   <td className="px-5 py-3.5 text-right">
                     <button
                       onClick={() => toggleStatus(t.id)}
-                      className={`rounded px-2.5 py-1 text-[11px] font-medium border transition-colors ${
-                        t.status === 'active'
-                          ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      }`}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium border transition-colors ${t.status === 'active'
+                        ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        }`}
                     >
                       {t.status === 'active' ? 'Suspendre' : 'Réactiver'}
                     </button>

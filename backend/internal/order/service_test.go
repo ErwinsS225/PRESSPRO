@@ -1,123 +1,175 @@
-package order_test
+package order
 
 import (
 	"context"
 	"testing"
 
-	"pressing-os/backend/internal/order"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCreateOrderAndCalculation(t *testing.T) {
-	svc := order.NewService()
-	ctx := context.Background()
-	tenantA := "tenant-cocody-001"
+func TestNewService(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	assert.NotNil(t, service)
+	assert.NotNil(t, service.orders)
+	assert.NotNil(t, service.tenantSeqNum)
+	assert.NotNil(t, service.logger)
+}
 
-	req := order.CreateOrderRequest{
-		CustomerName:  "Gnamien Konan",
-		CustomerPhone: "+225 07 10 20 30 40",
-		Items: []order.CreateOrderItemInput{
-			{ServiceID: "srv-1", ItemLabel: "Chemise classique", Quantity: 3, UnitPrice: 1000},
-			{ServiceID: "srv-2", ItemLabel: "Costume 2 pièces", Quantity: 1, UnitPrice: 3500},
+func TestCreateOrder_EmptyItems(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "test-tenant-1"
+
+	req := CreateOrderRequest{
+		CustomerID:    "cust-1",
+		CustomerName:  "Test Client",
+		CustomerPhone: "+22500000000",
+		Items:         []CreateOrderItemInput{}, // Aucun item
+	}
+
+	order, err := service.CreateOrder(ctx, tenantID, req)
+	assert.ErrorIs(t, err, ErrEmptyOrderItems)
+	assert.Nil(t, order)
+}
+
+func TestCreateOrder_Success(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "test-tenant-1"
+
+	req := CreateOrderRequest{
+		CustomerID:    "cust-1",
+		CustomerName:  "Test Client",
+		CustomerPhone: "+22500000000",
+		Items: []CreateOrderItemInput{
+			{
+				ServiceID: "srv-1",
+				ItemLabel: "Chemise",
+				Quantity:  2,
+				UnitPrice: 1500,
+			},
 		},
-		InitialPaid:   2500,
-		PaymentMethod: order.MethodWave,
-		DueDate:       "Demain 18:00",
-		Notes:         "Plis marqués",
+		InitialPaid:   2000,
+		PaymentMethod: MethodCash,
 	}
 
-	ord, err := svc.CreateOrder(ctx, tenantA, req)
-	if err != nil {
-		t.Fatalf("échec création commande: %v", err)
-	}
+	order, err := service.CreateOrder(ctx, tenantID, req)
+	require.NoError(t, err)
+	require.NotNil(t, order)
 
-	// 3*1000 + 1*3500 = 6500 FCFA
-	if ord.TotalAmount != 6500 {
-		t.Errorf("attendu TotalAmount 6500, obtenu %f", ord.TotalAmount)
-	}
-	if ord.PaidAmount != 2500 {
-		t.Errorf("attendu PaidAmount 2500, obtenu %f", ord.PaidAmount)
-	}
-	if ord.RemainingDue != 4000 {
-		t.Errorf("attendu RemainingDue 4000, obtenu %f", ord.RemainingDue)
-	}
-	if ord.PaymentStatus != order.PaymentStatusPartial {
-		t.Errorf("attendu statut partiel, obtenu %s", ord.PaymentStatus)
-	}
-	if ord.Status != order.StatusReceived {
-		t.Errorf("attendu statut initial 'received', obtenu %s", ord.Status)
-	}
-	if len(ord.Payments) != 1 || ord.Payments[0].PaymentMethod != order.MethodWave {
-		t.Errorf("attendu paiement initial Wave")
-	}
+	assert.Equal(t, tenantID, order.TenantID)
+	assert.Equal(t, 3000.0, order.TotalAmount)
+	assert.Equal(t, 2000.0, order.PaidAmount)
+	assert.Equal(t, 1000.0, order.RemainingDue)
+	assert.Equal(t, PaymentStatusPartial, order.PaymentStatus)
+	assert.Equal(t, StatusReceived, order.Status)
+	assert.Len(t, order.Items, 1)
+	assert.Len(t, order.Payments, 1)
 }
 
-func TestOrderMultiTenantIsolation(t *testing.T) {
-	svc := order.NewService()
+func TestGetOrderByID_NotFound(t *testing.T) {
+	t.Parallel()
+	service := NewService()
 	ctx := context.Background()
+	tenantID := "test-tenant-1"
 
-	tenantCocody := "tenant-cocody"
-	tenantPlateau := "tenant-plateau"
-
-	// Créer une commande pour Cocody
-	ordCocody, err := svc.CreateOrder(ctx, tenantCocody, order.CreateOrderRequest{
-		CustomerName:  "Client Cocody",
-		CustomerPhone: "+225 07 00 00 01",
-		Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 1, UnitPrice: 1000}},
-	})
-	if err != nil {
-		t.Fatalf("erreur création: %v", err)
-	}
-
-	// Le pressing du Plateau tente de consulter la commande de Cocody -> doit échouer (ErrOrderNotFound)
-	_, err = svc.GetOrderByID(ctx, tenantPlateau, ordCocody.ID)
-	if err != order.ErrOrderNotFound {
-		t.Errorf("l'isolation a échoué : Plateau ne doit pas pouvoir lire la commande de Cocody, obtenu err=%v", err)
-	}
-
-	// Liste des commandes de Plateau ne doit pas contenir la commande de Cocody
-	listPlateau, err := svc.GetOrders(ctx, tenantPlateau, "", "")
-	if err != nil {
-		t.Fatalf("erreur get orders: %v", err)
-	}
-	for _, o := range listPlateau {
-		if o.ID == ordCocody.ID {
-			t.Errorf("fuite de données multi-tenant : commande Cocody trouvée dans la liste de Plateau")
-		}
-	}
+	order, err := service.GetOrderByID(ctx, tenantID, "ord-inexistant")
+	assert.ErrorIs(t, err, ErrOrderNotFound)
+	assert.Nil(t, order)
 }
 
-func TestUpdateStatusAndPayment(t *testing.T) {
-	svc := order.NewService()
+func TestUpdateOrderStatus_Invalid(t *testing.T) {
+	t.Parallel()
+	service := NewService()
 	ctx := context.Background()
-	tenant := "tenant-test"
+	tenantID := "a0000000-0000-0000-0000-000000000001" // Tenant par défaut
 
-	ord, _ := svc.CreateOrder(ctx, tenant, order.CreateOrderRequest{
-		CustomerName:  "Aya Traoré",
-		CustomerPhone: "+225 05 99 88 77",
-		Items:         []order.CreateOrderItemInput{{ItemLabel: "Robe", Quantity: 1, UnitPrice: 4000}},
-		InitialPaid:   0,
-	})
+	// Récupère une commande existante
+	orders, err := service.GetOrders(ctx, tenantID, "", "")
+	require.NoError(t, err)
+	require.Len(t, orders, 3)
+	firstOrder := orders[0]
 
-	// 1. Avancement du statut
-	updated, err := svc.UpdateOrderStatus(ctx, tenant, ord.ID, order.StatusWashing)
-	if err != nil || updated.Status != order.StatusWashing {
-		t.Errorf("erreur avancement statut: %v", err)
+	// Tentative de mise à jour avec un statut invalide
+	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, "statut_invalide")
+	assert.ErrorIs(t, err, ErrInvalidStatusOrder)
+	assert.Nil(t, updated)
+}
+
+func TestUpdateOrderStatus_Success(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "a0000000-0000-0000-0000-000000000001"
+
+	orders, err := service.GetOrders(ctx, tenantID, "", "")
+	require.NoError(t, err)
+	firstOrder := orders[0]
+
+	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, StatusReady)
+	require.NoError(t, err)
+	assert.Equal(t, StatusReady, updated.Status)
+}
+
+func TestAddPayment_Success(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+	tenantID := "a0000000-0000-0000-0000-000000000001"
+
+	orders, err := service.GetOrders(ctx, tenantID, StatusWashing, "")
+	require.NoError(t, err)
+	require.Len(t, orders, 1)
+	order := orders[0] // Celle avec paiement partiel
+
+	initialPaid := order.PaidAmount
+	paymentReq := AddPaymentRequest{
+		Amount:   3500,
+		PaymentMethod: MethodCash,
+		Reference: "TEST-REF",
 	}
 
-	// 2. Règlement du solde au retrait (4000 FCFA par Orange Money)
-	settled, err := svc.AddPayment(ctx, tenant, ord.ID, order.AddPaymentRequest{
-		Amount:        4000,
-		PaymentMethod: order.MethodOrangeMoney,
-		Reference:     "OM-CI-45892",
-	})
-	if err != nil {
-		t.Fatalf("erreur paiement solde: %v", err)
-	}
+	updated, err := service.AddPayment(ctx, tenantID, order.ID, paymentReq)
+	require.NoError(t, err)
+	assert.Equal(t, initialPaid+3500, updated.PaidAmount)
+	assert.Equal(t, 0.0, updated.RemainingDue)
+	assert.Equal(t, PaymentStatusPaid, updated.PaymentStatus)
+	assert.Len(t, updated.Payments, 2)
+}
 
-	if settled.PaymentStatus != order.PaymentStatusPaid {
-		t.Errorf("attendu statut 'paid', obtenu %s", settled.PaymentStatus)
+func TestIsolationMultitenant(t *testing.T) {
+	t.Parallel()
+	service := NewService()
+	ctx := context.Background()
+
+	// Crée un deuxième tenant
+	tenant2 := "test-tenant-2"
+	req := CreateOrderRequest{
+		CustomerID:    "cust-2",
+		CustomerName:  "Client Tenant 2",
+		CustomerPhone: "+225111111111",
+		Items: []CreateOrderItemInput{
+			{ServiceID: "srv-1", ItemLabel: "Test", Quantity: 1, UnitPrice: 1000},
+		},
 	}
-	if settled.RemainingDue != 0 {
-		t.Errorf("attendu solde restant 0, obtenu %f", settled.RemainingDue)
+	order2, err := service.CreateOrder(ctx, tenant2, req)
+	require.NoError(t, err)
+
+	// Tentative d'accès depuis le tenant par défaut
+	defaultTenant := "a0000000-0000-0000-0000-000000000001"
+	accessed, err := service.GetOrderByID(ctx, defaultTenant, order2.ID)
+	assert.ErrorIs(t, err, ErrOrderNotFound)
+	assert.Nil(t, accessed)
+
+	// Les commandes du tenant par défaut ne sont pas accessibles depuis tenant2
+	ordersDefault, err := service.GetOrders(ctx, defaultTenant, "", "")
+	require.NoError(t, err)
+	if len(ordersDefault) > 0 {
+		_, err := service.GetOrderByID(ctx, tenant2, ordersDefault[0].ID)
+		assert.ErrorIs(t, err, ErrOrderNotFound)
 	}
 }

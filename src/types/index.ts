@@ -1,12 +1,17 @@
 export type ViewMode =
-  | 'dashboard'
-  | 'orders'
-  | 'customers'
-  | 'services'
-  | 'superadmin'
-  | 'system-health';
+  | "dashboard"
+  | "orders"
+  | "customers"
+  | "services"
+  | "superadmin"
+  | "billing";
 
-export type UserRole = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'operator';
+export type UserRole =
+  | "superadmin"
+  | "owner"
+  | "manager"
+  | "cashier"
+  | "operator";
 
 export interface User {
   id: string;
@@ -18,6 +23,13 @@ export interface User {
   status: string;
 }
 
+export interface OpeningHours {
+  day: string;
+  open: string;
+  close: string;
+  isClosed: boolean;
+}
+
 export interface Tenant {
   id: string;
   name: string;
@@ -25,9 +37,10 @@ export interface Tenant {
   phone: string;
   city: string;
   currency: string;
-  status: 'active' | 'trial' | 'suspended';
+  status: "active" | "trial" | "suspended";
   ownerEmail?: string;
   monthlyPlan?: string;
+  openingHours?: OpeningHours[]; // Horaires d'ouverture du pressing
 }
 
 export interface AuthSession {
@@ -36,8 +49,13 @@ export interface AuthSession {
   tenant?: Tenant;
 }
 
-export type OrderStatus = 'received' | 'washing' | 'ironing' | 'ready' | 'delivered';
-export type PaymentStatus = 'unpaid' | 'partially_paid' | 'paid';
+export type OrderStatus =
+  | "received"
+  | "washing"
+  | "ironing"
+  | "ready"
+  | "delivered";
+export type PaymentStatus = "unpaid" | "partially_paid" | "paid";
 
 export interface OrderItem {
   id: string;
@@ -72,7 +90,7 @@ export interface Customer {
   balanceDue: number;
 }
 
-export type PricingModel = 'piece' | 'kilogram' | 'subscription' | 'contract';
+export type PricingModel = "piece" | "kilogram" | "subscription" | "contract";
 
 export interface ServiceItem {
   id: string;
@@ -103,25 +121,30 @@ export interface SubscriptionPlan {
   description: string;
   isPopular?: boolean;
   overagePricePerPiece: number; // Prix par pièce en dépassement
-  target: 'Individuel' | 'Couple' | 'Famille' | 'Professionnel';
+  target: "Individuel" | "Couple" | "Famille" | "Professionnel";
   isActive: boolean;
 }
 
 export interface B2BContract {
   id: string;
   clientName: string;
-  businessType: 'Hôtel' | 'Restaurant' | 'Clinique' | 'Salon & Spa' | 'Entreprise';
-  billingType: 'piece' | 'kilogram' | 'lot' | 'monthly_fixed';
+  businessType:
+    | "Hôtel"
+    | "Restaurant"
+    | "Clinique"
+    | "Salon & Spa"
+    | "Entreprise";
+  billingType: "piece" | "kilogram" | "lot" | "monthly_fixed";
   ratePerUnit: number; // FCFA
-  billingCycle: 'Fin de mois' | 'Bi-mensuel' | 'À la livraison';
+  billingCycle: "Fin de mois" | "Bi-mensuel" | "À la livraison";
   contactPerson: string;
   phone: string;
-  status: 'active' | 'pending' | 'suspended';
+  status: "active" | "pending" | "suspended";
 }
 
 export interface HealthCheckResult {
   endpoint: string;
-  status: 'ok' | 'ready' | 'unavailable' | 'error' | 'testing';
+  status: "ok" | "ready" | "unavailable" | "error" | "testing";
   httpCode?: number;
   latencyMs?: number;
   data?: any;

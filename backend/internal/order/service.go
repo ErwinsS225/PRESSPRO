@@ -3,27 +3,107 @@ package order
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
 )
 
 // Service gère les opérations métier sur les commandes de linge
+// Garantit l'isolation multi-tenant des données et la sécurité d'accès concurrent
 type Service struct {
 	mu           sync.RWMutex
 	orders       map[string]*Order // clé: order_id
 	tenantSeqNum map[string]int    // clé: tenant_id -> séquenceur de ticket
+	store        *dbStore          // nil = mode mémoire ; non-nil = persistance PostgreSQL
+	logger       *log.Logger
+}
+
+// validateTenantExistence vérifie que le tenant existe dans la map des séquences (mode mémoire uniquement)
+func (s *Service) validateTenantExistence(tenantID string) {
+	s.mu.Lock()
+	if _, exists := s.tenantSeqNum[tenantID]; !exists {
+		s.tenantSeqNum[tenantID] = 0
+		s.logger.Printf("[order] Nouveau tenant initialisé: %s", tenantID)
+	}
+	s.mu.Unlock()
+}
+
+// createOrderItems génère les éléments de commande et calcule le montant total
+func createOrderItems(orderID string, items []CreateOrderItemInput) ([]OrderItem, float64) {
+	var orderItems []OrderItem
+	var totalAmount float64
+
+	for idx, it := range items {
+		qty := it.Quantity
+		if qty <= 0 {
+			qty = 1
+		}
+		subtotal := float64(qty) * it.UnitPrice
+		totalAmount += subtotal
+
+		orderItems = append(orderItems, OrderItem{
+			ID:        fmt.Sprintf("it-%s-%d", orderID, idx+1),
+			ServiceID: it.ServiceID,
+			ItemLabel: it.ItemLabel,
+			Quantity:  qty,
+			UnitPrice: it.UnitPrice,
+			Subtotal:  subtotal,
+			Notes:     it.Notes,
+		})
+	}
+	return orderItems, totalAmount
+}
+
+// calculatePaymentStatus détermine le statut de paiement en fonction des montants
+func calculatePaymentStatus(paidAmount, totalAmount float64) string {
+	if totalAmount <= 0 {
+		return PaymentStatusPaid
+	}
+	if paidAmount >= totalAmount {
+		return PaymentStatusPaid
+	}
+	if paidAmount > 0 {
+		return PaymentStatusPartial
+	}
+	return PaymentStatusUnpaid
+}
+
+// getSafeOrder vérifie l'existence d'une commande et son appartenance au tenant (mode mémoire)
+func (s *Service) getSafeOrder(tenantID, orderID string) (*Order, error) {
+	ord, exists := s.orders[orderID]
+	if !exists || ord.TenantID != tenantID {
+		s.logger.Printf("[order] Tentative d'accès non autorisé ou commande introuvable: orderID=%s, tenantID=%s", orderID, tenantID)
+		return nil, ErrOrderNotFound
+	}
+	return ord, nil
+}
+
+// isValidOrderStatus vérifie la validité d'un statut de commande
+func isValidOrderStatus(status string) bool {
+	validStatuses := map[string]bool{
+		StatusReceived:  true,
+		StatusWashing:   true,
+		StatusIroning:   true,
+		StatusReady:     true,
+		StatusDelivered: true,
+		StatusCancelled: true,
+	}
+	return validStatuses[status]
 }
 
 // NewService initialise le service des commandes avec les données de test initiales
+// Configure le logger et initialise les structures de stockage mémoire
 func NewService() *Service {
 	s := &Service{
 		orders:       make(map[string]*Order),
 		tenantSeqNum: make(map[string]int),
+		logger:       log.Default(),
 	}
 
 	defaultTenantID := "a0000000-0000-0000-0000-000000000001"
 	s.tenantSeqNum[defaultTenantID] = 87
+	s.logger.Printf("[order] Service initialisé, tenant par défaut: %s (séquence: %d)", defaultTenantID, s.tenantSeqNum[defaultTenantID])
 
 	// Commande exemple 1
 	s.orders["ord-101"] = &Order{
@@ -104,41 +184,34 @@ func NewService() *Service {
 }
 
 // CreateOrder crée un nouveau dépôt de linge isolé par tenant_id
+// Valide les entrées, génère les identifiants uniques et persiste la commande
 func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOrderRequest) (*Order, error) {
 	if len(req.Items) == 0 {
+		s.logger.Printf("[order] Création échouée: aucune item fournie, tenant=%s", tenantID)
 		return nil, ErrEmptyOrderItems
 	}
 
+	if s.store != nil {
+		s.logger.Printf("[order] Délégation création à persistance PostgreSQL, tenant=%s", tenantID)
+		return s.store.CreateOrder(ctx, tenantID, req)
+	}
+
+	// Validation et initialisation du tenant hors du verrou principal pour réduire le temps de blocage
+	s.validateTenantExistence(tenantID)
+
+	// Verrouillage exclusif seulement pour la mise à jour des maps partagées
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.tenantSeqNum[tenantID]++
 	seq := s.tenantSeqNum[tenantID]
 	orderNumber := fmt.Sprintf("CMD-2026-%03d", seq)
-
 	orderID := fmt.Sprintf("ord-%d", time.Now().UnixNano())
 
-	var items []OrderItem
-	var totalAmount float64
+	// Utilisation du helper pour créer les items et calculer le total
+	items, totalAmount := createOrderItems(orderID, req.Items)
 
-	for idx, it := range req.Items {
-		if it.Quantity <= 0 {
-			it.Quantity = 1
-		}
-		subtotal := float64(it.Quantity) * it.UnitPrice
-		totalAmount += subtotal
-
-		items = append(items, OrderItem{
-			ID:        fmt.Sprintf("it-%s-%d", orderID, idx+1),
-			ServiceID: it.ServiceID,
-			ItemLabel: it.ItemLabel,
-			Quantity:  it.Quantity,
-			UnitPrice: it.UnitPrice,
-			Subtotal:  subtotal,
-			Notes:     it.Notes,
-		})
-	}
-
+	// Validation du montant payé initial
 	paidAmount := req.InitialPaid
 	if paidAmount < 0 {
 		paidAmount = 0
@@ -146,13 +219,10 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 		paidAmount = totalAmount
 	}
 
-	paymentStatus := PaymentStatusUnpaid
-	if paidAmount >= totalAmount && totalAmount > 0 {
-		paymentStatus = PaymentStatusPaid
-	} else if paidAmount > 0 {
-		paymentStatus = PaymentStatusPartial
-	}
+	// Utilisation du helper pour calculer le statut de paiement
+	paymentStatus := calculatePaymentStatus(paidAmount, totalAmount)
 
+	// Création de l'enregistrement de paiement si nécessaire
 	var payments []PaymentRecord
 	if paidAmount > 0 {
 		method := req.PaymentMethod
@@ -167,6 +237,7 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 		})
 	}
 
+	// Gestion de la date d'échéance
 	dueDate := req.DueDate
 	if dueDate == "" {
 		dueDate = time.Now().Add(48 * time.Hour).Format("02 Jan à 17:00")
@@ -193,11 +264,21 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	}
 
 	s.orders[orderID] = order
+	s.logger.Printf("[order] Commande créée: %s (%s), total=%.2f, tenant=%s", orderID, orderNumber, totalAmount, tenantID)
 	return order, nil
 }
 
 // GetOrders liste les commandes en filtrant obligatoirement par tenant_id
+// Supporte le filtrage par statut et la recherche textuelle sur le client/numéro de commande
 func (s *Service) GetOrders(ctx context.Context, tenantID string, statusFilter string, search string) ([]*Order, error) {
+	s.logger.Printf("[order] Récupération commandes: tenant=%s, statut=%s, recherche='%s'", tenantID, statusFilter, search)
+	
+	if s.store != nil {
+		s.logger.Printf("[order] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
+		return s.store.GetOrders(ctx, tenantID, statusFilter, search)
+	}
+
+	// Verrou lecture seul pour les accès en lecture aux maps partagées
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -205,15 +286,17 @@ func (s *Service) GetOrders(ctx context.Context, tenantID string, statusFilter s
 	searchLower := strings.ToLower(search)
 
 	for _, ord := range s.orders {
-		// ISOLATION MULTI-TENANT STRICTE
+		// ISOLATION MULTI-TENANT STRICTE : exclusion des commandes des autres tenants
 		if ord.TenantID != tenantID {
 			continue
 		}
 
+		// Filtre par statut si spécifié
 		if statusFilter != "" && statusFilter != "all" && ord.Status != statusFilter {
 			continue
 		}
 
+		// Filtre par recherche textuelle si spécifiée
 		if searchLower != "" {
 			matchName := strings.Contains(strings.ToLower(ord.CustomerName), searchLower)
 			matchPhone := strings.Contains(ord.CustomerPhone, searchLower)
@@ -223,79 +306,111 @@ func (s *Service) GetOrders(ctx context.Context, tenantID string, statusFilter s
 			}
 		}
 
-		result = append(result, ord)
+		// Copie de sécurité pour éviter modification externe des données partagées
+		ordCopy := *ord
+		result = append(result, &ordCopy)
 	}
 
+	s.logger.Printf("[order] %d commandes trouvées pour le tenant %s", len(result), tenantID)
 	return result, nil
 }
 
 // GetOrderByID consulte une commande avec vérification de l'isolation tenant_id
+// Retourne une copie de sécurité pour éviter modification externe des données partagées
 func (s *Service) GetOrderByID(ctx context.Context, tenantID, orderID string) (*Order, error) {
+	s.logger.Printf("[order] Consultation commande: orderID=%s, tenant=%s", orderID, tenantID)
+	
+	if s.store != nil {
+		s.logger.Printf("[order] Délégation consultation à PostgreSQL: orderID=%s", orderID)
+		return s.store.GetOrderByID(ctx, tenantID, orderID)
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	ord, exists := s.orders[orderID]
-	if !exists || ord.TenantID != tenantID {
-		return nil, ErrOrderNotFound
+	// Utilisation du helper de vérification d'accès sécurisé
+	ord, err := s.getSafeOrder(tenantID, orderID)
+	if err != nil {
+		return nil, err
 	}
 
-	return ord, nil
+	// Copie de sécurité pour éviter toute modification externe des données partagées
+	ordCopy := *ord
+	s.logger.Printf("[order] Commande trouvée: %s, client=%s", orderID, ord.CustomerName)
+	return &ordCopy, nil
 }
 
 // UpdateOrderStatus avance le statut d'un vêtement dans le flux atelier
+// Vérifie l'isolation tenant et la validité du nouveau statut dans le cycle de production
 func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newStatus string) (*Order, error) {
+	s.logger.Printf("[order] Mise à jour statut commande: %s, ancien=%s, nouveau=%s, tenant=%s", orderID, "?", newStatus, tenantID)
+	
+	if s.store != nil {
+		s.logger.Printf("[order] Délégation mise à jour statut à PostgreSQL: orderID=%s", orderID)
+		return s.store.UpdateOrderStatus(ctx, tenantID, orderID, newStatus)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ord, exists := s.orders[orderID]
-	if !exists || ord.TenantID != tenantID {
-		return nil, ErrOrderNotFound
+	// Vérification d'accès sécurisée
+	ord, err := s.getSafeOrder(tenantID, orderID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Validation du cycle
-	validStatuses := map[string]bool{
-		StatusReceived:  true,
-		StatusWashing:   true,
-		StatusIroning:   true,
-		StatusReady:     true,
-		StatusDelivered: true,
-		StatusCancelled: true,
-	}
-	if !validStatuses[newStatus] {
+	// Utilisation du helper de validation de statut
+	if !isValidOrderStatus(newStatus) {
+		s.logger.Printf("[order] Statut invalide: %s pour commande %s", newStatus, orderID)
 		return nil, ErrInvalidStatusOrder
 	}
 
+	oldStatus := ord.Status
 	ord.Status = newStatus
 	ord.UpdatedAt = time.Now().UTC()
-	return ord, nil
+	
+	s.logger.Printf("[order] Statut mis à jour: %s, %s → %s", orderID, oldStatus, newStatus)
+	
+	// Copie de sécurité
+	ordCopy := *ord
+	return &ordCopy, nil
 }
 
 // AddPayment enregistre un paiement acompte ou solde au retrait
+// Vérifie l'isolation tenant, met à jour les montants et le statut de paiement
 func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
+	s.logger.Printf("[order] Ajout paiement: commande=%s, montant=%.2f, tenant=%s", orderID, req.Amount, tenantID)
+	
 	if req.Amount <= 0 {
+		s.logger.Printf("[order] Paiement refusé: montant invalide %.2f pour commande %s", req.Amount, orderID)
 		return nil, ErrInvalidPayment
+	}
+
+	if s.store != nil {
+		s.logger.Printf("[order] Délégation paiement à PostgreSQL: orderID=%s", orderID)
+		return s.store.AddPayment(ctx, tenantID, orderID, req)
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ord, exists := s.orders[orderID]
-	if !exists || ord.TenantID != tenantID {
-		return nil, ErrOrderNotFound
+	// Vérification d'accès sécurisée
+	ord, err := s.getSafeOrder(tenantID, orderID)
+	if err != nil {
+		return nil, err
 	}
 
+	// Mise à jour des montants
 	ord.PaidAmount += req.Amount
 	if ord.PaidAmount > ord.TotalAmount {
 		ord.PaidAmount = ord.TotalAmount
 	}
 	ord.RemainingDue = ord.TotalAmount - ord.PaidAmount
 
-	if ord.PaidAmount >= ord.TotalAmount {
-		ord.PaymentStatus = PaymentStatusPaid
-	} else {
-		ord.PaymentStatus = PaymentStatusPartial
-	}
+	// Utilisation du helper pour calculer le nouveau statut de paiement
+	ord.PaymentStatus = calculatePaymentStatus(ord.PaidAmount, ord.TotalAmount)
 
+	// Enregistrement du paiement
 	method := req.PaymentMethod
 	if method == "" {
 		method = MethodCash
@@ -310,5 +425,10 @@ func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req 
 	})
 	ord.UpdatedAt = time.Now().UTC()
 
-	return ord, nil
+	s.logger.Printf("[order] Paiement enregistré: commande=%s, nouveau statut paiement=%s, restant=%.2f", 
+		orderID, ord.PaymentStatus, ord.RemainingDue)
+
+	// Copie de sécurité
+	ordCopy := *ord
+	return &ordCopy, nil
 }

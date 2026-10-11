@@ -56,6 +56,9 @@ interface ServicesViewProps {
   showToast?: (msg: string) => void;
 }
 
+// Modèle de facturation pour le filtre du catalogue
+type ServiceFilter = 'all' | 'piece' | 'kilogram' | 'quote';
+
 export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
   currentUser,
@@ -67,13 +70,15 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   showToast,
 }) => {
   // Onglet principal : Catalogue / Abonnements / Contrats B2B
-  const [mainTab, setMainTab] = useState<'catalog' | 'subscriptions' | 'contracts' | 'guide'>('catalog');
+  const [mainTab, setMainTab] = useState<'catalog' | 'subscriptions' | 'contracts'>('catalog');
+  // Sous-onglets du catalogue : mode de facturation
+  const [catalogSubTab, setCatalogSubTab] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
 
   // Navigation & filtres de catalogue
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [modelFilter, setModelFilter] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
+  const [modelFilter, setModelFilter] = useState<ServiceFilter>('all');
   const [sortOrder, setSortOrder] = useState<'name' | 'price-asc' | 'price-desc'>('name');
 
   // Modales & tiroirs
@@ -286,8 +291,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${
-            synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
+          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
           }`
         );
       }
@@ -333,8 +337,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${
-            synced ? '• Base PostgreSQL actualisée' : ''
+          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL actualisée' : ''
           }`
         );
       }
@@ -404,8 +407,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${itemToDelete.name}" supprimée définitivement ${
-            result.synced ? 'de la base de données PostgreSQL' : ''
+          `Prestation "${itemToDelete.name}" supprimée définitivement ${result.synced ? 'de la base de données PostgreSQL' : ''
           }`
         );
       }
@@ -525,11 +527,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Simulateur express */}
           <button
             onClick={() => setIsQuoteCalcOpen(!isQuoteCalcOpen)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              isQuoteCalcOpen
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
-            }`}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${isQuoteCalcOpen
+              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+              : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+              }`}
           >
             <Calculator className="h-3.5 w-3.5" />
             <span>Simulateur Devis {quoteTotalPieces > 0 ? `(${quoteTotalPieces})` : ''}</span>
@@ -599,11 +600,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       <div className="flex border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setMainTab('catalog')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
-            mainTab === 'catalog'
-              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-          }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'catalog'
+            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+            }`}
         >
           <Layers className="h-4 w-4" />
           <span>Modèles 1 & 2 : Prestations à la Pièce & au Kg ({services.length})</span>
@@ -611,11 +611,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('subscriptions')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
-            mainTab === 'subscriptions'
-              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-          }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'subscriptions'
+            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+            }`}
         >
           <Calendar className="h-4 w-4" />
           <span>Modèle 3 : Forfaits & Abonnements Mensuels ({subscriptions.length})</span>
@@ -623,11 +622,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('contracts')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
-            mainTab === 'contracts'
-              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-              : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-          }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'contracts'
+            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+            }`}
         >
           <Briefcase className="h-4 w-4" />
           <span>Modèle 4 : Contrats Professionnels B2B ({b2bContracts.length})</span>
@@ -700,11 +698,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${
-                    qty > 0
-                      ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
-                      : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
-                  }`}
+                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${qty > 0
+                    ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
+                    : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
+                    }`}
                 >
                   <div className="min-w-0 pr-2">
                     <p className="truncate font-medium text-neutral-900 dark:text-neutral-100">{item.name}</p>
@@ -747,20 +744,18 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                    isSelected
-                      ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
-                      : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isSelected
+                    ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
+                    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+                    }`}
                 >
                   <span className="hidden md:inline">{cat.label}</span>
                   <span className="md:hidden">{cat.short}</span>
                   <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
-                      isSelected
-                        ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
-                        : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
-                    }`}
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${isSelected
+                      ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
+                      : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                      }`}
                   >
                     {count}
                   </span>
@@ -786,7 +781,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Filtre Modèle de facturation */}
               <select
                 value={modelFilter}
-                onChange={(e) => setModelFilter(e.target.value as any)}
+                onChange={(e) => setModelFilter(e.target.value as ServiceFilter)}
                 className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
               >
                 <option value="all">Tous les modes de facturation</option>
@@ -865,11 +860,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       return (
                         <tr
                           key={item.id}
-                          className={`transition-colors ${
-                            !isActive
-                              ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
-                              : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
-                          }`}
+                          className={`transition-colors ${!isActive
+                            ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
+                            : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
+                            }`}
                         >
                           {/* Article & Traitement */}
                           <td className="px-5 py-3.5">
@@ -959,11 +953,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                               onClick={() => canEdit && handleToggleActive(item)}
                               disabled={!canEdit}
                               title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                isActive
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
-                                  : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
-                              }`}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${isActive
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
+                                : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
+                                }`}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
                               <span>{isActive ? 'Actif' : 'Inactif'}</span>
@@ -1026,11 +1019,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             {subscriptions.map((plan) => (
               <div
                 key={plan.id}
-                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${
-                  plan.isPopular
-                    ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
-                    : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
-                }`}
+                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${plan.isPopular
+                  ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
+                  : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
+                  }`}
               >
                 {plan.isPopular && (
                   <span className="absolute -top-2.5 right-4 rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1823,11 +1815,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       key={pct}
                       type="button"
                       onClick={() => setBulkPercent(pct)}
-                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${
-                        bulkPercent === pct
-                          ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                          : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                      }`}
+                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${bulkPercent === pct
+                        ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                        : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                        }`}
                     >
                       {pct > 0 ? `+${pct}%` : `${pct}%`}
                     </button>

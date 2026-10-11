@@ -2,6 +2,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/billing"
 	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/health"
@@ -125,5 +127,124 @@ func TestRouterEndpoints(t *testing.T) {
 
 	if recDeleteSrv.Code != http.StatusOK {
 		t.Fatalf("attendu 200 sur DELETE /api/v1/services/{id}, obtenu %d", recDeleteSrv.Code)
+	}
+
+	// 7. Vérification publique d'un ticket (sans JWT) — ord-101 du tenant seed.
+	tenantID := "a0000000-0000-0000-0000-000000000001"
+	reqVerify := httptest.NewRequest(http.MethodGet, "/api/v1/public/verify/"+tenantID+"/ord-101", nil)
+	recVerify := httptest.NewRecorder()
+	router.ServeHTTP(recVerify, reqVerify)
+
+	if recVerify.Code != http.StatusOK {
+		t.Fatalf("attendu 200 sur GET /api/v1/public/verify, obtenu %d", recVerify.Code)
+	}
+	var verifyResp order.VerifyTicketResponse
+	if err := json.NewDecoder(recVerify.Body).Decode(&verifyResp); err != nil {
+		t.Fatalf("réponse de vérification illisible: %v", err)
+	}
+	if !verifyResp.Valid || verifyResp.OrderID != "ord-101" {
+		t.Errorf("vérification invalide: %+v", verifyResp)
+	}
+
+	// 8. Ticket inconnu -> 404 avec valid=false.
+	reqVerify404 := httptest.NewRequest(http.MethodGet, "/api/v1/public/verify/"+tenantID+"/ord-inexistant", nil)
+	recVerify404 := httptest.NewRecorder()
+	router.ServeHTTP(recVerify404, reqVerify404)
+	if recVerify404.Code != http.StatusNotFound {
+		t.Fatalf("attendu 404 sur ticket inconnu, obtenu %d", recVerify404.Code)
+	}
+}
+
+// fixedCounter simule un compteur de quotas (ex: 50 commandes déjà créées).
+type fixedCounter struct {
+	orders int64
+	users  int64
+}
+
+func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
+	return f.orders, nil
+}
+func (f fixedCounter) CountUsers(_ context.Context, _ string) (int64, error) {
+	return f.users, nil
+}
+
+func TestOrderQuotaFreeAfterTrial(t *testing.T) {
+	cfg := &config.Config{
+		Port:           "8080",
+		ServerEnv:      "test",
+		AllowedOrigins: []string{"http://localhost:3000"},
+	}
+	healthH := health.NewHandler(nil, 1*time.Second)
+	jwtManager := auth.NewJWTManager("test-secret-key-1234567890", 2*time.Hour)
+	authH := auth.NewHandler(auth.NewService(jwtManager))
+
+	billingSvc := billing.NewService() // tenant démo en essai par défaut
+	billingH := billing.NewHandler(billingSvc)
+	orderSvc := order.NewService()
+	orderH := order.NewHandler(orderSvc)
+
+	router := apphttp.NewRouter(apphttp.ServerDependencies{
+		Config:         cfg,
+		HealthHandler:  healthH,
+		AuthHandler:    authH,
+		JWTManager:     jwtManager,
+		OrderHandler:   orderH,
+		Billing:        billingSvc,
+		BillingHandler: billingH,
+	})
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"email":    "gerant@pressing-ivoire.ci",
+		"password": "pass123",
+	})
+	doLogin := func() string {
+		reqLogin := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBuffer(loginBody))
+		reqLogin.Header.Set("Content-Type", "application/json")
+		recLogin := httptest.NewRecorder()
+		router.ServeHTTP(recLogin, reqLogin)
+		var loginResp auth.LoginResponse
+		_ = json.NewDecoder(recLogin.Body).Decode(&loginResp)
+		return loginResp.Token
+	}
+	newOrderBody := func() *bytes.Buffer {
+		b, _ := json.Marshal(order.CreateOrderRequest{
+			CustomerName:  "Client Essai",
+			CustomerPhone: "+225 07 00 00 01",
+			Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 1, UnitPrice: 1000}},
+		})
+		return bytes.NewBuffer(b)
+	}
+
+	// 1. Pendant l'essai (niveau BUSINESS) : création OK même avec 50 commandes.
+	orderH.SetQuotaGuard(&billing.QuotaGuard{Billing: billingSvc, Counter: fixedCounter{orders: 50}})
+	reqTrial := httptest.NewRequest(http.MethodPost, "/api/v1/orders", newOrderBody())
+	reqTrial.Header.Set("Authorization", "Bearer "+doLogin())
+	reqTrial.Header.Set("Content-Type", "application/json")
+	recTrial := httptest.NewRecorder()
+	router.ServeHTTP(recTrial, reqTrial)
+	if recTrial.Code != http.StatusCreated {
+		t.Fatalf("création pendant l'essai devrait passer (201), obtenu %d : %s", recTrial.Code, recTrial.Body.String())
+	}
+
+	// 2. Essai dépassé (FREE, 50 déjà créées) : la 51e est refusée en 402.
+	billingSvc.ForcePlanForTest("a0000000-0000-0000-0000-000000000001", billing.PlanFree, billing.StatusActive)
+	reqBlocked := httptest.NewRequest(http.MethodPost, "/api/v1/orders", newOrderBody())
+	reqBlocked.Header.Set("Authorization", "Bearer "+doLogin())
+	reqBlocked.Header.Set("Content-Type", "application/json")
+	recBlocked := httptest.NewRecorder()
+	router.ServeHTTP(recBlocked, reqBlocked)
+	if recBlocked.Code != http.StatusPaymentRequired {
+		t.Fatalf("51e commande FREE devrait être refusée (402), obtenu %d : %s", recBlocked.Code, recBlocked.Body.String())
+	}
+
+	// 3. FREE avec 49 commandes : la 50e passe.
+	orderH.SetQuotaGuard(&billing.QuotaGuard{Billing: billingSvc, Counter: fixedCounter{orders: 49}})
+	reqOK := httptest.NewRequest(http.MethodPost, "/api/v1/orders", newOrderBody())
+	reqOK.Header.Set("Authorization", "Bearer "+doLogin())
+	reqOK.Header.Set("Content-Type", "application/json")
+	recOK := httptest.NewRecorder()
+	router.ServeHTTP(recOK, reqOK)
+	if recOK.Code != http.StatusCreated {
+		t.Fatalf("50e commande FREE devrait passer (201), obtenu %d : %s", recOK.Code, recOK.Body.String())
 	}
 }

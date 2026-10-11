@@ -26,8 +26,12 @@ func LoadFromEnv() (*Config, error) {
 	port := getEnv("PORT", "8080")
 	serverEnv := getEnv("SERVER_ENV", "development")
 
-	// Reconstruction ou lecture directe de DATABASE_URL
-	dbURL := os.Getenv("DATABASE_URL")
+	// Priorité à NEON_DATABASE_URL (base managée Neon) si défini,
+	// sinon repli sur DATABASE_URL puis sur les variables PostgreSQL (Docker local).
+	dbURL := getEnv("NEON_DATABASE_URL", "")
+	if dbURL == "" {
+		dbURL = os.Getenv("DATABASE_URL")
+	}
 	if dbURL == "" {
 		dbUser := getEnv("POSTGRES_USER", "pressing_app")
 		dbPass := getEnv("POSTGRES_PASSWORD", "pressing_secret_local_dev_change_me")
@@ -41,6 +45,16 @@ func LoadFromEnv() (*Config, error) {
 			dbPort,
 			dbName,
 		)
+	}
+
+	// Neon impose TLS : on force sslmode=require si l'hôte est *.neon.tech
+	// et qu'aucun sslmode n'est déjà précisé dans l'URL.
+	if strings.Contains(dbURL, "neon.tech") && !strings.Contains(dbURL, "sslmode=") {
+		if strings.Contains(dbURL, "?") {
+			dbURL += "&sslmode=require"
+		} else {
+			dbURL += "?sslmode=require"
+		}
 	}
 
 	originsRaw := getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")

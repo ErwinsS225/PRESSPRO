@@ -18,6 +18,8 @@ const (
 	CategoryHomeLinen   = "Linge de maison"
 	CategoryAddons      = "Services complémentaires & Options"
 	CategorySpecialized = "Prestations spécialisées & Luxe"
+	CategoryDryClean    = "Nettoyage à sec"
+	CategoryDelicate    = "Délicat"
 )
 
 // Modèles commerciaux supportés
@@ -37,7 +39,7 @@ type ServiceItem struct {
 	Treatment          string    `json:"treatment"`
 	Category           string    `json:"category"`
 	UnitPrice          float64   `json:"unit_price"`
-	Unit               string    `json:"unit"` // pièce, ensemble, kg, panneau, m², paire, forfait
+	Unit               string    `json:"unit"`          // pièce, ensemble, kg, panneau, m², paire, forfait
 	PricingModel       string    `json:"pricing_model"` // piece, kilogram, subscription, contract
 	EstimatedHours     int       `json:"estimated_hours"`
 	IsActive           bool      `json:"is_active"`

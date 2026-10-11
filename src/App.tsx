@@ -5,9 +5,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession } from './types';
+import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession, User } from './types';
+import { canAccessSuperadmin } from './lib/permissions';
 import { CURRENT_TENANT, DEMO_ORDERS, DEMO_CUSTOMERS, DEMO_SERVICES } from './lib/demoData';
 import { checkEndpoint } from './lib/api';
+import { fetchOrders, createOrderOnBackend, updateOrderStatusOnBackend, addOrderPaymentOnBackend } from './lib/ordersApi';
+import { fetchCustomers, createCustomerOnBackend } from './lib/customersApi';
 import { ThemeProvider } from './context/ThemeContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -15,14 +18,16 @@ import { DashboardView } from './components/DashboardView';
 import { OrdersView } from './components/OrdersView';
 import { CustomersView } from './components/CustomersView';
 import { ServicesView } from './components/ServicesView';
+import { BillingView } from './components/BillingView';
 import { SuperAdminView } from './components/SuperAdminView';
-import { SystemHealthView } from './components/SystemHealthView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalTicketModal } from './components/ThermalTicketModal';
+import { TicketVerificationView } from './components/TicketVerificationView';
 
 function PressingOSApp() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
+  const [verificationParams, setVerificationParams] = useState<{ tenantId: string, orderId: string } | null>(null);
   const [session, setSession] = useState<AuthSession>({
     token: 'jwt-default-session-token',
     user: {
@@ -35,6 +40,9 @@ function PressingOSApp() {
     },
     tenant: CURRENT_TENANT,
   });
+
+  // Contrôle d'accès à l'Espace Éditeur SaaS (Super Administration Globale).
+  const isSuperadmin = canAccessSuperadmin(session.user);
 
   const [orders, setOrders] = useState<Order[]>(DEMO_ORDERS);
   const [customers, setCustomers] = useState<Customer[]>(DEMO_CUSTOMERS);
@@ -70,6 +78,17 @@ function PressingOSApp() {
   };
 
   useEffect(() => {
+    // Parser l'URL pour détecter une page de vérification de ticket
+    const path = window.location.pathname;
+    const verifyMatch = path.match(/\/verify\/([^/]+)\/([^/]+)/);
+    if (verifyMatch) {
+      setVerificationParams({
+        tenantId: verifyMatch[1],
+        orderId: verifyMatch[2]
+      });
+      return; // Ne pas charger l'application normale si c'est une page de vérification
+    }
+
     runHealthProbe();
 
     // Authentification automatique du gérant pour obtenir un jeton JWT valide
@@ -120,6 +139,14 @@ function PressingOSApp() {
               );
             }
           }
+
+          // Charger commandes et clients depuis PostgreSQL
+          const [ordRes, custRes] = await Promise.all([
+            fetchOrders(validToken),
+            fetchCustomers(validToken),
+          ]);
+          if (ordRes.fromBackend && ordRes.orders.length > 0) setOrders(ordRes.orders);
+          if (custRes.fromBackend && custRes.customers.length > 0) setCustomers(custRes.customers);
         }
       } catch (err) {
         console.warn('Initialisation session backend:', err);
@@ -130,35 +157,54 @@ function PressingOSApp() {
   }, []);
 
   const handleAdvanceOrderStatus = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((ord) => {
-        if (ord.id !== orderId) return ord;
-        let nextStatus: Order['status'] = ord.status;
-        if (ord.status === 'received') nextStatus = 'washing';
-        else if (ord.status === 'washing') nextStatus = 'ironing';
-        else if (ord.status === 'ironing') {
-          nextStatus = 'ready';
-          showToast(`Linge prêt ! Notification SMS / WhatsApp envoyée à ${ord.customerName} (${ord.customerPhone})`);
-        } else if (ord.status === 'ready') {
-          nextStatus = 'delivered';
-          showToast(`Linge remis au client (${ord.orderNumber})`);
-        }
+    const ord = orders.find((o) => o.id === orderId);
+    if (!ord) return;
 
-        return { ...ord, status: nextStatus };
-      })
+    let nextStatus: Order['status'] = ord.status;
+    if (ord.status === 'received') nextStatus = 'washing';
+    else if (ord.status === 'washing') nextStatus = 'ironing';
+    else if (ord.status === 'ironing') {
+      nextStatus = 'ready';
+      showToast(`Linge prêt ! Notification SMS / WhatsApp envoyée à ${ord.customerName} (${ord.customerPhone})`);
+    } else if (ord.status === 'ready') {
+      nextStatus = 'delivered';
+      showToast(`Linge remis au client (${ord.orderNumber})`);
+    } else {
+      return; // Déjà au dernier statut
+    }
+
+    // Persistance best-effort (les IDs démo non-UUID restent locaux)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      updateOrderStatusOnBackend(orderId, nextStatus, session.token);
+    }
+
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
   };
 
-  const handleAddOrder = (newOrder: Order) => {
-    setOrders([newOrder, ...orders]);
-    showToast(`Dépôt ${newOrder.orderNumber} enregistré avec succès`);
+  const handleAddOrder = async (newOrder: Order) => {
+    const { order: persisted, synced, error } = await createOrderOnBackend(newOrder, session.token);
+    const finalOrder = synced && persisted ? persisted : newOrder;
+    setOrders([finalOrder, ...orders]);
+    if (synced && persisted) {
+      showToast(`Dépôt ${persisted.orderNumber} enregistré dans PostgreSQL`);
+    } else {
+      showToast(`Dépôt ${newOrder.orderNumber} enregistré localement (non synchronisé${error ? ` : ${error}` : ''})`);
+    }
     // Proposer l'impression immédiate du ticket thermique
-    setSelectedTicketOrder(newOrder);
+    setSelectedTicketOrder(finalOrder);
   };
 
-  const handleAddCustomer = (newCustomer: Customer) => {
-    setCustomers([newCustomer, ...customers]);
-    showToast(`Client ${newCustomer.fullName} ajouté`);
+  const handleAddCustomer = async (newCustomer: Customer) => {
+    const { customer: persisted, synced, error } = await createCustomerOnBackend(newCustomer, session.token);
+    const finalCustomer = synced && persisted ? persisted : newCustomer;
+    setCustomers([finalCustomer, ...customers]);
+    if (synced && persisted) {
+      showToast(`Client ${finalCustomer.fullName} enregistré dans PostgreSQL`);
+    } else {
+      showToast(`Client ${newCustomer.fullName} ajouté${error ? ` — ${error}` : ' localement (non synchronisé)'}`);
+    }
   };
 
   const handleAddService = (newService: ServiceItem) => {
@@ -217,6 +263,13 @@ function PressingOSApp() {
   };
 
   const handleSettleBalance = (orderId: string, amount: number, method: string) => {
+    // Persistance best-effort du paiement (les IDs démo non-UUID restent locaux)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      addOrderPaymentOnBackend(orderId, amount, method, session.token).then((ok) => {
+        if (!ok) console.warn('[App] Échec enregistrement du paiement côté serveur');
+      });
+    }
+
     setOrders((prev) =>
       prev.map((ord) => {
         if (ord.id !== orderId) return ord;
@@ -249,6 +302,11 @@ function PressingOSApp() {
       showToast(`Connecté en tant que ${newSession.user.full_name} (${newSession.user.role})`);
     }
   };
+
+  // Si on est sur une page de vérification, on affiche seulement cette vue
+  if (verificationParams) {
+    return <TicketVerificationView tenantId={verificationParams.tenantId} orderId={verificationParams.orderId} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-neutral-50/40 text-neutral-900 font-sans antialiased selection:bg-neutral-900 selection:text-white dark:bg-[#050505] dark:text-neutral-100 dark:selection:bg-white dark:selection:text-black transition-colors duration-150">
@@ -337,20 +395,17 @@ function PressingOSApp() {
                 />
               )}
 
-              {currentView === 'superadmin' && (
+              {currentView === 'billing' && (
+                <BillingView token={session.token} showToast={showToast} />
+              )}
+
+              {currentView === 'superadmin' && isSuperadmin && (
                 <SuperAdminView
+                  currentUser={session.user}
                   onSelectTenantView={() => {
                     setCurrentView('dashboard');
                     showToast('Bascule sur la vue du pressing');
                   }}
-                />
-              )}
-
-              {currentView === 'system-health' && (
-                <SystemHealthView
-                  currentHealth={health}
-                  onProbeAll={runHealthProbe}
-                  isProbing={isCheckingHealth}
                 />
               )}
             </motion.div>
@@ -378,10 +433,10 @@ function PressingOSApp() {
       )}
 
       {/* Modal Ticket Thermique (80mm) */}
-      {selectedTicketOrder && (
+      {selectedTicketOrder && session.tenant && (
         <ThermalTicketModal
           order={selectedTicketOrder}
-          tenantName={session.tenant?.name || 'Pressing Ivoire Cocody'}
+          tenant={session.tenant}
           onClose={() => setSelectedTicketOrder(null)}
           onSettleBalance={handleSettleBalance}
         />
