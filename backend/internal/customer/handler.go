@@ -3,21 +3,24 @@ package customer
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/httperr"
 )
 
 // Handler gère les requêtes HTTP sur les clients du pressing.
 type Handler struct {
 	service *Service
+	logger  *log.Logger
 }
 
 // NewHandler initialise le gestionnaire HTTP des clients.
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
 }
 
 // ListCustomers gère GET /api/v1/customers
@@ -34,8 +37,7 @@ func (h *Handler) ListCustomers(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("q")
 	items, err := h.service.GetCustomers(r.Context(), tenantID, search)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		httperr.Internal(w, h.logger, "customer", err, "impossible de récupérer les clients")
 		return
 	}
 	if items == nil {
@@ -80,6 +82,12 @@ func (h *Handler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "un contexte d'établissement est requis pour cette opération"})
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	item, err := h.service.GetCustomer(r.Context(), tenantID, id)
@@ -98,6 +106,12 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "un contexte d'établissement est requis pour cette opération"})
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req UpdateCustomerRequest
@@ -128,6 +142,12 @@ func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "un contexte d'établissement est requis pour cette opération"})
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	if err := h.service.DeleteCustomer(r.Context(), tenantID, id); err != nil {

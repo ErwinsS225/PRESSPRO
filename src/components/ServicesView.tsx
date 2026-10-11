@@ -7,31 +7,23 @@ import {
   Trash2,
   Database,
   RefreshCw,
-  Check,
   AlertTriangle,
   AlertCircle,
   Loader2,
-  Sparkles,
   Tag,
-  Printer,
   Receipt,
   Calculator,
   SlidersHorizontal,
   X,
   CheckCircle2,
-  Shield,
   Layers,
-  ArrowUpDown,
   ShoppingBag,
   Info,
   Truck,
   Zap,
   Briefcase,
   Calendar,
-  ExternalLink,
   Copy,
-  Building2,
-  Percent,
 } from 'lucide-react';
 import { ServiceItem, User, SubscriptionPlan, B2BContract, PricingModel } from '../types';
 import {
@@ -41,9 +33,17 @@ import {
   bulkAdjustCategoryPrices,
   getLastSyncTime,
 } from '../lib/servicesApi';
-import { DEMO_SUBSCRIPTION_PLANS, DEMO_B2B_CONTRACTS } from '../lib/demoData';
 import { CounterReceiptModal } from './CounterReceiptModal';
 import { CatalogManagerModal } from './CatalogManagerModal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface ServicesViewProps {
   services: ServiceItem[];
@@ -72,7 +72,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   // Onglet principal : Catalogue / Abonnements / Contrats B2B
   const [mainTab, setMainTab] = useState<'catalog' | 'subscriptions' | 'contracts'>('catalog');
   // Sous-onglets du catalogue : mode de facturation
-  const [catalogSubTab, setCatalogSubTab] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
 
   // Navigation & filtres de catalogue
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -92,22 +91,25 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [isQuoteCalcOpen, setIsQuoteCalcOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  // Données Abonnements et Contrats B2B (Modèles commerciaux 3 & 4)
-  const [subscriptions, setSubscriptions] = useState<SubscriptionPlan[]>(() => {
+  // Données Abonnements et Contrats B2B (Modèles commerciaux 3 & 4) : uniquement
+  // ce que l'établissement a enregistré localement, aucun jeu de démonstration.
+  const [subscriptions] = useState<SubscriptionPlan[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_subscriptions');
-      return saved ? JSON.parse(saved) : DEMO_SUBSCRIPTION_PLANS;
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return DEMO_SUBSCRIPTION_PLANS;
+      return [];
     }
   });
 
-  const [b2bContracts, setB2bContracts] = useState<B2BContract[]>(() => {
+  const [b2bContracts] = useState<B2BContract[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_b2b_contracts');
-      return saved ? JSON.parse(saved) : DEMO_B2B_CONTRACTS;
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return DEMO_B2B_CONTRACTS;
+      return [];
     }
   });
 
@@ -143,17 +145,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [includeExpressInQuote, setIncludeExpressInQuote] = useState(false);
 
   const canEdit =
-    currentUser.role === 'owner' ||
-    currentUser.role === 'manager' ||
-    currentUser.role === 'superadmin';
+    currentUser.role === 'owner' || currentUser.role === 'manager' || currentUser.role === 'superadmin';
 
   // Les 5 grandes catégories officielles d'Abidjan
   const categories = [
     { id: 'all', label: 'Toutes les catégories', short: 'Toutes' },
     { id: 'Vêtements du quotidien', label: 'A. Vêtements du quotidien (Priorité 1)', short: 'Quotidien' },
-    { id: 'Vêtements traditionnels & cérémoniels', label: 'B. Traditionnels & Cérémoniels (Priorité 1)', short: 'Traditionnel' },
+    {
+      id: 'Vêtements traditionnels & cérémoniels',
+      label: 'B. Traditionnels & Cérémoniels (Priorité 1)',
+      short: 'Traditionnel',
+    },
     { id: 'Linge de maison', label: 'C. Linge de maison', short: 'Linge de maison' },
-    { id: 'Services complémentaires & Options', label: 'D. Services complémentaires & Options', short: 'Compléments' },
+    {
+      id: 'Services complémentaires & Options',
+      label: 'D. Services complémentaires & Options',
+      short: 'Compléments',
+    },
     { id: 'Prestations spécialisées & Luxe', label: 'E. Spécialisées & Luxe', short: 'Luxe & Spécial' },
   ];
 
@@ -241,7 +249,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     setFormArticle(item.article || item.name);
     setFormTreatment('Repassage seul');
     setFormCategory(item.category);
-    setFormPrice(Math.round(item.price * 0.6 / 50) * 50); // ~60% du prix
+    setFormPrice(Math.round((item.price * 0.6) / 50) * 50); // ~60% du prix
     setFormUnit(item.unit);
     setFormPricingModel(item.pricingModel || 'piece');
     setFormDuration(12);
@@ -291,12 +299,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
+          `Prestation "${service.name}" enregistrée (${service.price.toLocaleString('fr-FR')} FCFA) ${
+            synced ? '• Base PostgreSQL mise à jour' : '• Sauvegarde locale active'
           }`
         );
       }
     } catch (err: any) {
-      if (showToast) showToast(`Erreur : ${err.message || 'Impossible d\'ajouter la prestation'}`);
+      if (showToast) showToast(`Erreur : ${err.message || "Impossible d'ajouter la prestation"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -337,7 +346,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${synced ? '• Base PostgreSQL actualisée' : ''
+          `Prestation "${service.name}" mise à jour (${service.price.toLocaleString('fr-FR')} FCFA) ${
+            synced ? '• Base PostgreSQL actualisée' : ''
           }`
         );
       }
@@ -407,7 +417,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       if (showToast) {
         showToast(
-          `Prestation "${itemToDelete.name}" supprimée définitivement ${result.synced ? 'de la base de données PostgreSQL' : ''
+          `Prestation "${itemToDelete.name}" supprimée définitivement ${
+            result.synced ? 'de la base de données PostgreSQL' : ''
           }`
         );
       }
@@ -496,7 +507,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   return (
     <div className="space-y-6">
       {/* BANNIÈRE SUPÉRIEURE : EN-TÊTE ERP & SYNC STATUS */}
-      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-xs dark:border-neutral-800 dark:bg-[#0c0c0c] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#0c0c0c] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
@@ -512,7 +523,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Catalogue multi-modèles (Pièce, Kilogramme, Abonnements & B2B) paramétrable par pressing en Francs CFA (XOF).
+            Catalogue multi-modèles (Pièce, Kilogramme, Abonnements & B2B) paramétrable par pressing en Francs
+            CFA (XOF).
           </p>
           <div className="flex items-center gap-2 text-[11px] text-neutral-400 dark:text-neutral-500">
             <span>Dernière synchro DB : {lastSyncText}</span>
@@ -527,10 +539,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Simulateur express */}
           <button
             onClick={() => setIsQuoteCalcOpen(!isQuoteCalcOpen)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${isQuoteCalcOpen
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
-              }`}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+              isQuoteCalcOpen
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
+            }`}
           >
             <Calculator className="h-3.5 w-3.5" />
             <span>Simulateur Devis {quoteTotalPieces > 0 ? `(${quoteTotalPieces})` : ''}</span>
@@ -539,7 +552,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Affichage Reçu Comptoir (Format Ticket 80mm/58mm) */}
           <button
             onClick={() => setIsPrintModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             title="Imprimer le barème au format reçu thermique (80mm / 58mm comme en pharmacie, boulangerie ou supermarché)"
           >
             <Receipt className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -553,10 +566,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           <button
             onClick={triggerSync}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors disabled:opacity-50 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
-            <span>{isSyncing ? 'Synchronisation...' : syncFeedback === 'success' ? 'Synchronisé !' : 'Actualiser DB'}</span>
+            <span>
+              {isSyncing
+                ? 'Synchronisation...'
+                : syncFeedback === 'success'
+                  ? 'Synchronisé !'
+                  : 'Actualiser DB'}
+            </span>
           </button>
 
           {canEdit && (
@@ -564,7 +583,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Module de Gestion de Catalogue (Créer, Modifier, Supprimer, Désactiver) */}
               <button
                 onClick={() => setIsCatalogManagerOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors shadow-2xs"
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                 title="Ouvrir le module complet de gestion du catalogue et synchronisation PostgreSQL"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-600 dark:text-neutral-400" />
@@ -577,7 +596,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Ajuster grille */}
               <button
                 onClick={() => setIsBulkAdjustOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 transition-colors hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>Ajuster Grille</span>
@@ -586,7 +605,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               {/* Ajouter prestation */}
               <button
                 onClick={handleOpenAdd}
-                className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+                className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Nouvelle Prestation</span>
@@ -600,10 +619,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       <div className="flex border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setMainTab('catalog')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'catalog'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'catalog'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Layers className="h-4 w-4" />
           <span>Modèles 1 & 2 : Prestations à la Pièce & au Kg ({services.length})</span>
@@ -611,10 +631,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('subscriptions')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'subscriptions'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'subscriptions'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Calendar className="h-4 w-4" />
           <span>Modèle 3 : Forfaits & Abonnements Mensuels ({subscriptions.length})</span>
@@ -622,10 +643,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
         <button
           onClick={() => setMainTab('contracts')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${mainTab === 'contracts'
-            ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
-            : 'border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+            mainTab === 'contracts'
+              ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100 font-semibold'
+              : 'border-transparent text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
+          }`}
         >
           <Briefcase className="h-4 w-4" />
           <span>Modèle 4 : Contrats Professionnels B2B ({b2bContracts.length})</span>
@@ -634,7 +656,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       {/* PANNEAU CALCULATEUR DE DEVIS INSTANTANÉ (SIMULATEUR DE COMPTOIR) */}
       {isQuoteCalcOpen && (
-        <div className="rounded-xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-5 shadow-xs dark:border-neutral-800 dark:from-neutral-900 dark:to-[#0d0d0d]">
+        <div className="rounded-xl border border-neutral-200 bg-gradient-to-b from-neutral-50 to-white p-5 dark:border-neutral-800 dark:from-neutral-900 dark:to-[#0d0d0d] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
             <div className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -698,10 +720,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${qty > 0
-                    ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
-                    : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
-                    }`}
+                  className={`flex items-center justify-between rounded-lg border p-2 text-xs transition-colors ${
+                    qty > 0
+                      ? 'border-emerald-500/50 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
+                      : 'border-neutral-200/60 bg-white dark:border-neutral-800/80 dark:bg-neutral-900/50'
+                  }`}
                 >
                   <div className="min-w-0 pr-2">
                     <p className="truncate font-medium text-neutral-900 dark:text-neutral-100">{item.name}</p>
@@ -713,14 +736,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     <button
                       onClick={() => handleUpdateQuoteQty(item.id, -1)}
                       disabled={qty === 0}
-                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 disabled:opacity-30 dark:bg-neutral-800 dark:text-neutral-200"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-900/[0.16] dark:hover:bg-white/[0.16] disabled:opacity-30 dark:bg-neutral-800 dark:text-neutral-200"
                     >
                       -
                     </button>
                     <span className="w-5 text-center font-mono font-semibold">{qty}</span>
                     <button
                       onClick={() => handleUpdateQuoteQty(item.id, 1)}
-                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-900 text-white hover:bg-black dark:hover:bg-white dark:bg-neutral-100 dark:text-neutral-900"
                     >
                       +
                     </button>
@@ -744,18 +767,20 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isSelected
-                    ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
-                    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
-                    }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                    isSelected
+                      ? 'bg-white text-neutral-900 shadow-2xs font-semibold dark:bg-neutral-800 dark:text-neutral-100'
+                      : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-200'
+                  }`}
                 >
                   <span className="hidden md:inline">{cat.label}</span>
                   <span className="md:hidden">{cat.short}</span>
                   <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${isSelected
-                      ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
-                      : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
-                      }`}
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                      isSelected
+                        ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-200'
+                        : 'bg-neutral-200/60 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                    }`}
                   >
                     {count}
                   </span>
@@ -816,188 +841,190 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
           {/* TABLEAU DES PRESTATIONS */}
           <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0f0f0f]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                    <th className="px-5 py-3">Article & Traitement Spécifique</th>
-                    <th className="px-4 py-3">Catégorie</th>
-                    <th className="px-4 py-3">Unité & Modèle</th>
-                    <th className="px-4 py-3">Délai Estimé</th>
-                    <th className="px-4 py-3">Options & Particularités</th>
-                    <th className="px-4 py-3 text-right">Tarif (FCFA)</th>
-                    <th className="px-4 py-3 text-center">Statut</th>
-                    {canEdit && <th className="px-5 py-3 text-right">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
-                  {filteredServices.length === 0 ? (
-                    <tr>
-                      <td colSpan={canEdit ? 8 : 7} className="px-5 py-16 text-center">
-                        <div className="mx-auto flex max-w-xs flex-col items-center justify-center text-center">
-                          <Tag className="h-8 w-8 text-neutral-300 dark:text-neutral-700 mb-2" />
-                          <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                            Aucune prestation correspondante
-                          </p>
-                          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                            Essayez de modifier vos critères de recherche ou ajoutez un nouveau service.
-                          </p>
-                          {canEdit && (
-                            <button
-                              onClick={handleOpenAdd}
-                              className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-                            >
-                              <Plus className="h-3 w-3" />
-                              <span>Ajouter une prestation</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredServices.map((item) => {
-                      const isActive = item.isActive !== false;
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`transition-colors ${!isActive
-                            ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
-                            : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50'
-                            }`}
+            <Table className="w-full text-left text-xs">
+              <TableHeader>
+                <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+                  <TableHead className="px-5 py-3">Article & Traitement Spécifique</TableHead>
+                  <TableHead className="px-4 py-3">Catégorie</TableHead>
+                  <TableHead className="px-4 py-3">Unité & Modèle</TableHead>
+                  <TableHead className="px-4 py-3">Délai Estimé</TableHead>
+                  <TableHead className="px-4 py-3">Options & Particularités</TableHead>
+                  <TableHead className="px-4 py-3 text-right">Tarif (FCFA)</TableHead>
+                  <TableHead className="px-4 py-3 text-center">Statut</TableHead>
+                  {canEdit && <TableHead className="px-5 py-3 text-right">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
+                {filteredServices.length === 0 ? (
+                  <TableEmpty colSpan={canEdit ? 8 : 7} className="px-5 py-16 text-center">
+                    <div className="mx-auto flex max-w-xs flex-col items-center justify-center text-center">
+                      <Tag className="h-8 w-8 text-neutral-300 dark:text-neutral-700 mb-2" />
+                      <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        Aucune prestation correspondante
+                      </p>
+                      <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Essayez de modifier vos critères de recherche ou ajoutez un nouveau service.
+                      </p>
+                      {canEdit && (
+                        <button
+                          onClick={handleOpenAdd}
+                          className="mt-4 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                         >
-                          {/* Article & Traitement */}
-                          <td className="px-5 py-3.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                                  {item.article || item.name}
+                          <Plus className="h-3 w-3" />
+                          <span>Ajouter une prestation</span>
+                        </button>
+                      )}
+                    </div>
+                  </TableEmpty>
+                ) : (
+                  filteredServices.map((item) => {
+                    const isActive = item.isActive !== false;
+                    return (
+                      <TableRow
+                        key={item.id}
+                        className={`transition-colors ${
+                          !isActive
+                            ? 'bg-neutral-50/40 opacity-60 dark:bg-neutral-900/20'
+                            : 'hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50'
+                        }`}
+                      >
+                        {/* Article & Traitement */}
+                        <TableCell className="px-5 py-3.5">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                                {item.article || item.name}
+                              </span>
+                              {item.treatment && (
+                                <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                                  — {item.treatment}
                                 </span>
-                                {item.treatment && (
-                                  <span className="font-normal text-neutral-500 dark:text-neutral-400">
-                                    — {item.treatment}
-                                  </span>
-                                )}
-                              </div>
-                              {item.description && (
-                                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-sm line-clamp-1">
-                                  {item.description}
-                                </p>
                               )}
                             </div>
-                          </td>
+                            {item.description && (
+                              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-sm line-clamp-1">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
 
-                          {/* Catégorie */}
-                          <td className="px-4 py-3.5">
-                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                              {item.category}
+                        {/* Catégorie */}
+                        <TableCell className="px-4 py-3.5">
+                          <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
+                            {item.category}
+                          </span>
+                        </TableCell>
+
+                        {/* Unité & Modèle */}
+                        <TableCell className="px-4 py-3.5">
+                          <div className="space-y-0.5 font-mono text-[11px]">
+                            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+                              {item.unit}
                             </span>
-                          </td>
+                            {item.pricingModel === 'kilogram' && (
+                              <span className="block text-[10px] text-indigo-600 dark:text-indigo-400">
+                                Au kilogramme
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
 
-                          {/* Unité & Modèle */}
-                          <td className="px-4 py-3.5">
-                            <div className="space-y-0.5 font-mono text-[11px]">
-                              <span className="font-medium text-neutral-800 dark:text-neutral-200">{item.unit}</span>
-                              {item.pricingModel === 'kilogram' && (
-                                <span className="block text-[10px] text-indigo-600 dark:text-indigo-400">
-                                  Au kilogramme
-                                </span>
-                              )}
-                            </div>
-                          </td>
+                        {/* Délai estimé */}
+                        <TableCell className="px-4 py-3.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-neutral-400" />
+                            {item.durationHours}h ({Math.max(1, Math.round(item.durationHours / 24))}j)
+                          </span>
+                        </TableCell>
 
-                          {/* Délai estimé */}
-                          <td className="px-4 py-3.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-neutral-400" />
-                              {item.durationHours}h ({Math.max(1, Math.round(item.durationHours / 24))}j)
-                            </span>
-                          </td>
+                        {/* Options & Badges (Express, Pickup, Devis, Sous-traitance) */}
+                        <TableCell className="px-4 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {item.isExpressAvailable && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                                <Zap className="h-2.5 w-2.5" />
+                                <span>Express</span>
+                              </span>
+                            )}
+                            {item.isPickupAvailable && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                                <Truck className="h-2.5 w-2.5" />
+                                <span>Collecte</span>
+                              </span>
+                            )}
+                            {item.isOutsourced && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                                <span>Externalisé</span>
+                              </span>
+                            )}
+                            {item.requiresQuote && (
+                              <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                                <span>Sur devis</span>
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
 
-                          {/* Options & Badges (Express, Pickup, Devis, Sous-traitance) */}
-                          <td className="px-4 py-3.5">
-                            <div className="flex flex-wrap items-center gap-1">
-                              {item.isExpressAvailable && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                                  <Zap className="h-2.5 w-2.5" />
-                                  <span>Express</span>
-                                </span>
-                              )}
-                              {item.isPickupAvailable && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
-                                  <Truck className="h-2.5 w-2.5" />
-                                  <span>Collecte</span>
-                                </span>
-                              )}
-                              {item.isOutsourced && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
-                                  <span>Externalisé</span>
-                                </span>
-                              )}
-                              {item.requiresQuote && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                                  <span>Sur devis</span>
-                                </span>
-                              )}
-                            </div>
-                          </td>
+                        {/* Tarif en FCFA */}
+                        <TableCell className="px-4 py-3.5 text-right font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
+                          {item.requiresQuote ? 'Dès ' : ''}
+                          {item.price.toLocaleString('fr-FR')} FCFA
+                        </TableCell>
 
-                          {/* Tarif en FCFA */}
-                          <td className="px-4 py-3.5 text-right font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
-                            {item.requiresQuote ? 'Dès ' : ''}
-                            {item.price.toLocaleString('fr-FR')} FCFA
-                          </td>
-
-                          {/* Statut Actif / Inactif */}
-                          <td className="px-4 py-3.5 text-center">
-                            <button
-                              onClick={() => canEdit && handleToggleActive(item)}
-                              disabled={!canEdit}
-                              title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${isActive
+                        {/* Statut Actif / Inactif */}
+                        <TableCell className="px-4 py-3.5 text-center">
+                          <button
+                            onClick={() => canEdit && handleToggleActive(item)}
+                            disabled={!canEdit}
+                            title={isActive ? 'Désactiver (archivage)' : 'Réactiver au comptoir'}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                              isActive
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40'
                                 : 'bg-neutral-100 text-neutral-500 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700'
-                                }`}
-                            >
-                              <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                              <span>{isActive ? 'Actif' : 'Inactif'}</span>
-                            </button>
-                          </td>
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-neutral-400'}`}
+                            />
+                            <span>{isActive ? 'Actif' : 'Inactif'}</span>
+                          </button>
+                        </TableCell>
 
-                          {/* Actions Admin */}
-                          {canEdit && (
-                            <td className="px-5 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => handleDuplicate(item)}
-                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors"
-                                  title="Décliner cet article (ex: Repassage seul)"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleOpenEdit(item)}
-                                  className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors"
-                                  title="Modifier la prestation et le tarif"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleRequestDelete(item)}
-                                  className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
-                                  title="Supprimer définitivement cette prestation"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        {/* Actions Admin */}
+                        {canEdit && (
+                          <TableCell className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleDuplicate(item)}
+                                className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-950 hover:text-white transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
+                                title="Décliner cet article (ex: Repassage seul)"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEdit(item)}
+                                className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
+                                title="Modifier la prestation et le tarif"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleRequestDelete(item)}
+                                className="rounded-md p-1.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
+                                title="Supprimer définitivement cette prestation"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -1005,13 +1032,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* VUE 2 : MODÈLE 3 — FORFAITS & ABONNEMENTS MENSUELS */}
       {mainTab === 'subscriptions' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Modèle 3 — Abonnements Mensuels & Forfaits Prédéfinis
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Formules avec volume de pièces inclus, fréquence de collecte programmée et tarification des dépassements.
-              Adaptées aux cadres, familles et résidences d'Abidjan.
+              Formules avec volume de pièces inclus, fréquence de collecte programmée et tarification des
+              dépassements. Adaptées aux cadres, familles et résidences d'Abidjan.
             </p>
           </div>
 
@@ -1019,10 +1046,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             {subscriptions.map((plan) => (
               <div
                 key={plan.id}
-                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${plan.isPopular
-                  ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
-                  : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
-                  }`}
+                className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all ${
+                  plan.isPopular
+                    ? 'border-neutral-900 bg-white shadow-md dark:border-neutral-100 dark:bg-[#111111]'
+                    : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#0c0c0c]'
+                }`}
               >
                 {plan.isPopular && (
                   <span className="absolute -top-2.5 right-4 rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1051,7 +1079,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <ul className="mt-4 space-y-2 border-t border-neutral-100 pt-3 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-300">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span><strong>{plan.quotaPieces} pièces</strong> incluses par mois</span>
+                      <span>
+                        <strong>{plan.quotaPieces} pièces</strong> incluses par mois
+                      </span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -1072,7 +1102,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     onClick={() => {
                       if (showToast) showToast(`Souscription pour "${plan.name}" disponible au comptoir.`);
                     }}
-                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                   >
                     Souscrire client
                   </button>
@@ -1086,62 +1116,75 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* VUE 3 : MODÈLE 4 — CONTRATS PROFESSIONNELS B2B */}
       {mainTab === 'contracts' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Modèle 4 — Contrats Professionnels & Partenariats B2B
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Tarification négociée au kilogramme, à la pièce ou au forfait pour hôtels, restaurants, cliniques et salons de beauté.
+              Tarification négociée au kilogramme, à la pièce ou au forfait pour hôtels, restaurants,
+              cliniques et salons de beauté.
             </p>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0f0f0f]">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                  <th className="px-5 py-3">Établissement Client</th>
-                  <th className="px-4 py-3">Secteur d'Activité</th>
-                  <th className="px-4 py-3">Mode de Facturation</th>
-                  <th className="px-4 py-3">Tarif Négocié</th>
-                  <th className="px-4 py-3">Cycle de Facturation</th>
-                  <th className="px-4 py-3">Contact & Téléphone</th>
-                  <th className="px-4 py-3 text-center">Statut Contrat</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
+            <Table className="w-full text-left text-xs">
+              <TableHeader>
+                <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+                  <TableHead className="px-5 py-3">Établissement Client</TableHead>
+                  <TableHead className="px-4 py-3">Secteur d'Activité</TableHead>
+                  <TableHead className="px-4 py-3">Mode de Facturation</TableHead>
+                  <TableHead className="px-4 py-3">Tarif Négocié</TableHead>
+                  <TableHead className="px-4 py-3">Cycle de Facturation</TableHead>
+                  <TableHead className="px-4 py-3">Contact & Téléphone</TableHead>
+                  <TableHead className="px-4 py-3 text-center">Statut Contrat</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
                 {b2bContracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50">
-                    <td className="px-5 py-3.5 font-semibold text-neutral-900 dark:text-neutral-100">
+                  <TableRow
+                    key={contract.id}
+                    className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-900/50"
+                  >
+                    <TableCell className="px-5 py-3.5 font-semibold text-neutral-900 dark:text-neutral-100">
                       {contract.clientName}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5">
+                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
                         {contract.businessType}
                       </span>
-                    </td>
-                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
-                      {contract.billingType === 'kilogram' ? 'Au kilogramme' : contract.billingType === 'piece' ? 'À la pièce' : 'Forfait mensuel'}
-                    </td>
-                    <td className="px-4 py-3.5 font-mono font-bold text-neutral-900 dark:text-neutral-100">
-                      {contract.ratePerUnit.toLocaleString('fr-FR')} FCFA {contract.billingType === 'kilogram' ? '/ kg' : contract.billingType === 'piece' ? '/ pièce' : '/ mois'}
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
+                      {contract.billingType === 'kilogram'
+                        ? 'Au kilogramme'
+                        : contract.billingType === 'piece'
+                          ? 'À la pièce'
+                          : 'Forfait mensuel'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 font-mono font-bold text-neutral-900 dark:text-neutral-100">
+                      {contract.ratePerUnit.toLocaleString('fr-FR')} FCFA{' '}
+                      {contract.billingType === 'kilogram'
+                        ? '/ kg'
+                        : contract.billingType === 'piece'
+                          ? '/ pièce'
+                          : '/ mois'}
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                       {contract.billingCycle}
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
                       <div>{contract.contactPerson}</div>
                       <div className="font-mono text-[11px] text-neutral-400">{contract.phone}</div>
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-center">
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>Actif</span>
                       </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -1149,7 +1192,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL AJOUT PRESTATION DÉTAILLÉ */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1166,7 +1209,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1214,10 +1257,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
                   >
                     <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                    <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                    <option value="Vêtements traditionnels & cérémoniels">
+                      B. Vêtements traditionnels & cérémoniels
+                    </option>
                     <option value="Linge de maison">C. Linge de maison</option>
-                    <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
-                    <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
+                    <option value="Services complémentaires & Options">
+                      D. Services complémentaires & Options
+                    </option>
+                    <option value="Prestations spécialisées & Luxe">
+                      E. Prestations spécialisées & Luxe
+                    </option>
                   </select>
                 </div>
 
@@ -1287,7 +1336,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
 
               {/* Options & Attributs modernes */}
-              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -1335,7 +1384,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                 {formIsExpress && (
                   <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800 flex items-center gap-2">
-                    <span className="text-[11px] text-neutral-600 dark:text-neutral-400">Supplément express :</span>
+                    <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Supplément express :
+                    </span>
                     <input
                       type="number"
                       value={formExpressSurcharge}
@@ -1368,7 +1419,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-neutral-300 text-neutral-900"
                 />
-                <label htmlFor="formIsActiveCheck2" className="text-xs text-neutral-700 dark:text-neutral-300">
+                <label
+                  htmlFor="formIsActiveCheck2"
+                  className="text-xs text-neutral-700 dark:text-neutral-300"
+                >
                   Activer immédiatement cette prestation dans l'ERP
                 </label>
               </div>
@@ -1377,14 +1431,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                 >
                   {isSubmitting ? 'Enregistrement...' : 'Enregistrer dans la DB'}
                 </button>
@@ -1397,7 +1451,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL MODIFICATION PRESTATION */}
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1414,7 +1468,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setEditingItem(null)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1460,10 +1514,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
                   >
                     <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                    <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                    <option value="Vêtements traditionnels & cérémoniels">
+                      B. Vêtements traditionnels & cérémoniels
+                    </option>
                     <option value="Linge de maison">C. Linge de maison</option>
-                    <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
-                    <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
+                    <option value="Services complémentaires & Options">
+                      D. Services complémentaires & Options
+                    </option>
+                    <option value="Prestations spécialisées & Luxe">
+                      E. Prestations spécialisées & Luxe
+                    </option>
                   </select>
                 </div>
 
@@ -1532,7 +1592,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50 p-3 space-y-2 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -1599,7 +1659,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   onChange={(e) => setFormIsActive(e.target.checked)}
                   className="rounded border-neutral-300 text-neutral-900"
                 />
-                <label htmlFor="formEditActiveCheck2" className="text-xs text-neutral-700 dark:text-neutral-300">
+                <label
+                  htmlFor="formEditActiveCheck2"
+                  className="text-xs text-neutral-700 dark:text-neutral-300"
+                >
                   Prestation active et facturable au comptoir
                 </label>
               </div>
@@ -1621,14 +1684,14 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setEditingItem(null)}
-                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                    className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                   >
                     {isSubmitting ? 'Mise à jour...' : 'Mettre à jour'}
                   </button>
@@ -1642,7 +1705,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL DIALOGUE DE SUPPRESSION SÉCURISÉE (REQUÊTE DELETE VERS API GO / POSTGRESQL) */}
       {deletingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0e0e0e]">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0e0e0e] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             {/* EN-TÊTE DU DIALOGUE */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -1662,25 +1725,23 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingItem(null)}
-                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors disabled:opacity-50"
+                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 transition-colors disabled:opacity-50 dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* CARTE DÉTAILLÉE DE LA PRESTATION CIBLÉE */}
-            <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800/80 dark:bg-neutral-900/50">
+            <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800/80 dark:bg-neutral-900/50 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 ps-elevated-static">
                   {deletingItem.category}
                 </span>
                 <span className="font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100">
                   {deletingItem.price.toLocaleString('fr-FR')} FCFA / {deletingItem.unit}
                 </span>
               </div>
-              <h3 className="mt-2 text-sm font-bold text-neutral-900 dark:text-white">
-                {deletingItem.name}
-              </h3>
+              <h3 className="mt-2 text-sm font-bold text-neutral-900 dark:text-white">{deletingItem.name}</h3>
               {deletingItem.treatment && (
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   Traitement : {deletingItem.treatment}
@@ -1693,14 +1754,17 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <div className="flex items-start gap-2 rounded-lg border border-emerald-200/60 bg-emerald-50/40 p-2.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  <strong>Historique protégé :</strong> Les commandes et factures déjà émises conserveront le libellé et le tarif historiques exacts enregistrés au moment du dépôt.
+                  <strong>Historique protégé :</strong> Les commandes et factures déjà émises conserveront le
+                  libellé et le tarif historiques exacts enregistrés au moment du dépôt.
                 </p>
               </div>
 
-              <div className="flex items-start gap-2 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-2.5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400">
+              <div className="flex items-start gap-2 rounded-lg border border-neutral-200/60 bg-neutral-50/50 p-2.5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <Info className="h-4 w-4 shrink-0 text-neutral-400 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  Cette action supprimera l'article du catalogue actif via l'API Go. Pour suspendre temporairement une prestation sans l'effacer, vous pouvez choisir de la <strong>désactiver</strong>.
+                  Cette action supprimera l'article du catalogue actif via l'API Go. Pour suspendre
+                  temporairement une prestation sans l'effacer, vous pouvez choisir de la{' '}
+                  <strong>désactiver</strong>.
                 </p>
               </div>
             </div>
@@ -1721,7 +1785,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeactivateInstead}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 text-center"
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50 text-center"
                 title="Conserver dans la base mais retirer de la vue comptoir"
               >
                 Désactiver plutôt
@@ -1732,7 +1796,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setDeletingItem(null)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>
@@ -1763,7 +1827,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       {/* MODAL AJUSTEUR DE GRILLE TARIFAIRE EN MASSE */}
       {isBulkAdjustOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -1780,7 +1844,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               </div>
               <button
                 onClick={() => setIsBulkAdjustOpen(false)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                className="text-neutral-400 hover:text-neutral-950 dark:hover:text-neutral-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1798,9 +1862,13 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 >
                   <option value="all">Toutes les catégories ({services.length} prestations)</option>
                   <option value="Vêtements du quotidien">A. Vêtements du quotidien</option>
-                  <option value="Vêtements traditionnels & cérémoniels">B. Vêtements traditionnels & cérémoniels</option>
+                  <option value="Vêtements traditionnels & cérémoniels">
+                    B. Vêtements traditionnels & cérémoniels
+                  </option>
                   <option value="Linge de maison">C. Linge de maison</option>
-                  <option value="Services complémentaires & Options">D. Services complémentaires & Options</option>
+                  <option value="Services complémentaires & Options">
+                    D. Services complémentaires & Options
+                  </option>
                   <option value="Prestations spécialisées & Luxe">E. Prestations spécialisées & Luxe</option>
                 </select>
               </div>
@@ -1815,10 +1883,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       key={pct}
                       type="button"
                       onClick={() => setBulkPercent(pct)}
-                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${bulkPercent === pct
-                        ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                        : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                        }`}
+                      className={`flex-1 rounded-md border py-1.5 text-xs font-mono font-medium transition-colors ${
+                        bulkPercent === pct
+                          ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                          : 'border-neutral-200 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      }`}
                     >
                       {pct > 0 ? `+${pct}%` : `${pct}%`}
                     </button>
@@ -1830,7 +1899,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsBulkAdjustOpen(false)}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
@@ -1838,7 +1907,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                   type="button"
                   onClick={handleApplyBulkAdjust}
                   disabled={isSyncing}
-                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
                 >
                   {isSyncing ? 'Mise à jour...' : 'Appliquer & Synchroniser DB'}
                 </button>

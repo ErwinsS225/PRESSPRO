@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -293,6 +294,12 @@ func scanService(row pgx.Row) (*ServiceItem, error) {
 		&pricingModel, &estimatedHours, &isActive, &isExpressAvailable, &expressSurcharge,
 		&isPickupAvailable, &isOutsourced, &requiresQuote, &description,
 		&createdAt, &updatedAt); err != nil {
+		// Une ligne absente (identifiant inconnu ou appartenant à un autre tenant)
+		// est une erreur métier : sans cette traduction, l'API remonterait le
+		// message pgx brut « no rows in result set » et répondrait 500 au lieu de 404.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrServiceNotFound
+		}
 		return nil, err
 	}
 	return &ServiceItem{

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -12,13 +12,156 @@
   }
 
   body {
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Cadres surélevés : liseré d'ombre sur les bords + ombre portée profonde, et
+   au survol le cadre se soulève avec un trait noir et une ombre plus dense.
+   Utilisé par toutes les cartes, encarts et panneaux de l'application.
+   --------------------------------------------------------------------------- */
+@utility ps-elevated {
+  box-shadow:
+    inset 0 0 0 1px rgb(17 17 17 / 5%),
+    0 1px 2px rgb(17 17 17 / 6%),
+    0 10px 30px -18px rgb(17 17 17 / 35%);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease,
+    border-color 200ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 0 0 1px rgb(17 17 17 / 8%),
+      0 2px 5px rgb(17 17 17 / 8%),
+      0 22px 48px -20px rgb(17 17 17 / 55%);
+  }
+
+  .dark & {
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 8%),
+      0 1px 2px rgb(0 0 0 / 55%),
+      0 12px 32px -18px rgb(0 0 0 / 85%);
+
+    &:hover {
+      box-shadow:
+        inset 0 0 0 1px rgb(255 255 255 / 14%),
+        0 2px 6px rgb(0 0 0 / 70%),
+        0 26px 60px -24px rgb(0 0 0 / 100%);
+    }
+  }
+}
+
+/* Variante non interactive : même relief, sans soulèvement au survol (panneaux,
+   encarts d'information, tableaux). */
+@utility ps-elevated-static {
+  box-shadow:
+    inset 0 0 0 1px rgb(17 17 17 / 5%),
+    0 1px 2px rgb(17 17 17 / 6%),
+    0 10px 30px -18px rgb(17 17 17 / 35%);
+  transition: box-shadow 200ms ease;
+}
+
+/* ---------------------------------------------------------------------------
+   Jetons de design (convention shadcn) : exposés en utilitaires Tailwind v4
+   (bg-card, text-muted-foreground, border-border, bg-chart-1, fill-foreground…).
+   Les composants de l'interface shadcn/reui s'y appuient ; le thème sombre
+   repose sur la classe `.dark` déjà utilisée par l'application.
+   --------------------------------------------------------------------------- */
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #111111;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafafa;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  --chart-1: #059669;
+  --chart-2: #0284c7;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #e11d48;
+  --radius: 0.625rem;
+}
+
+html.dark {
+  --background: #050505;
+  --foreground: #fafafa;
+  --card: #111111;
+  --card-foreground: #fafafa;
+  --popover: #0f0f0f;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #171717;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #fafafa;
+  --muted: #1c1c1c;
+  --muted-foreground: #a3a3a3;
+  --accent: #1f1f1f;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: #262626;
+  --input: #262626;
+  --ring: #525252;
+  --chart-1: #10b981;
+  --chart-2: #0ea5e9;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #f43f5e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 /* Styles d'impression haute fidélité pour Ticket de Caisse / Reçu Thermique (80mm & 58mm) */
 @media print {
-  html, body {
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
@@ -92,4 +235,3 @@
   background: radial-gradient(circle at 10px 25px, transparent 12px, white 13px) repeat-x 0 0;
   background-size: 20px 20px;
 }
-

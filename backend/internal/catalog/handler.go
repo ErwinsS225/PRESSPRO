@@ -2,21 +2,40 @@ package catalog
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/httperr"
 )
 
 // Handler gère les requêtes HTTP sur le catalogue de prestations et tarifs
 type Handler struct {
 	service *Service
+	logger  *log.Logger
 }
 
 // NewHandler initialise le gestionnaire HTTP du catalogue
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
+}
+
+// respondServiceError traduit une erreur du service catalogue en réponse HTTP :
+//   - prestation inconnue (ou hors tenant) -> 404 « prestation introuvable » ;
+//   - erreurs de validation métier         -> 400 avec le message fonctionnel ;
+//   - erreur technique (SQL/IO)            -> 500 générique journalisé côté serveur.
+func (h *Handler) respondServiceError(w http.ResponseWriter, err error, internalMsg string) {
+	switch {
+	case errors.Is(err, ErrServiceNotFound):
+		httperr.Error(w, http.StatusNotFound, "prestation introuvable")
+	case errors.Is(err, ErrEmptyName), errors.Is(err, ErrInvalidPrice):
+		httperr.Error(w, http.StatusBadRequest, err.Error())
+	default:
+		httperr.Internal(w, h.logger, "catalog", err, internalMsg)
+	}
 }
 
 // ListServices gère GET /api/v1/services
@@ -35,8 +54,7 @@ func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {
 
 	items, err := h.service.GetServices(r.Context(), tenantID, categoryFilter, search)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible de récupérer le catalogue")
 		return
 	}
 
@@ -64,8 +82,7 @@ func (h *Handler) CreateService(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateService(r.Context(), tenantID, req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible d'enregistrer la prestation")
 		return
 	}
 
@@ -78,12 +95,15 @@ func (h *Handler) GetService(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	item, err := h.service.GetServiceByID(r.Context(), tenantID, id)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "prestation introuvable"})
+		h.respondServiceError(w, err, "impossible de récupérer la prestation")
 		return
 	}
 
@@ -96,6 +116,10 @@ func (h *Handler) UpdateService(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req UpdateServiceRequest
@@ -107,8 +131,7 @@ func (h *Handler) UpdateService(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.service.UpdateService(r.Context(), tenantID, id, req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		h.respondServiceError(w, err, "impossible de mettre à jour la prestation")
 		return
 	}
 
@@ -121,11 +144,14 @@ func (h *Handler) DeleteService(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		httperr.Error(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	if err := h.service.DeleteService(r.Context(), tenantID, id); err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "prestation introuvable"})
+		h.respondServiceError(w, err, "impossible de supprimer la prestation")
 		return
 	}
 

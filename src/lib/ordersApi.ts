@@ -17,16 +17,26 @@ function mapBackendOrder(d: any): Order {
     : [];
 
   // Les dates sont stockées en TIMESTAMPTZ ; on les rend lisibles (l'UI les affiche telles quelles).
-  const receivedAt = d.created_at ? new Date(d.created_at).toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  }) : '';
+  const receivedAt = d.created_at
+    ? new Date(d.created_at).toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   let dueDate = '';
   if (d.due_date) {
     const dt = new Date(d.due_date);
     if (!isNaN(dt.getTime())) {
       dueDate = dt.toLocaleString('fr-FR', {
-        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       });
     }
   }

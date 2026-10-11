@@ -82,9 +82,18 @@ func (s *Service) CreatePriceList(ctx context.Context, tenantID string, req Crea
 		return s.store.CreatePriceList(ctx, tenantID, req)
 	}
 	now := time.Now()
+	name := strings.TrimSpace(req.Name)
+	s.mu.RLock()
+	for _, existing := range s.lists[tenantID] {
+		if strings.EqualFold(existing.Name, name) {
+			s.mu.RUnlock()
+			return nil, ErrNameExists
+		}
+	}
+	s.mu.RUnlock()
 	pl := &PriceList{
 		ID: fmt.Sprintf("pl-%d", now.UnixNano()), TenantID: tenantID, BranchID: req.BranchID,
-		Name: strings.TrimSpace(req.Name), Description: req.Description, IsDefault: req.IsDefault,
+		Name: name, Description: req.Description, IsDefault: req.IsDefault,
 		Status: "active", CreatedAt: now, UpdatedAt: now,
 	}
 	s.mu.Lock()

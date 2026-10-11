@@ -13,7 +13,11 @@ function mapBackendCustomer(d: any): Customer {
     neighborhood: d.address || '',
     totalOrders: 0, // recalculé côté UI si besoin (agrégation non exposée par l'API)
     lastVisit: d.created_at
-      ? new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      ? new Date(d.created_at).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
       : '',
     balanceDue: 0,
   };
@@ -22,7 +26,9 @@ function mapBackendCustomer(d: any): Customer {
 /**
  * Charge la liste des clients du tenant depuis PostgreSQL.
  */
-export async function fetchCustomers(token?: string): Promise<{ customers: Customer[]; fromBackend: boolean }> {
+export async function fetchCustomers(
+  token?: string
+): Promise<{ customers: Customer[]; fromBackend: boolean }> {
   try {
     const res = await fetch('/api/v1/customers', {
       method: 'GET',

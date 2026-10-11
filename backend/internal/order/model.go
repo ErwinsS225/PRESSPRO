@@ -36,6 +36,10 @@ var (
 	ErrInvalidStatusOrder = errors.New("transition de statut de linge non autorisée")
 	ErrEmptyOrderItems    = errors.New("une commande doit comporter au moins un vêtement")
 	ErrInvalidPayment     = errors.New("le montant du paiement est invalide")
+	// ErrPaymentExceedsDue protège l'intégrité comptable : un encaissement ne
+	// peut jamais dépasser le solde restant dû (le journal des paiements doit
+	// toujours correspondre au montant encaissable de la commande).
+	ErrPaymentExceedsDue = errors.New("le montant dépasse le solde restant dû de la commande")
 )
 
 // OrderItem représente une ligne d'article dans une commande

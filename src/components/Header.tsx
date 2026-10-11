@@ -20,9 +20,6 @@ export const Header: React.FC<HeaderProps> = ({
   tenant,
   currentUser,
   onOpenLoginModal,
-  health,
-  isChecking,
-  onRefreshHealth,
   onOpenMobileMenu,
   onNewOrderClick,
 }) => {
@@ -44,12 +41,12 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xs transition-colors dark:border-neutral-800 dark:bg-[#080808]/95 md:px-8">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xs transition-colors dark:border-neutral-800 dark:bg-[#080808]/95 md:px-8 ps-elevated-static">
       {/* Zone 1: Mobile toggle + Breadcrumb trail */}
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenMobileMenu}
-          className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 md:hidden"
+          className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-950 hover:text-white dark:text-neutral-400 md:hidden dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
           aria-label="Ouvrir le menu"
         >
           <Menu className="h-5 w-5" />
@@ -66,11 +63,13 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 2: Navigation meta info */}
       <div className="hidden lg:flex items-center gap-3 text-xs">
-        <div className="flex items-center gap-2 text-neutral-600 bg-neutral-50 px-2.5 py-1 rounded-md border border-neutral-200/60 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-400">
+        <div className="flex items-center gap-2 text-neutral-600 bg-neutral-50 px-2.5 py-1 rounded-md border border-neutral-200/60 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300">Session active</span>
           <span className="text-neutral-300 dark:text-neutral-700">·</span>
-          <span className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium capitalize">Rôle : {currentUser.role}</span>
+          <span className="text-[11px] text-neutral-700 dark:text-neutral-300 font-medium capitalize">
+            Rôle : {currentUser.role}
+          </span>
         </div>
       </div>
 
@@ -82,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
         {currentUser.role !== 'operator' && (
           <button
             onClick={onNewOrderClick}
-            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 shadow-xs whitespace-nowrap shrink-0 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+            className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-black shadow-xs whitespace-nowrap shrink-0 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             <Plus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Nouveau Dépôt</span>
@@ -107,7 +106,9 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{currentUser.full_name.split(' ')[0]}</span>
               <ArrowRightLeft className="h-2.5 w-2.5 text-neutral-400 dark:text-neutral-500" />
             </div>
-            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono uppercase">{currentUser.role}</div>
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono uppercase">
+              {currentUser.role}
+            </div>
           </div>
         </button>
       </div>

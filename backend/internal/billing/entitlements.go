@@ -58,23 +58,17 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 		}
 	}
 
-	// Enrichir les limites avec la consommation réelle.
-	monthlyOrders, _ := s.counters.CountMonthlyOrders(ctx, tenantID)
-	users, _ := s.counters.CountUsers(ctx, tenantID)
+	// Enrichir les plafonds avec la consommation réelle (commandes du mois,
+	// comptes utilisateurs, grilles tarifaires).
 	for i := range entitlements {
-		switch entitlements[i].Key {
-		case FeatureOrdersMonthlyMax:
-			u := monthlyOrders
+		if usage, err := s.FeatureUsage(ctx, tenantID, entitlements[i].Key); err == nil && usage >= 0 && isCountedFeature(entitlements[i].Key) {
+			u := usage
 			entitlements[i].Usage = &u
 			if entitlements[i].Limit != nil {
 				r := *entitlements[i].Limit - u
-				entitlements[i].Remaining = &r
-			}
-		case FeatureUsersMax:
-			u := users
-			entitlements[i].Usage = &u
-			if entitlements[i].Limit != nil {
-				r := *entitlements[i].Limit - u
+				if r < 0 {
+					r = 0 // un quota consommé au-delà du plafond n'affiche jamais un reste négatif
+				}
 				entitlements[i].Remaining = &r
 			}
 		}
@@ -104,6 +98,34 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 		resp.PlanName = plan
 	}
 	return resp, nil
+}
+
+// isCountedFeature indique les fonctionnalités dont la consommation est mesurée.
+func isCountedFeature(featureKey string) bool {
+	switch featureKey {
+	case FeatureOrdersMonthlyMax, FeatureUsersMax, FeaturePriceLists, FeatureMultiSite:
+		return true
+	}
+	return false
+}
+
+// FeatureUsage retourne la consommation réelle d'une fonctionnalité plafonnée.
+// Une clé sans compteur (fonctionnalité booléenne) retourne 0.
+func (s *Service) FeatureUsage(ctx context.Context, tenantID, featureKey string) (int64, error) {
+	if s == nil || s.counters == nil || tenantID == "" {
+		return 0, nil
+	}
+	switch featureKey {
+	case FeatureOrdersMonthlyMax:
+		return s.counters.CountMonthlyOrders(ctx, tenantID)
+	case FeatureUsersMax:
+		return s.counters.CountUsers(ctx, tenantID)
+	case FeaturePriceLists:
+		return s.counters.CountPriceLists(ctx, tenantID)
+	case FeatureMultiSite:
+		return s.counters.CountBranches(ctx, tenantID)
+	}
+	return 0, nil
 }
 
 // IsEnabled vérifie une fonctionnalité (essai = tout débloqué).

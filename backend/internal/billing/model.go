@@ -33,6 +33,9 @@ const (
 	FeaturePricingPro       = "pricing.pro"
 	FeatureReportsConsol    = "reports.consolidated"
 	FeatureAuditAdvanced    = "audit.advanced"
+	// Envoi réel des notifications clients (WhatsApp / SMS) : la composition et
+	// le journal restent ouverts, seule la transmission est payante.
+	FeatureNotificationsAdvanced = "notifications.advanced"
 )
 
 // Plan représente une offre commerciale.

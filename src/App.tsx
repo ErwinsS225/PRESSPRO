@@ -5,11 +5,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession, User } from './types';
+import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession } from './types';
 import { canAccessSuperadmin } from './lib/permissions';
-import { CURRENT_TENANT, DEMO_ORDERS, DEMO_CUSTOMERS, DEMO_SERVICES } from './lib/demoData';
 import { checkEndpoint } from './lib/api';
-import { fetchOrders, createOrderOnBackend, updateOrderStatusOnBackend, addOrderPaymentOnBackend } from './lib/ordersApi';
+import {
+  fetchOrders,
+  createOrderOnBackend,
+  updateOrderStatusOnBackend,
+  addOrderPaymentOnBackend,
+} from './lib/ordersApi';
 import { fetchCustomers, createCustomerOnBackend } from './lib/customersApi';
 import { ThemeProvider } from './context/ThemeContext';
 import { Sidebar } from './components/Sidebar';
@@ -20,37 +24,57 @@ import { CustomersView } from './components/CustomersView';
 import { ServicesView } from './components/ServicesView';
 import { BillingView } from './components/BillingView';
 import { SuperAdminView } from './components/SuperAdminView';
+import { TeamView } from './components/TeamView';
+import { BranchesView } from './components/BranchesView';
+import { ExpensesView } from './components/ExpensesView';
+import { ReportsView } from './components/ReportsView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalTicketModal } from './components/ThermalTicketModal';
+import { ClientNotificationModal } from './components/ClientNotificationModal';
 import { TicketVerificationView } from './components/TicketVerificationView';
+
+/**
+ * Session vide : l'application démarre sans établissement ni donnée fictive.
+ * Dès que la connexion au backend aboutit, la session réelle (établissement,
+ * compte, jeton) remplace ce placeholder — les écrans restent en état vide
+ * tant qu'aucun établissement n'est connecté.
+ */
+const SESSION_VIDE: AuthSession = {
+  token: '',
+  user: {
+    id: '',
+    tenant_id: undefined,
+    email: '',
+    full_name: 'Non connecté',
+    role: 'cashier',
+    status: 'inactive',
+  },
+  tenant: undefined,
+};
 
 function PressingOSApp() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
-  const [verificationParams, setVerificationParams] = useState<{ tenantId: string, orderId: string } | null>(null);
-  const [session, setSession] = useState<AuthSession>({
-    token: 'jwt-default-session-token',
-    user: {
-      id: 'usr-gerant-001',
-      tenant_id: CURRENT_TENANT.id,
-      email: 'gerant@pressing-ivoire.ci',
-      full_name: 'M. Bamba Seydou',
-      role: 'owner',
-      status: 'active',
-    },
-    tenant: CURRENT_TENANT,
-  });
+  const [verificationParams, setVerificationParams] = useState<{ tenantId: string; orderId: string } | null>(
+    null
+  );
+  // Session ouverte : nulle au démarrage (aucune entreprise de démonstration).
+  const [sessionOuverte, setSessionOuverte] = useState<AuthSession | null>(null);
+  const session = sessionOuverte ?? SESSION_VIDE;
 
   // Contrôle d'accès à l'Espace Éditeur SaaS (Super Administration Globale).
   const isSuperadmin = canAccessSuperadmin(session.user);
 
-  const [orders, setOrders] = useState<Order[]>(DEMO_ORDERS);
-  const [customers, setCustomers] = useState<Customer[]>(DEMO_CUSTOMERS);
-  const [services, setServices] = useState<ServiceItem[]>(DEMO_SERVICES);
+  // Données métier : vides au démarrage, remplies uniquement par le backend.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [selectedTicketOrder, setSelectedTicketOrder] = useState<Order | null>(null);
+  // Commande dont on notifie le client (WhatsApp / SMS).
+  const [notificationOrder, setNotificationOrder] = useState<Order | null>(null);
   const [health, setHealth] = useState<HealthCheckResult | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -84,7 +108,7 @@ function PressingOSApp() {
     if (verifyMatch) {
       setVerificationParams({
         tenantId: verifyMatch[1],
-        orderId: verifyMatch[2]
+        orderId: verifyMatch[2],
       });
       return; // Ne pas charger l'application normale si c'est une page de vérification
     }
@@ -99,55 +123,64 @@ function PressingOSApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: 'gerant@pressing-ivoire.ci', password: 'pass123' }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          const validToken = data.token;
-          setSession({
-            token: validToken,
-            user: data.user,
-            tenant: data.tenant || CURRENT_TENANT,
-          });
-
-          // Récupération des prestations réelles depuis le backend Go
-          const srvRes = await fetch('/api/v1/services', {
-            headers: {
-              Authorization: `Bearer ${validToken}`,
-            },
-          });
-          if (srvRes.ok) {
-            const srvData = await srvRes.json();
-            if (Array.isArray(srvData) && srvData.length > 0) {
-              setServices(
-                srvData.map((d: any) => ({
-                  id: d.id,
-                  name: d.name,
-                  article: d.article || d.name,
-                  treatment: d.treatment || 'Lavage & Soin',
-                  category: d.category || 'Vêtements du quotidien',
-                  price: Number(d.unit_price) || 0,
-                  unit: d.unit || 'pièce',
-                  pricingModel: d.pricing_model || 'piece',
-                  durationHours: Number(d.estimated_hours) || 24,
-                  isActive: d.is_active !== false,
-                  isExpressAvailable: d.is_express_available === true,
-                  expressSurcharge: Number(d.express_surcharge) || 0,
-                  isPickupAvailable: d.is_pickup_available !== false,
-                  isOutsourced: d.is_outsourced === true,
-                  requiresQuote: d.requires_quote === true,
-                  description: d.description || '',
-                }))
-              );
-            }
-          }
-
-          // Charger commandes et clients depuis PostgreSQL
-          const [ordRes, custRes] = await Promise.all([
-            fetchOrders(validToken),
-            fetchCustomers(validToken),
-          ]);
-          if (ordRes.fromBackend && ordRes.orders.length > 0) setOrders(ordRes.orders);
-          if (custRes.fromBackend && custRes.customers.length > 0) setCustomers(custRes.customers);
+        if (!res.ok) {
+          console.warn('Connexion initiale refusée — aucun établissement chargé.');
+          return;
         }
+        const data = await res.json();
+        const validToken = typeof data.token === 'string' ? data.token : '';
+        // Robustesse : une réponse incomplète (jeton sans utilisateur) ne doit jamais
+        // écraser la session — le menu lit `role`, et l'interface entière se
+        // démonterait aussitôt (écran blanc) au moindre corps inattendu.
+        if (!validToken || !data.user || !data.user.role) {
+          console.warn('Connexion initiale incomplète — session non établie.');
+          return;
+        }
+        setSessionOuverte({
+          token: validToken,
+          user: data.user,
+          // L'établissement vient du serveur : aucune entreprise fictive n'est
+          // inventée lorsque la réponse ne le fournit pas.
+          tenant: data.tenant || undefined,
+        });
+
+        // Récupération des prestations réelles depuis le backend Go
+        const srvRes = await fetch('/api/v1/services', {
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
+        });
+        if (srvRes.ok) {
+          const srvData = await srvRes.json();
+          if (Array.isArray(srvData) && srvData.length > 0) {
+            setServices(
+              srvData.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                article: d.article || d.name,
+                treatment: d.treatment || 'Lavage & Soin',
+                category: d.category || 'Vêtements du quotidien',
+                price: Number(d.unit_price) || 0,
+                unit: d.unit || 'pièce',
+                pricingModel: d.pricing_model || 'piece',
+                durationHours: Number(d.estimated_hours) || 24,
+                isActive: d.is_active !== false,
+                isExpressAvailable: d.is_express_available === true,
+                expressSurcharge: Number(d.express_surcharge) || 0,
+                isPickupAvailable: d.is_pickup_available !== false,
+                isOutsourced: d.is_outsourced === true,
+                requiresQuote: d.requires_quote === true,
+                description: d.description || '',
+              }))
+            );
+          }
+        }
+
+        // Charger commandes et clients depuis PostgreSQL : une réponse vide est
+        // une réponse valide (établissement sans activité), pas un repli local.
+        const [ordRes, custRes] = await Promise.all([fetchOrders(validToken), fetchCustomers(validToken)]);
+        if (ordRes.fromBackend) setOrders(ordRes.orders);
+        if (custRes.fromBackend) setCustomers(custRes.customers);
       } catch (err) {
         console.warn('Initialisation session backend:', err);
       }
@@ -165,7 +198,9 @@ function PressingOSApp() {
     else if (ord.status === 'washing') nextStatus = 'ironing';
     else if (ord.status === 'ironing') {
       nextStatus = 'ready';
-      showToast(`Linge prêt ! Notification SMS / WhatsApp envoyée à ${ord.customerName} (${ord.customerPhone})`);
+      showToast(
+        `Linge prêt ! Notification SMS / WhatsApp envoyée à ${ord.customerName} (${ord.customerPhone})`
+      );
     } else if (ord.status === 'ready') {
       nextStatus = 'delivered';
       showToast(`Linge remis au client (${ord.orderNumber})`);
@@ -178,9 +213,7 @@ function PressingOSApp() {
       updateOrderStatusOnBackend(orderId, nextStatus, session.token);
     }
 
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
-    );
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
   };
 
   const handleAddOrder = async (newOrder: Order) => {
@@ -190,7 +223,9 @@ function PressingOSApp() {
     if (synced && persisted) {
       showToast(`Dépôt ${persisted.orderNumber} enregistré dans PostgreSQL`);
     } else {
-      showToast(`Dépôt ${newOrder.orderNumber} enregistré localement (non synchronisé${error ? ` : ${error}` : ''})`);
+      showToast(
+        `Dépôt ${newOrder.orderNumber} enregistré localement (non synchronisé${error ? ` : ${error}` : ''})`
+      );
     }
     // Proposer l'impression immédiate du ticket thermique
     setSelectedTicketOrder(finalOrder);
@@ -203,7 +238,9 @@ function PressingOSApp() {
     if (synced && persisted) {
       showToast(`Client ${finalCustomer.fullName} enregistré dans PostgreSQL`);
     } else {
-      showToast(`Client ${newCustomer.fullName} ajouté${error ? ` — ${error}` : ' localement (non synchronisé)'}`);
+      showToast(
+        `Client ${newCustomer.fullName} ajouté${error ? ` — ${error}` : ' localement (non synchronisé)'}`
+      );
     }
   };
 
@@ -214,7 +251,9 @@ function PressingOSApp() {
 
   const handleUpdateService = (updatedService: ServiceItem) => {
     setServices((prev) => prev.map((s) => (s.id === updatedService.id ? updatedService : s)));
-    showToast(`Tarif mis à jour : ${updatedService.name} (${updatedService.price.toLocaleString('fr-FR')} FCFA)`);
+    showToast(
+      `Tarif mis à jour : ${updatedService.name} (${updatedService.price.toLocaleString('fr-FR')} FCFA)`
+    );
   };
 
   const handleDeleteService = (serviceId: string) => {
@@ -227,7 +266,7 @@ function PressingOSApp() {
     try {
       const res = await fetch('/api/v1/services', {
         headers: {
-          'Authorization': `Bearer ${session.token}`,
+          Authorization: `Bearer ${session.token}`,
         },
       });
       if (res.ok) {
@@ -281,7 +320,9 @@ function PressingOSApp() {
         };
       })
     );
-    showToast(`Solde de ${amount.toLocaleString('fr-FR')} FCFA encaissé avec succès via ${method.toUpperCase()}`);
+    showToast(
+      `Solde de ${amount.toLocaleString('fr-FR')} FCFA encaissé avec succès via ${method.toUpperCase()}`
+    );
     // Mettre à jour la commande ouverte si active
     if (selectedTicketOrder && selectedTicketOrder.id === orderId) {
       setSelectedTicketOrder({
@@ -293,7 +334,7 @@ function PressingOSApp() {
   };
 
   const handleLoginSuccess = (newSession: AuthSession) => {
-    setSession(newSession);
+    setSessionOuverte(newSession);
     if (newSession.user.role === 'superadmin') {
       setCurrentView('superadmin');
       showToast('Connecté en SuperAdmin SaaS (Administration Globale)');
@@ -305,7 +346,9 @@ function PressingOSApp() {
 
   // Si on est sur une page de vérification, on affiche seulement cette vue
   if (verificationParams) {
-    return <TicketVerificationView tenantId={verificationParams.tenantId} orderId={verificationParams.orderId} />;
+    return (
+      <TicketVerificationView tenantId={verificationParams.tenantId} orderId={verificationParams.orderId} />
+    );
   }
 
   return (
@@ -366,6 +409,7 @@ function PressingOSApp() {
                   health={health}
                   onNavigate={setCurrentView}
                   onNewOrder={() => setIsNewOrderModalOpen(true)}
+                  onOpenTicket={(ord) => setSelectedTicketOrder(ord)}
                 />
               )}
 
@@ -375,6 +419,7 @@ function PressingOSApp() {
                   onAdvanceStatus={handleAdvanceOrderStatus}
                   onNewOrder={() => setIsNewOrderModalOpen(true)}
                   onOpenThermalTicket={(ord) => setSelectedTicketOrder(ord)}
+                  onNotifyClient={(ord) => setNotificationOrder(ord)}
                 />
               )}
 
@@ -395,13 +440,27 @@ function PressingOSApp() {
                 />
               )}
 
-              {currentView === 'billing' && (
-                <BillingView token={session.token} showToast={showToast} />
+              {currentView === 'team' && (
+                <TeamView currentUser={session.user} token={session.token} showToast={showToast} />
               )}
+
+              {currentView === 'branches' && (
+                <BranchesView currentUser={session.user} token={session.token} showToast={showToast} />
+              )}
+
+              {currentView === 'expenses' && (
+                <ExpensesView currentUser={session.user} token={session.token} showToast={showToast} />
+              )}
+
+              {currentView === 'reports' && <ReportsView currentUser={session.user} token={session.token} />}
+
+              {currentView === 'billing' && <BillingView token={session.token} showToast={showToast} />}
 
               {currentView === 'superadmin' && isSuperadmin && (
                 <SuperAdminView
                   currentUser={session.user}
+                  token={session.token}
+                  showToast={showToast}
                   onSelectTenantView={() => {
                     setCurrentView('dashboard');
                     showToast('Bascule sur la vue du pressing');
@@ -439,6 +498,16 @@ function PressingOSApp() {
           tenant={session.tenant}
           onClose={() => setSelectedTicketOrder(null)}
           onSettleBalance={handleSettleBalance}
+        />
+      )}
+
+      {notificationOrder && (
+        <ClientNotificationModal
+          order={notificationOrder}
+          currentUser={session.user}
+          token={session.token}
+          onClose={() => setNotificationOrder(null)}
+          showToast={showToast}
         />
       )}
     </div>

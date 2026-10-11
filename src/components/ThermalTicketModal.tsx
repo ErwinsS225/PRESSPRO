@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { X, Printer, QrCode } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Printer, Usb, Eye } from 'lucide-react';
 import { Order, Tenant } from '../types';
+import {
+  buildTicketBytes,
+  impressionDirecteSupportee,
+  renderEscPosPreview,
+  sendToEscPosPrinter,
+  ticketDepuisCommande,
+} from '../lib/escpos';
 
 interface ThermalTicketModalProps {
   order: Order;
@@ -24,14 +31,31 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
   const [isSettling, setIsSettling] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [customerPhone, setCustomerPhone] = useState<string>(order.customerPhone || '');
-  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isSending] = useState<boolean>(false);
   const remainingDue = order.totalAmount - order.paidAmount;
+
+  // Impression thermique directe (ESC/POS via WebUSB) : le flux est construit à
+  // partir de la même commande que le ticket affiché, et l'aperçu montre
+  // exactement ce que l'imprimante recevra.
+  const [impressionDirecte, setImpressionDirecte] = useState<boolean>(false);
+  const [messageDirect, setMessageDirect] = useState<string | null>(null);
+  const [apercuFlux, setApercuFlux] = useState<boolean>(false);
+  const fluxEscPos = useMemo(
+    () =>
+      buildTicketBytes(
+        ticketDepuisCommande(order, tenant, `${window.location.origin}/verify/${tenant.id}/${order.id}`)
+      ),
+    [order, tenant]
+  );
+  const apercuImprimante = useMemo(() => renderEscPosPreview(fluxEscPos), [fluxEscPos]);
 
   // Générer le QR code automatiquement à l'ouverture
   useEffect(() => {
     const qrContent = generateQRContent(order, tenant);
     // Utiliser l'API QR Code gratuite de Google pour générer un QR code scannable
-    setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrContent)}`);
+    setQrCodeUrl(
+      `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrContent)}`
+    );
   }, [order, tenant]);
 
   // Fonction d'impression optimisée pour les imprimantes thermiques 80mm
@@ -41,6 +65,19 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
     window.print();
     // Supprimer la classe après impression
     setTimeout(() => document.body.classList.remove('printing-thermal-ticket'), 1000);
+  };
+
+  // Envoi du flux à l'imprimante thermique connectée en USB (Chrome/Edge).
+  const handleDirectPrint = async () => {
+    setImpressionDirecte(true);
+    setMessageDirect(null);
+    const resultat = await sendToEscPosPrinter(fluxEscPos);
+    setMessageDirect(
+      resultat.ok
+        ? 'Ticket transmis à l’imprimante thermique.'
+        : `Impression directe impossible : ${resultat.error ?? 'imprimante indisponible'}`
+    );
+    setImpressionDirecte(false);
   };
 
   const handleSettle = () => {
@@ -54,12 +91,12 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
     const verifyUrl = `${window.location.origin}/verify/${tenant.id}/${order.id}`;
     return encodeURIComponent(
       `*${tenant.name}* - Votre commande de pressing est prête !\n\n` +
-      `📋 Commande N°${order.orderNumber}\n` +
-      `💰 Montant total : ${order.totalAmount.toLocaleString('fr-FR')} FCFA\n` +
-      `✅ Payé : ${order.paidAmount.toLocaleString('fr-FR')} FCFA\n` +
-      `${remainingDue > 0 ? `💸 Reste à payer : ${remainingDue.toLocaleString('fr-FR')} FCFA\n` : '\n'}` +
-      `🔍 Vérifiez l'authenticité de votre ticket :\n${verifyUrl}\n\n` +
-      `À bientôt chez ${tenant.name} !`
+        `📋 Commande N°${order.orderNumber}\n` +
+        `💰 Montant total : ${order.totalAmount.toLocaleString('fr-FR')} FCFA\n` +
+        `✅ Payé : ${order.paidAmount.toLocaleString('fr-FR')} FCFA\n` +
+        `${remainingDue > 0 ? `💸 Reste à payer : ${remainingDue.toLocaleString('fr-FR')} FCFA\n` : '\n'}` +
+        `🔍 Vérifiez l'authenticité de votre ticket :\n${verifyUrl}\n\n` +
+        `À bientôt chez ${tenant.name} !`
     );
   };
 
@@ -95,7 +132,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     }
     return dateStr || '—';
@@ -106,7 +143,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 dark:bg-black/80 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-[#111111] max-h-[95vh] overflow-y-auto">
+      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-[#111111] max-h-[95vh] overflow-y-auto shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
         {/* Header bar */}
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
@@ -117,7 +154,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+            className="rounded p-1 text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -131,7 +168,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             width: '80mm', // Taille exacte d'un ticket thermique 80mm
             minHeight: '150mm',
             printColorAdjust: 'exact',
-            WebkitPrintColorAdjust: 'exact'
+            WebkitPrintColorAdjust: 'exact',
           }}
         >
           {/* EN-TÊTE DU PRESSING (CENTRÉ, GRAND FORMAT) */}
@@ -139,7 +176,9 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             <div className="font-bold text-base tracking-wide uppercase">{tenant.name}</div>
             <div className="text-[9px] mt-1">{tenant.city}, Côte d'Ivoire</div>
             <div className="text-[9px]">Tél : {tenant.phone || '+225 XX XX XXX XX'}</div>
-            <div className="text-[8px] text-neutral-500 mt-1">Géré par PressingOS • Votre pressing digitalisé</div>
+            <div className="text-[8px] text-neutral-500 mt-1">
+              Géré par PressingOS • Votre pressing digitalisé
+            </div>
             <div className="my-2 border-b border-black border-dashed" />
           </div>
 
@@ -190,9 +229,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
           {/* INSTRUCTIONS SPÉCIALES */}
           {order.notes && (
-            <div className="mb-3 p-2 border border-neutral-300 text-[9px] italic">
-              📝 {order.notes}
-            </div>
+            <div className="mb-3 p-2 border border-neutral-300 text-[9px] italic">📝 {order.notes}</div>
           )}
 
           <div className="my-2 border-b border-black border-dashed" />
@@ -207,11 +244,11 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
               <span>Déjà payé:</span>
               <span>{order.paidAmount.toLocaleString('fr-FR')} FCFA</span>
             </div>
-            <div className={`flex justify-between font-bold border-t-2 border-black pt-2 ${isFullyPaid ? 'text-green-700' : 'text-red-700'}`}>
+            <div
+              className={`flex justify-between font-bold border-t-2 border-black pt-2 ${isFullyPaid ? 'text-green-700' : 'text-red-700'}`}
+            >
               <span>{isFullyPaid ? '✅ SOLDÉ' : '⚠️ RESTE:'}</span>
-              <span>
-                {isFullyPaid ? '0 FCFA' : `${remainingDue.toLocaleString('fr-FR')} FCFA`}
-              </span>
+              <span>{isFullyPaid ? '0 FCFA' : `${remainingDue.toLocaleString('fr-FR')} FCFA`}</span>
             </div>
           </div>
 
@@ -230,15 +267,10 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
 
           {/* QR CODE POUR VÉRIFICATION DU TICKET */}
           <div className="flex flex-col items-center justify-center mb-3">
-            {qrCodeUrl && (
-              <img
-                src={qrCodeUrl}
-                alt="QR Code de vérification"
-                className="w-20 h-20"
-              />
-            )}
+            {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code de vérification" className="w-20 h-20" />}
             <div className="text-[8px] mt-2 text-center">
-              Scannez pour vérifier votre commande<br />
+              Scannez pour vérifier votre commande
+              <br />
               Ticket à présenter obligatoirement au retrait
             </div>
           </div>
@@ -320,7 +352,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
                 </span>
                 <button
                   onClick={() => setIsSettling(true)}
-                  className="rounded bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+                  className="rounded bg-neutral-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-black dark:hover:bg-white dark:bg-neutral-100 dark:text-neutral-900"
                 >
                   Encaisser le Solde
                 </button>
@@ -329,7 +361,7 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
           )}
 
           {isSettling && (
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 space-y-2">
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 space-y-2 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                 Moyen de Règlement du Solde ({remainingDue.toLocaleString('fr-FR')} FCFA)
               </span>
@@ -344,10 +376,11 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id as any)}
-                    className={`rounded border p-2 text-left text-[11px] font-medium transition-colors ${paymentMethod === m.id
-                      ? 'border-neutral-900 bg-white font-semibold dark:border-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-                      : 'border-neutral-200 hover:bg-white dark:border-neutral-700 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
-                      }`}
+                    className={`rounded border p-2 text-left text-[11px] font-medium transition-colors ${
+                      paymentMethod === m.id
+                        ? 'border-neutral-900 bg-white font-semibold dark:border-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                        : 'border-neutral-200 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
+                    }`}
                   >
                     {m.label}
                   </button>
@@ -376,19 +409,69 @@ export const ThermalTicketModal: React.FC<ThermalTicketModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               Fermer
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              <span>Imprimer Ticket (80mm)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setApercuFlux((v) => !v)}
+                className="flex items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                title="Afficher le flux ESC/POS tel que l’imprimante l’interprète"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Aperçu ESC/POS</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectPrint}
+                disabled={impressionDirecte}
+                className="flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+                title={
+                  impressionDirecteSupportee()
+                    ? 'Envoyer le ticket directement à l’imprimante thermique (WebUSB)'
+                    : 'Impression directe non prise en charge par ce navigateur'
+                }
+              >
+                <Usb className="h-3.5 w-3.5" />
+                <span>{impressionDirecte ? 'Envoi…' : 'Imprimer en direct (ESC/POS)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Imprimer Ticket (80mm)</span>
+              </button>
+            </div>
           </div>
+
+          {messageDirect && (
+            <div
+              className={`rounded-md border px-3 py-2 text-[11px] ${
+                messageDirect.startsWith('Ticket transmis')
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+              }`}
+              role="status"
+            >
+              {messageDirect}
+            </div>
+          )}
+
+          {apercuFlux && (
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+              <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                <span>Aperçu du flux ESC/POS ({fluxEscPos.length} octets, 80 mm)</span>
+                <span>{impressionDirecteSupportee() ? 'WebUSB disponible' : 'WebUSB indisponible'}</span>
+              </div>
+              <pre className="max-h-64 overflow-auto whitespace-pre rounded bg-white p-2 font-mono text-[10px] leading-tight text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+                {apercuImprimante}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
     </div>

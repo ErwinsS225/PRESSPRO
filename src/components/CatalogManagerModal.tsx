@@ -1,27 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Plus,
-  Search,
-  Edit2,
-  Trash2,
-  Database,
-  CheckCircle2,
-  XCircle,
-  Copy,
-  Zap,
-  Truck,
-  Building2,
-  FileText,
-  Clock,
-  Sliders,
-  DollarSign,
-  AlertCircle,
-  Check,
-  Tag,
-  ArrowUpDown,
-  Filter,
-  Sparkles,
-} from 'lucide-react';
+import { Plus, Search, Trash2, Database, XCircle, Copy, Sliders, Check, Tag } from 'lucide-react';
 import { ServiceItem, User } from '../types';
 
 interface CatalogManagerModalProps {
@@ -41,21 +19,17 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
   isOpen,
   onClose,
   services,
-  currentUser,
   token,
   onAddService,
   onUpdateService,
   onDeleteService,
-  onSyncWithDB,
   showToast,
 }) => {
-  if (!isOpen) return null;
-
   // Filtres internes au gestionnaire
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [filterPricing, setFilterPricing] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
+  const [filterPricing] = useState<'all' | 'piece' | 'kilogram' | 'quote'>('all');
 
   // Sélection d'un service pour édition en direct ou mode création
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
@@ -69,7 +43,9 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
   const [formCategory, setFormCategory] = useState('Vêtements du quotidien');
   const [formPrice, setFormPrice] = useState(1000);
   const [formUnit, setFormUnit] = useState('pièce');
-  const [formPricingModel, setFormPricingModel] = useState<'piece' | 'kilogram' | 'subscription' | 'contract'>('piece');
+  const [formPricingModel, setFormPricingModel] = useState<
+    'piece' | 'kilogram' | 'subscription' | 'contract'
+  >('piece');
   const [formDuration, setFormDuration] = useState(24);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsExpress, setFormIsExpress] = useState(false);
@@ -410,6 +386,11 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
     }
   };
 
+  // Fermeture : rendu nul APRÈS l'appel des hooks (l'ordre d'appel doit être
+  // identique à chaque rendu, sinon React lève « Rendered more hooks than
+  // during the previous render » dès la première ouverture du gestionnaire).
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs">
       <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-[#0c0c0c]">
@@ -430,7 +411,8 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Créez, modifiez, désactivez ou supprimez des prestations. Les anciennes commandes conservent leur tarification historique.
+                Créez, modifiez, désactivez ou supprimez des prestations. Les anciennes commandes conservent
+                leur tarification historique.
               </p>
             </div>
           </div>
@@ -438,7 +420,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleStartCreate}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Créer une prestation</span>
@@ -446,7 +428,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
 
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors"
+              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-950 hover:text-white dark:hover:text-neutral-200 transition-colors dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
             >
               <XCircle className="h-5 w-5" />
             </button>
@@ -458,7 +440,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
           {/* COLONNE GAUCHE (5 COLUMNS) : FILTRES & LISTE DES PRESTATIONS */}
           <div className="flex h-full flex-col overflow-hidden md:col-span-5 bg-neutral-50/50 dark:bg-neutral-950/40">
             {/* Barre de recherche & filtres rapides */}
-            <div className="p-3.5 space-y-2.5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c0c0c]">
+            <div className="p-3.5 space-y-2.5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c0c0c] hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
                 <input
@@ -515,7 +497,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                       className={`group flex items-center justify-between rounded-xl p-3 cursor-pointer transition-all ${
                         isSelected
                           ? 'border border-neutral-900/15 bg-white shadow-xs dark:border-neutral-100/20 dark:bg-neutral-900'
-                          : 'border border-transparent hover:bg-white/80 dark:hover:bg-neutral-900/50'
+                          : 'border border-transparent hover:border-neutral-950 hover:bg-neutral-950 hover:text-white dark:hover:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-950'
                       }`}
                     >
                       <div className="space-y-0.5 pr-2">
@@ -586,7 +568,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                     const current = services.find((s) => s.id === selectedServiceId);
                     if (current) handleDuplicate(current);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-950 hover:text-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated dark:hover:bg-neutral-100 dark:hover:text-neutral-950"
                   title="Créer une variante à partir de cette référence"
                 >
                   <Copy className="h-3.5 w-3.5" />
@@ -717,7 +699,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
               </div>
 
               {/* Options & Attributs métier */}
-              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/40 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                   Options et Traitements Avancés :
                 </p>
@@ -794,13 +776,14 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
               </div>
 
               {/* Bascule Actif / Inactif */}
-              <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
+              <div className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
                 <div className="space-y-0.5">
                   <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                     Statut Actif au Comptoir
                   </span>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Si désactivée, cette prestation ne pourra plus être sélectionnée pour de nouvelles commandes.
+                    Si désactivée, cette prestation ne pourra plus être sélectionnée pour de nouvelles
+                    commandes.
                   </p>
                 </div>
                 <button
@@ -836,7 +819,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(null)}
-                            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                            className="text-xs text-neutral-500 hover:text-neutral-950 dark:hover:text-neutral-300"
                           >
                             Annuler
                           </button>
@@ -865,15 +848,15 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50 transition-colors"
                   >
                     <Database className="h-3.5 w-3.5" />
                     <span>
                       {isSaving
                         ? 'Synchronisation PostgreSQL...'
                         : isCreatingNew
-                        ? 'Créer dans la Base de Données'
-                        : 'Mettre à jour dans PostgreSQL'}
+                          ? 'Créer dans la Base de Données'
+                          : 'Mettre à jour dans PostgreSQL'}
                     </span>
                   </button>
                 </div>

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,14 +17,19 @@ import (
 
 	"pressing-os/backend/internal/auth"
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/branch"
 	"pressing-os/backend/internal/catalog"
 	"pressing-os/backend/internal/config"
 	"pressing-os/backend/internal/customer"
 	"pressing-os/backend/internal/database"
+	"pressing-os/backend/internal/expense"
 	"pressing-os/backend/internal/health"
 	apphttp "pressing-os/backend/internal/http"
+	"pressing-os/backend/internal/notification"
 	"pressing-os/backend/internal/order"
 	"pressing-os/backend/internal/pricelist"
+	"pressing-os/backend/internal/ratelimit"
+	"pressing-os/backend/internal/report"
 )
 
 func main() {
@@ -33,7 +40,7 @@ func main() {
 
 	// Initialisation du logger structuré standard
 	logger := log.New(os.Stdout, "[PressingOS-API] ", log.LstdFlags|log.Lmsgprefix)
-	logger.Println("Démarrage du socle backend PressingOS (v0.2.0-auth)...")
+	logger.Println("Démarrage du socle backend PressingOS (v0.5.0-hardening)...")
 
 	// 1. Chargement et validation de la configuration
 	cfg, err := config.LoadFromEnv()
@@ -51,43 +58,69 @@ func main() {
 	dbPool, err := database.ConnectPool(initCtx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Printf("Avertissement: Connexion immédiate à PostgreSQL échouée (%v). L'API démarre en mode dégradé (/ready indiquera 503).", err)
-	} else {
-		if pingErr := dbPool.Ping(initCtx); pingErr != nil {
-			logger.Printf("Avertissement: Ping PostgreSQL échoué (%v). /ready indiquera 503 jusqu'à rétablissement.", pingErr)
-		} else {
-			logger.Println("Connexion PostgreSQL établie avec succès via pgxpool.")
-		}
 	}
 
-	// 3. Construction des services métier et d'authentification
+	// La création du pool ne prouve PAS que la base répond : la décision du mode
+	// de persistance est prise sur le résultat du Ping, sinon aucune requête ne
+	// pourra aboutir (les services ne doivent jamais être adossés à une base
+	// injoignable — ils basculent alors sur leur repli mémoire).
 	var pinger database.Pinger
 	if dbPool != nil {
 		pinger = dbPool
 		defer dbPool.Close()
 	}
 
+	dbReady := false
+	if dbPool != nil && dbPool.Pool != nil {
+		if pingErr := dbPool.Ping(initCtx); pingErr != nil {
+			logger.Printf("Avertissement: Ping PostgreSQL échoué (%v). L'API bascule en mode mémoire (données non persistées) et /ready indiquera 503 jusqu'au rétablissement.", pingErr)
+		} else {
+			dbReady = true
+			logger.Println("Connexion PostgreSQL établie avec succès via pgxpool.")
+		}
+	}
+	if !dbReady {
+		logger.Println("Mode dégradé mémoire actif: aucune donnée ne sera persistée tant que PostgreSQL est injoignable.")
+	}
+
+	// 3. Construction des services métier et d'authentification
+
 	healthHandler := health.NewHandler(pinger, cfg.DBConnectionTimeout)
 
+	// A4 : le secret JWT ne doit jamais reposer sur une valeur connue du dépôt
+	// en production. Hors développement, un secret fourni par l'environnement et
+	// suffisamment long est exigé, sinon le démarrage est refusé.
 	jwtSecret := os.Getenv("JWT_SECRET")
+	if cfg.ServerEnv == "production" && len(jwtSecret) < 32 {
+		logger.Fatalf("Configuration refusée: JWT_SECRET doit être défini (32 caractères minimum) en environnement de production")
+	}
 	if jwtSecret == "" {
 		jwtSecret = "pressingos-dev-secret-key-32-bytes-minimum"
+		logger.Println("Attention: JWT_SECRET non défini — secret de développement utilisé (interdit en production).")
 	}
 	jwtManager := auth.NewJWTManager(jwtSecret, 24*time.Hour)
 	authService := auth.NewService(jwtManager)
 	// Authentification : PostgreSQL quand disponible (login/register persistés),
 	// sinon repli mémoire (comptes de démonstration) pour ne jamais bloquer le démarrage.
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		authService.SetStore(auth.NewStore(database.NewStore(dbPool.Pool)))
 		logger.Println("Authentification adossée à PostgreSQL (comptes persistés).")
 	} else {
 		logger.Println("Authentification en mode mémoire (PostgreSQL indisponible au démarrage).")
 	}
 	authHandler := auth.NewHandler(authService)
+	// A6 : protection anti-force brute sur la connexion (mémoire, par instance).
+	// 10 tentatives / 5 min par couple (IP, email) et 40 tentatives / 5 min par IP.
+	authHandler.SetLoginLimiters(
+		ratelimit.New(10, 5*time.Minute),
+		ratelimit.New(40, 5*time.Minute),
+	)
+	logger.Println("Limitation de débit active sur /api/v1/auth/login (anti-force brute).")
 
 	orderService := order.NewService()
 	orderHandler := order.NewHandler(orderService)
 	// Commandes : PostgreSQL quand disponible, sinon repli mémoire (données seed).
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		orderService.SetStore(order.NewStore(database.NewStore(dbPool.Pool)))
 		logger.Println("Commandes adossées à PostgreSQL (persistance activée).")
 	} else {
@@ -95,7 +128,7 @@ func main() {
 	}
 	// Clients : PostgreSQL quand disponible, sinon repli mémoire (mode dégradé).
 	customerService := customer.NewService()
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		customerService.SetStore(customer.NewStore(database.NewStore(dbPool.Pool)))
 		logger.Println("Clients adossés à PostgreSQL (persistance activée).")
 	} else {
@@ -105,7 +138,7 @@ func main() {
 
 	// Grilles tarifaires versionnées : PostgreSQL quand disponible, sinon repli mémoire.
 	priceListService := pricelist.NewService()
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		priceListService = pricelist.NewStore(database.NewStore(dbPool.Pool))
 		logger.Println("Grilles tarifaires adossées à PostgreSQL (versions persistées).")
 	} else {
@@ -115,7 +148,7 @@ func main() {
 
 	// Catalogue : PostgreSQL quand disponible, sinon repli mémoire (données seed).
 	catalogService := catalog.NewService()
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		dbStore := database.NewStore(dbPool.Pool)
 		catalogService = catalog.NewStore(dbStore)
 		logger.Println("Catalogue adossé à PostgreSQL (persistance activée).")
@@ -124,9 +157,37 @@ func main() {
 	}
 	catalogHandler := catalog.NewHandler(catalogService)
 
+	// Onboarding d'un nouvel établissement : dès l'inscription, le pressing
+	// reçoit sa grille tarifaire par défaut et sa première grille versionnée.
+	// (Sans cela, un pressing fraîchement inscrit démarrait avec un catalogue vide.)
+	authService.SetOnTenantRegistered(func(ctx context.Context, tenantID string) error {
+		seeded, err := catalogService.SeedTenantDefaults(ctx, tenantID)
+		if err != nil {
+			return fmt.Errorf("catalogue initial: %w", err)
+		}
+		if seeded > 0 {
+			logger.Printf("Onboarding: %d prestations par défaut créées pour le tenant %s", seeded, tenantID)
+		}
+		pl, err := priceListService.CreatePriceList(ctx, tenantID, pricelist.CreatePriceListRequest{
+			Name:        "Grille principale",
+			Description: "Grille tarifaire initiale du catalogue",
+			IsDefault:   true,
+		})
+		if err != nil {
+			return fmt.Errorf("grille tarifaire initiale: %w", err)
+		}
+		if _, err := priceListService.CreateVersion(ctx, tenantID, pl.ID, pricelist.CreateVersionRequest{
+			Note: "Version initiale figée à l'inscription",
+		}); err != nil {
+			return fmt.Errorf("version initiale de la grille: %w", err)
+		}
+		logger.Printf("Onboarding: grille tarifaire principale créée pour le tenant %s", tenantID)
+		return nil
+	})
+
 	// Moteur d'abonnement : PostgreSQL quand disponible, sinon repli mémoire.
 	billingService := billing.NewService()
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		dbBillingStore := database.NewStore(dbPool.Pool)
 		billingService = billing.NewStore(dbBillingStore)
 		logger.Println("Billing adossé à PostgreSQL (abonnements persistés).")
@@ -135,9 +196,87 @@ func main() {
 	}
 	billingHandler := billing.NewHandler(billingService)
 
+	// Module Établissements (multi-sites) : PostgreSQL quand disponible.
+	branchService := branch.NewService()
+	if dbReady {
+		branchService = branch.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Établissements (multi-sites) adossés à PostgreSQL.")
+	} else {
+		logger.Println("Établissements en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	branchHandler := branch.NewHandler(branchService)
+
+	// Module Dépenses (fonctionnalité payante « expenses.advanced »).
+	expenseService := expense.NewService()
+	if dbReady {
+		expenseService = expense.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Dépenses adossées à PostgreSQL.")
+	} else {
+		logger.Println("Dépenses en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	expenseHandler := expense.NewHandler(expenseService)
+
+	// Module Rapports (fonctionnalité payante « reports.advanced ») : agrégats
+	// SQL quand la base est joignable, sinon calcul mémoire à partir des
+	// services commandes / dépenses.
+	reportService := report.NewService()
+	if dbReady {
+		reportService = report.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Rapports adossés à PostgreSQL (agrégats SQL).")
+	} else {
+		reportService.SetSources(orderService, expenseService)
+		logger.Println("Rapports en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	reportHandler := report.NewHandler(reportService, billingService)
+
+	// Module Notifications clients (WhatsApp / SMS). Sans base : journal en
+	// mémoire. L'envoi réel passe par la passerelle configurée par l'éditeur
+	// (NOTIFICATIONS_GATEWAY_URL) ; sans elle, chaque message est journalisé
+	// avec le statut « simule » — le comptoir peut le copier ou l'ouvrir dans
+	// WhatsApp depuis l'interface.
+	notificationService := notification.NewService()
+	if dbReady {
+		notificationService = notification.NewStore(database.NewStore(dbPool.Pool))
+		logger.Println("Notifications clients adossées à PostgreSQL (journal persisté).")
+	} else {
+		logger.Println("Notifications clients en mode mémoire (PostgreSQL indisponible au démarrage).")
+	}
+	notificationService.SetSourceCommandes(orderService)
+	notificationService.SetDroitVerificateur(billingService, billing.FeatureNotificationsAdvanced)
+	if dbReady {
+		dbStore := database.NewStore(dbPool.Pool)
+		notificationService.SetNomPressing(func(ctx context.Context, tenantID string) string {
+			var nom string
+			if err := dbStore.QueryRowContext(ctx, `SELECT name FROM tenants WHERE id = $1`, tenantID).Scan(&nom); err != nil {
+				return ""
+			}
+			return nom
+		})
+	}
+	passerelleURL := strings.TrimSpace(os.Getenv("NOTIFICATIONS_GATEWAY_URL"))
+	if passerelleURL != "" {
+		notificationService.SetPasserelle(notification.NewHTTPPasserelle(
+			passerelleURL, os.Getenv("NOTIFICATIONS_GATEWAY_TOKEN"), 5*time.Second))
+		logger.Printf("Passerelle de notifications activée (%s).", passerelleURL)
+	} else {
+		logger.Println("Aucune passerelle de notifications : les messages sont journalisés (statut « simule »).")
+	}
+	notificationHandler := notification.NewHandler(notificationService)
+
+	// Déclenchement automatique : « prête » et « livrée » notifient le client
+	// (uniquement pour les formules qui incluent l'envoi et sans jamais
+	// retarder la réponse HTTP — le hook s'exécute en tâche de fond).
+	orderService.SetHookStatut(func(ctx context.Context, tenantID, orderID, statut string) {
+		notificationService.NotifierTransition(ctx, notification.NotificationAuto{
+			TenantID:    tenantID,
+			OrderID:     orderID,
+			StatutLinge: statut,
+		})
+	})
+
 	// Garde-fou quota : la 51e commande FREE (essai dépassé) est refusée en 402.
 	// Compteur mémoire en mode dégradé, compteur SQL quand PostgreSQL est joignable.
-	if dbPool != nil && dbPool.Pool != nil {
+	if dbReady {
 		orderHandler.SetQuotaGuard(&billing.QuotaGuard{
 			Billing: billingService,
 			Counter: billing.NewDBUsageCounter(database.NewStore(dbPool.Pool)),
@@ -149,31 +288,37 @@ func main() {
 	// Moteur d'autorisation — contrôles #2 (appartenance) et #4 (périmètre branche).
 	// Pool nil => mode dégradé (vérification assouplie), sans jamais bloquer le démarrage.
 	var membershipChecker *apphttp.MembershipChecker
-	if dbPool != nil && dbPool.Pool != nil {
-		membershipChecker = apphttp.NewMembershipChecker(dbPool.Pool)
+	if dbReady {
+		// La base fait foi : contrôle d'appartenance strict (fail-closed), les
+		// seuls comptes autorisés hors base étant ceux de la vitrine.
+		membershipChecker = apphttp.NewMembershipChecker(dbPool.Pool, authService.IsDemoAccount)
 		logger.Println("Contrôle d'appartenance et de périmètre branche adossés à PostgreSQL.")
 	} else {
-		membershipChecker = apphttp.NewMembershipChecker(nil)
+		membershipChecker = apphttp.NewMembershipChecker(nil, authService.IsDemoAccount)
 		logger.Println("Contrôle d'appartenance en mode dégradé (PostgreSQL indisponible au démarrage).")
 	}
 
 	router := apphttp.NewRouter(apphttp.ServerDependencies{
-		Config:            cfg,
-		HealthHandler:     healthHandler,
-		AuthHandler:       authHandler,
-		JWTManager:        jwtManager,
-		OrderHandler:      orderHandler,
-		CatalogHandler:    catalogHandler,
-		CustomerHandler:   customerHandler,
-		PriceListHandler:  priceListHandler,
-		Billing:           billingService,
-		BillingHandler:    billingHandler,
-		MembershipChecker: membershipChecker,
+		Config:              cfg,
+		HealthHandler:       healthHandler,
+		AuthHandler:         authHandler,
+		JWTManager:          jwtManager,
+		OrderHandler:        orderHandler,
+		CatalogHandler:      catalogHandler,
+		CustomerHandler:     customerHandler,
+		PriceListHandler:    priceListHandler,
+		BranchHandler:       branchHandler,
+		ExpenseHandler:      expenseHandler,
+		ReportHandler:       reportHandler,
+		NotificationHandler: notificationHandler,
+		Billing:             billingService,
+		BillingHandler:      billingHandler,
+		MembershipChecker:   membershipChecker,
 	})
 
 	// 4. Configuration du serveur HTTP avec timeouts stricts
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Port),
+		Addr:         net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:      router,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
@@ -186,7 +331,7 @@ func main() {
 
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Printf("Serveur HTTP à l'écoute sur http://0.0.0.0:%s", cfg.Port)
+		logger.Printf("Serveur HTTP à l'écoute sur http://%s", net.JoinHostPort(cfg.Host, cfg.Port))
 		if listenErr := server.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
 			serverErrors <- listenErr
 		}

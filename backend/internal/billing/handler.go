@@ -2,19 +2,22 @@ package billing
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/httperr"
 )
 
 // Handler expose les endpoints d'abonnement.
 type Handler struct {
 	service *Service
+	logger  *log.Logger
 }
 
 // NewHandler initialise le gestionnaire HTTP du billing.
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
 }
 
 // Me traite GET /api/me/entitlements (menus/boutons du frontend).
@@ -30,8 +33,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	_, _ = h.service.ExpireTrialIfNeeded(r.Context(), tenantID, "")
 	resp, err := h.service.EffectiveEntitlements(r.Context(), tenantID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		httperr.Internal(w, h.logger, "billing", err, "impossible de calculer les droits de l'abonnement")
 		return
 	}
 	w.WriteHeader(http.StatusOK)

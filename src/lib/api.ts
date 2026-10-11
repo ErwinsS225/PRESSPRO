@@ -8,18 +8,15 @@ export async function checkEndpoint(endpoint: string): Promise<HealthCheckResult
     const res = await fetch(endpoint, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
     const latency = Math.round(performance.now() - start);
     let data: any = null;
 
-    let isNativeJson = false;
     try {
-      const parsed = await res.json();
-      data = parsed;
-      isNativeJson = true;
+      data = await res.json();
     } catch {
       // Si l'environnement de prévisualisation AI Studio intercepte avec un écran intermédiaire
       data = {

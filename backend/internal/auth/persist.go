@@ -300,3 +300,106 @@ func translateRegisterErr(err error) error {
 	}
 	return err
 }
+
+// CreateUser crée un compte employé rattaché à l'établissement, avec ses
+// appartenances (tenant + établissement principal) dans une seule transaction.
+// Le rôle est validé en amont par le service : seuls les rôles d'un pressing
+// sont acceptés (jamais superadmin).
+func (s *dbStore) CreateUser(ctx context.Context, tenantID string, req CreateUserRequest) (*User, error) {
+	normEmail := strings.ToLower(strings.TrimSpace(req.Email))
+
+	hash, err := HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var userID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO users (tenant_id, email, password_hash, full_name, phone, role, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'active') RETURNING id`,
+		tenantID, normEmail, hash, strings.TrimSpace(req.FullName),
+		nullIfEmpty(req.Phone), req.Role,
+	).Scan(&userID); err != nil {
+		return nil, translateRegisterErr(err)
+	}
+
+	// Appartenance : sans elle, le compte serait refusé sur toutes les routes
+	// métier par le contrôle d'appartenance (fail-closed).
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tenant_memberships (tenant_id, user_id, role, status)
+		VALUES ($1, $2, $3, 'active')`, tenantID, userID, req.Role); err != nil {
+		return nil, err
+	}
+
+	// Périmètre : l'employé rejoint l'établissement principal du pressing.
+	var branchID string
+	if err := tx.QueryRow(ctx, `
+		SELECT id FROM branches WHERE tenant_id = $1 ORDER BY is_primary DESC, created_at ASC LIMIT 1`,
+		tenantID).Scan(&branchID); err == nil && branchID != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO branch_memberships (tenant_id, branch_id, user_id)
+			VALUES ($1, $2, $3) ON CONFLICT (branch_id, user_id) DO NOTHING`,
+			tenantID, branchID, userID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	return &User{
+		ID: userID, TenantID: tenantID, Email: normEmail, PasswordHash: hash,
+		FullName: strings.TrimSpace(req.FullName), Phone: req.Phone, Role: req.Role,
+		Status: "active", CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+// SetUserStatus désactive ou réactive un compte de l'établissement. Le statut
+// est reflété sur l'appartenance pour que le contrôle d'accès s'applique
+// immédiatement, y compris aux jetons déjà émis.
+func (s *dbStore) SetUserStatus(ctx context.Context, tenantID, userID, status string) (*User, error) {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var (
+		email, fullName, role, phone string
+	)
+	// L'isolation est portée par la clause WHERE : un utilisateur d'un autre
+	// établissement est traité comme inexistant.
+	if err := tx.QueryRow(ctx, `
+		UPDATE users SET status = $3, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING email, full_name, role, COALESCE(phone, '')`,
+		userID, tenantID, status).Scan(&email, &fullName, &role, &phone); err != nil {
+		return nil, ErrUserNotFound
+	}
+
+	membershipStatus := "active"
+	if status != "active" {
+		membershipStatus = "suspended"
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE tenant_memberships SET status = $3, updated_at = NOW()
+		WHERE user_id = $1 AND tenant_id = $2`, userID, tenantID, membershipStatus); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &User{
+		ID: userID, TenantID: tenantID, Email: email, FullName: fullName,
+		Phone: phone, Role: role, Status: status, UpdatedAt: time.Now().UTC(),
+	}, nil
+}

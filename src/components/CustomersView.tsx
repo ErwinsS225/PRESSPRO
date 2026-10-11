@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { Search, UserPlus } from 'lucide-react';
 import { Customer } from '../types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface CustomersViewProps {
   customers: Customer[];
@@ -45,7 +54,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
   return (
     <div className="space-y-6">
       {/* Top Controls */}
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-[#111111] sm:flex-row sm:items-center sm:justify-between hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
             Fichier Clients & Fidélisation
@@ -57,7 +66,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-1.5 self-start rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors sm:self-auto"
+          className="flex items-center gap-1.5 self-start rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors sm:self-auto"
         >
           <UserPlus className="h-3.5 w-3.5" />
           <span>Nouveau Client</span>
@@ -78,64 +87,73 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
 
       {/* Customers Table */}
       <div className="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#111111]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
-                <th className="px-5 py-2.5">Nom Complet</th>
-                <th className="px-4 py-2.5">Contact GSM / WhatsApp</th>
-                <th className="px-4 py-2.5">Quartier (Abidjan)</th>
-                <th className="px-4 py-2.5 text-center">Historique</th>
-                <th className="px-4 py-2.5">Dernière Visite</th>
-                <th className="px-5 py-2.5 text-right">Solde Dû</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-              {filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-neutral-500 dark:text-neutral-400">
-                    Aucun client ne correspond à votre recherche.
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((c) => (
-                  <tr key={c.id} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">{c.fullName}</td>
-                    <td className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">{c.phone}</td>
-                    <td className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">{c.neighborhood}</td>
-                    <td className="px-4 py-3.5 text-center font-mono text-neutral-700 dark:text-neutral-300 tabular-nums">
-                      {c.totalOrders} dépôts
-                    </td>
-                    <td className="px-4 py-3.5 text-neutral-500 dark:text-neutral-400">{c.lastVisit}</td>
-                    <td className="px-5 py-3.5 text-right font-mono tabular-nums">
-                      {c.balanceDue > 0 ? (
-                        <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                          {c.balanceDue.toLocaleString('fr-FR')} F
-                        </span>
-                      ) : (
-                        <span className="text-neutral-400 dark:text-neutral-500">À jour (0 F)</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table className="w-full text-left text-xs">
+          <TableHeader>
+            <TableRow className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400">
+              <TableHead className="px-5 py-2.5">Nom Complet</TableHead>
+              <TableHead className="px-4 py-2.5">Contact GSM / WhatsApp</TableHead>
+              <TableHead className="px-4 py-2.5">Quartier (Abidjan)</TableHead>
+              <TableHead className="px-4 py-2.5 text-center">Historique</TableHead>
+              <TableHead className="px-4 py-2.5">Dernière Visite</TableHead>
+              <TableHead className="px-5 py-2.5 text-right">Solde Dû</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {filteredCustomers.length === 0 ? (
+              <TableEmpty colSpan={6}>Aucun client ne correspond à votre recherche.</TableEmpty>
+            ) : (
+              filteredCustomers.map((c) => (
+                <TableRow
+                  key={c.id}
+                  className="hover:bg-neutral-900/[0.06] dark:hover:bg-neutral-800/40 transition-colors"
+                >
+                  <TableCell className="px-5 py-3.5 font-medium text-neutral-900 dark:text-neutral-100">
+                    {c.fullName}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 font-mono text-neutral-600 dark:text-neutral-400">
+                    {c.phone}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-neutral-600 dark:text-neutral-400">
+                    {c.neighborhood}
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-center font-mono text-neutral-700 dark:text-neutral-300 tabular-nums">
+                    {c.totalOrders} dépôts
+                  </TableCell>
+                  <TableCell className="px-4 py-3.5 text-neutral-500 dark:text-neutral-400">
+                    {c.lastVisit}
+                  </TableCell>
+                  <TableCell className="px-5 py-3.5 text-right font-mono tabular-nums">
+                    {c.balanceDue > 0 ? (
+                      <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                        {c.balanceDue.toLocaleString('fr-FR')} F
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400 dark:text-neutral-500">À jour (0 F)</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* New Customer Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111]">
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Ajouter un Client</h2>
+          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Ajouter un Client
+            </h2>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
               Enregistrez un nouvel habitué pour votre pressing.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Nom & Prénoms</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Nom & Prénoms
+                </label>
                 <input
                   type="text"
                   required
@@ -147,7 +165,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Numéro Téléphone (+225)</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Numéro Téléphone (+225)
+                </label>
                 <input
                   type="text"
                   required
@@ -159,7 +179,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Quartier de résidence</label>
+                <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                  Quartier de résidence
+                </label>
                 <input
                   type="text"
                   placeholder="Ex: Cocody Angré, Marcory, Plateau..."
@@ -173,13 +195,13 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ customers, onAddCu
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                  className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                 >
                   Enregistrer
                 </button>

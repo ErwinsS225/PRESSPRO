@@ -9,11 +9,7 @@ interface LoginModalProps {
   onLoginSuccess: (session: AuthSession) => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({
-  currentSession,
-  onClose,
-  onLoginSuccess,
-}) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ currentSession, onClose, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +47,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/75 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111]">
+      <div className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-800 dark:bg-[#111111] shadow-2xl shadow-neutral-950/25 dark:shadow-black/80 ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3.5">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
@@ -66,7 +62,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200">
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-neutral-400 hover:text-neutral-950 dark:text-neutral-500 dark:hover:text-neutral-200"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -94,13 +93,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   className={`group flex w-full flex-col rounded-md border p-3 text-left transition-colors ${
                     isCurrent
                       ? 'border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-800/60'
-                      : 'border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50/60 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900'
+                      : 'border-neutral-200 hover:border-neutral-950 hover:bg-neutral-900/[0.06] dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">{acc.label}</span>
-                      <span className="font-mono text-[10px] text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400">
+                      <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
+                        {acc.label}
+                      </span>
+                      <span className="font-mono text-[10px] text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400 ps-elevated-static">
                         {acc.role}
                       </span>
                     </div>
@@ -141,7 +142,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Manual Form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Adresse Email</label>
+            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              Adresse Email
+            </label>
             <input
               type="email"
               required
@@ -153,7 +156,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">Mot de passe</label>
+            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              Mot de passe
+            </label>
             <input
               type="password"
               required
@@ -168,14 +173,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               Fermer
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>

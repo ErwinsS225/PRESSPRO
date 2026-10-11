@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -11,7 +12,20 @@ type Store interface {
 	ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error)
 	SetPlan(ctx context.Context, tenantID, planCode, status, actorUserID, reason string) error
 	StartTrial(ctx context.Context, tenantID string, trialEndsAt time.Time) error
+
+	// Espace SuperAdmin (éditeur) : indicateurs consolidés et annuaire réel.
+	PlatformStats(ctx context.Context) (*PlatformStats, error)
+	ListTenantOverviews(ctx context.Context) ([]TenantOverview, error)
+	SetSubscriptionStatus(ctx context.Context, tenantID, status, actorUserID, reason string) error
+	// DeleteTenant retire définitivement un établissement et toutes ses données.
+	DeleteTenant(ctx context.Context, tenantID string) error
 }
+
+// ErrTenantSubscriptionNotFound : aucun abonnement pour cet établissement.
+var ErrTenantSubscriptionNotFound = errors.New("aucun abonnement pour cet établissement")
+
+// ErrTenantNotFound : aucun établissement ne correspond à l'identifiant fourni.
+var ErrTenantNotFound = errors.New("établissement introuvable")
 
 // EnsureTrial démarre l'essai 7 jours pour un nouveau tenant (DB ou mémoire).
 func (s *Service) EnsureTrial(ctx context.Context, tenantID string) error {

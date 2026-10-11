@@ -472,8 +472,10 @@ func (st *dbStore) UpdateOrderStatus(ctx context.Context, tenantID, orderID, new
 	return st.GetOrderByID(ctx, tenantID, orderID)
 }
 
-// AddPayment enregistre un encaissement, met à jour le solde (plafonné au total)
-// et le statut de paiement, le tout en transaction (verrou de ligne FOR UPDATE).
+// AddPayment enregistre un encaissement et met à jour le solde ainsi que le
+// statut de paiement, le tout en transaction (verrou de ligne FOR UPDATE).
+// Un encaissement supérieur au solde restant dû est refusé
+// (ErrPaymentExceedsDue) afin de préserver l'intégrité comptable.
 func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
 	if req.Amount <= 0 {
 		return nil, ErrInvalidPayment
@@ -496,8 +498,8 @@ func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req
 	}
 
 	newPaid := paid + req.Amount
-	if newPaid > total {
-		newPaid = total
+	if req.Amount > total-paid {
+		return nil, ErrPaymentExceedsDue
 	}
 	newStatus := PaymentStatusPartial
 	if newPaid >= total {

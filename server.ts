@@ -23,6 +23,10 @@ function startGoBackend() {
       env: {
         ...process.env,
         PORT: GO_PORT.toString(),
+        // L'API n'est pas un point d'entrée utilisateur : confinée à la boucle
+        // locale, elle est atteinte par le proxy ci-dessous et n'expose pas une
+        // seconde prévisualisation (qui ne servirait qu'un 404).
+        HOST: '127.0.0.1',
         SERVER_ENV: 'development',
       },
       stdio: ['ignore', 'inherit', 'inherit'],
@@ -107,7 +111,18 @@ async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        // La prévisualisation managée sert l'application derrière un domaine
+        // dynamique (https://<port>-<sandbox>.e2b.app). Sans autorisation, Vite
+        // répond « 403 Blocked request » et la page reste blanche.
+        // Restriction possible : VITE_ALLOWED_HOSTS=app.exemple.com,exemple.fr
+        allowedHosts: process.env.VITE_ALLOWED_HOSTS
+          ? process.env.VITE_ALLOWED_HOSTS.split(',')
+              .map((h) => h.trim())
+              .filter(Boolean)
+          : true,
+      },
       appType: 'spa',
     });
     // Routage SPA : servir index.html sur /verify/:tenant/:order (QR scannés).

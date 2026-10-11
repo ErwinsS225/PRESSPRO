@@ -22,12 +22,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pressing_os}
     ports:
       # Exposition locale sécurisée (127.0.0.1 uniquement, jamais exposé sur 0.0.0.0)
-      - "127.0.0.1:5432:5432"
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pressing_app} -d ${POSTGRES_DB:-pressing_os}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-pressing_app} -d ${POSTGRES_DB:-pressing_os}']
       interval: 5s
       timeout: 5s
       retries: 5

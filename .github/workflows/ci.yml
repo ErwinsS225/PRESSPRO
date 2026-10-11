@@ -1,0 +1,108 @@
+# ============================================================================
+# PressingOS — Intégration continue
+# Déclenché à chaque push et pull request :
+#   • backend  : build, go vet, tests unitaires (-race) puis tests d'intégration
+#                sur un PostgreSQL 16 réel (migrations appliquées) ;
+#   • frontend : ESLint + Prettier, vérification TypeScript, tests Vitest puis
+#                build de production Vite.
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend Go (tests + PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pressing_app
+          POSTGRES_PASSWORD: pressing_secret_ci
+          POSTGRES_DB: pressing_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pressing_app -d pressing_os"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://pressing_app:pressing_secret_ci@localhost:5432/pressing_os?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: backend/go.sum
+
+      - name: Dépendances
+        run: go mod download
+
+      - name: Analyse statique (go vet)
+        run: go vet ./...
+
+      - name: Tests unitaires (avec détection de courses)
+        run: go test -race -cover ./...
+
+      - name: Préparation du schéma PostgreSQL (migrations up)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          for f in $(ls migrations/*.up.sql | sort); do
+            echo "-- application de $f"
+            psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Tests d'intégration (PostgreSQL réel)
+        run: go test -tags=integration -v ./internal/catalog/... ./internal/auth/... ./internal/report/...
+
+      - name: Couverture des correctifs (index, quota, appartenance, éditeur)
+        run: >
+          go test -v
+          ./internal/ratelimit/... ./internal/httperr/...
+          ./internal/auth/... ./internal/billing/... ./internal/http/...
+          ./internal/branch/... ./internal/expense/... ./internal/report/...
+
+  frontend:
+    name: Frontend React (types + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Le projet dépend de vite@8 avec esbuild@0.25 en devDependency :
+      # la résolution stricte de npm échoue, --legacy-peer-deps est requis.
+      - name: Dépendances
+        run: npm ci --legacy-peer-deps
+
+      - name: Qualité du code (ESLint)
+        run: npm run lint:eslint
+
+      - name: Formatage (Prettier)
+        run: npm run format:check
+
+      - name: Vérification TypeScript
+        run: npm run lint
+
+      - name: Tests frontend (Vitest)
+        run: npm test
+
+      - name: Build de production
+        run: npm run build

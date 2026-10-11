@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +12,14 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("identifiants de connexion invalides")
-	ErrUserNotFound       = errors.New("utilisateur introuvable")
+	// ErrAccountInactive : identifiants valides mais compte désactivé par le
+	// gérant (l'accès aux données de l'établissement doit être refusé).
+	ErrAccountInactive = errors.New("compte désactivé — contactez le responsable de votre établissement")
+	// ErrUserNotFound : l'utilisateur n'existe pas OU n'appartient pas à
+	// l'établissement (même réponse : aucune fuite inter-tenant).
+	ErrUserNotFound = errors.New("utilisateur introuvable")
+	// ErrInvalidRole : rôle hors périmètre d'un pressing (ex. superadmin).
+	ErrInvalidRole        = errors.New("rôle invalide pour un compte d'établissement")
 	ErrEmailAlreadyExists = errors.New("cette adresse email est déjà utilisée")
 	ErrTenantNotFound     = errors.New("établissement introuvable")
 )
@@ -22,7 +30,32 @@ type Service struct {
 	mu         sync.RWMutex
 	users      map[string]*User          // clé: email normalisé
 	tenants    map[string]*TenantSummary // clé: tenant_id
+	demoIDs    map[string]struct{}       // comptes de démonstration embarqués (non persistés)
 	store      *dbStore                  // nil = mode mémoire ; non-nil = persistance PostgreSQL
+
+	// onTenantRegistered est appelé après chaque inscription réussie (onboarding
+	// du catalogue, grille tarifaire…). Injecté au démarrage par l'assemblage
+	// applicatif afin que le module auth n'ait aucune dépendance métier.
+	onTenantRegistered []func(ctx context.Context, tenantID string) error
+}
+
+// SetOnTenantRegistered enregistre un ou plusieurs hooks d'onboarding exécutés
+// après la création d'un établissement. Un échec de hook est journalisé mais
+// n'annule jamais l'inscription (l'établissement et son compte existent déjà).
+func (s *Service) SetOnTenantRegistered(hooks ...func(ctx context.Context, tenantID string) error) {
+	s.onTenantRegistered = append(s.onTenantRegistered, hooks...)
+}
+
+// runOnTenantRegistered exécute les hooks d'onboarding.
+func (s *Service) runOnTenantRegistered(ctx context.Context, tenantID string) {
+	for _, hook := range s.onTenantRegistered {
+		if hook == nil {
+			continue
+		}
+		if err := hook(ctx, tenantID); err != nil {
+			log.Printf("[auth] onboarding: échec de l'initialisation du tenant %s: %v", tenantID, err)
+		}
+	}
 }
 
 // NewService initialise le service avec des comptes de démonstration prêts à l'emploi
@@ -31,6 +64,7 @@ func NewService(jwtManager *JWTManager) *Service {
 		jwtManager: jwtManager,
 		users:      make(map[string]*User),
 		tenants:    make(map[string]*TenantSummary),
+		demoIDs:    make(map[string]struct{}),
 	}
 
 	// Établissement initial
@@ -89,7 +123,30 @@ func NewService(jwtManager *JWTManager) *Service {
 		UpdatedAt:    time.Now().UTC(),
 	}
 
+	// Registre explicite des comptes de démonstration embarqués. Ces identifiants
+	// n'existent pas en base : le contrôle d'appartenance les autorise nommément,
+	// tout autre identifiant inconnu étant refusé (fail-closed).
+	for _, u := range s.users {
+		s.demoIDs[u.ID] = struct{}{}
+	}
+
 	return s
+}
+
+// IsDemoAccount indique si l'identifiant appartient à l'un des comptes de
+// démonstration embarqués dans le binaire (vitrine / mode dégradé).
+//
+// Le contrôle d'appartenance s'appuie sur ce registre EXHAUSTIF : hors mode
+// dégradé, tout identifiant d'utilisateur qui n'est ni un compte de
+// démonstration ni un utilisateur présent en base est refusé (fail-closed).
+func (s *Service) IsDemoAccount(userID string) bool {
+	if s == nil || userID == "" {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.demoIDs[userID]
+	return ok
 }
 
 // Login vérifie l'email et le mot de passe et retourne un jeton JWT signé.
@@ -117,6 +174,11 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResp
 
 	if !CheckPassword(user.PasswordHash, password) {
 		return nil, ErrInvalidCredentials
+	}
+	// Un compte désactivé (« inactive ») ou bloqué (« locked ») ne doit plus
+	// obtenir de jeton, même avec un mot de passe correct.
+	if st := strings.ToLower(strings.TrimSpace(user.Status)); st != "" && st != "active" {
+		return nil, ErrAccountInactive
 	}
 
 	return s.buildLoginResponse(user)
@@ -154,6 +216,112 @@ func (s *Service) buildLoginResponse(user *User) (*LoginResponse, error) {
 		User:   *user,
 		Tenant: tenant,
 	}, nil
+}
+
+// rolesEtablissement liste les rôles qu'un pressing peut attribuer lui-même.
+func rolesEtablissement(role string) bool {
+	switch role {
+	case RoleOwner, RoleManager, RoleCashier, RoleOperator:
+		return true
+	}
+	return false
+}
+
+// validerNouveauCompte contrôle les champs d'un compte employé et normalise la
+// saisie (email en minuscules, trim des espaces).
+func validerNouveauCompte(req *CreateUserRequest) error {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.FullName = strings.TrimSpace(req.FullName)
+	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
+	req.Phone = strings.TrimSpace(req.Phone)
+
+	if req.FullName == "" {
+		return errors.New("le nom complet est obligatoire")
+	}
+	if !strings.Contains(req.Email, "@") || !strings.Contains(req.Email, ".") {
+		return errors.New("adresse email invalide")
+	}
+	if req.Role == "" {
+		req.Role = RoleOperator
+	}
+	if !rolesEtablissement(req.Role) {
+		return ErrInvalidRole
+	}
+	if len(req.Password) < 6 {
+		return errors.New("le mot de passe doit comporter au moins 6 caractères")
+	}
+	return nil
+}
+
+// CreateUser crée un compte employé rattaché à l'établissement.
+//
+// En mode persistant, la création est transactionnelle et pose les deux
+// appartenances exigées par le contrôle d'accès : tenant_memberships (rôle) et
+// branch_memberships (périmètre de l'établissement principal). Sans elles, le
+// compte pourrait se connecter mais serait refusé sur toutes les routes métier
+// (contrôle d'appartenance fail-closed).
+func (s *Service) CreateUser(ctx context.Context, tenantID string, req CreateUserRequest) (*User, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, errors.New("un contexte d'établissement est requis")
+	}
+	if err := validerNouveauCompte(&req); err != nil {
+		return nil, err
+	}
+
+	if s.store != nil {
+		return s.store.CreateUser(ctx, tenantID, req)
+	}
+
+	// Repli mémoire (mode dégradé sans base de données).
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.users[req.Email]; exists {
+		return nil, ErrEmailAlreadyExists
+	}
+	hash, err := HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	user := &User{
+		ID: fmt.Sprintf("usr-%d", now.UnixNano()), TenantID: tenantID, Email: req.Email,
+		PasswordHash: hash, FullName: req.FullName, Phone: req.Phone, Role: req.Role,
+		Status: "active", CreatedAt: now, UpdatedAt: now,
+	}
+	s.users[req.Email] = user
+	return user, nil
+}
+
+// SetUserStatus active ou désactive un compte employé de l'établissement.
+// La modification porte aussi sur l'appartenance : la désactivation prend effet
+// immédiatement sur le contrôle d'accès (fail-closed), y compris pour un jeton
+// déjà émis.
+func (s *Service) SetUserStatus(ctx context.Context, tenantID, userID, status string) (*User, error) {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case "active", "inactive", "locked":
+	default:
+		return nil, errors.New("statut de compte invalide (active, inactive ou locked)")
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, errors.New("un contexte d'établissement est requis")
+	}
+
+	if s.store != nil {
+		return s.store.SetUserStatus(ctx, tenantID, userID, status)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, u := range s.users {
+		if u.ID == userID && u.TenantID == tenantID {
+			u.Status = status
+			u.UpdatedAt = time.Now().UTC()
+			cp := *u
+			return &cp, nil
+		}
+	}
+	return nil, ErrUserNotFound
 }
 
 // GetUsersByTenant retourne la liste des utilisateurs pour un tenant donné.
@@ -232,6 +400,8 @@ func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest)
 		if terr != nil {
 			return nil, fmt.Errorf("impossible de générer le jeton: %w", terr)
 		}
+		// Onboarding du nouvel établissement (catalogue, grille tarifaire…).
+		s.runOnTenantRegistered(ctx, tenant.ID)
 		return &LoginResponse{Token: token, User: *user, Tenant: tenant}, nil
 	}
 
@@ -279,6 +449,9 @@ func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest)
 	if err != nil {
 		return nil, err
 	}
+
+	// Onboarding du nouvel établissement (mode mémoire).
+	s.runOnTenantRegistered(ctx, tenant.ID)
 
 	return &LoginResponse{
 		Token:  token,

@@ -2,22 +2,26 @@ package pricelist
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"pressing-os/backend/internal/auth"
+	"pressing-os/backend/internal/httperr"
 )
 
 // Handler gère les requêtes HTTP sur les grilles tarifaires versionnées.
 type Handler struct {
 	service *Service
+	logger  *log.Logger
 }
 
 // NewHandler initialise le gestionnaire HTTP des grilles tarifaires.
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, logger: log.Default()}
 }
 
 func (h *Handler) writeJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -33,7 +37,7 @@ func (h *Handler) writeError(w http.ResponseWriter, status int, msg string) {
 func (h *Handler) tenantFromContext(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tenantID := auth.GetTenantIDFromContext(r.Context())
 	if tenantID == "" {
-		h.writeError(w, http.StatusUnauthorized, "contexte d'établissement manquant")
+		h.writeError(w, http.StatusForbidden, "un contexte d'établissement est requis pour cette opération")
 		return "", false
 	}
 	return tenantID, true
@@ -47,7 +51,7 @@ func (h *Handler) ListPriceLists(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.service.GetPriceLists(r.Context(), tenantID)
 	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		httperr.Internal(w, h.logger, "pricelist", err, "impossible de traiter la grille tarifaire")
 		return
 	}
 	if items == nil {
@@ -69,7 +73,7 @@ func (h *Handler) GetPriceList(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, http.StatusNotFound, "grille tarifaire introuvable")
 			return
 		}
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		httperr.Internal(w, h.logger, "pricelist", err, "impossible de traiter la grille tarifaire")
 		return
 	}
 	h.writeJSON(w, http.StatusOK, detail)
@@ -92,7 +96,12 @@ func (h *Handler) CreatePriceList(w http.ResponseWriter, r *http.Request) {
 	}
 	pl, err := h.service.CreatePriceList(r.Context(), tenantID, req)
 	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		if errors.Is(err, ErrNameExists) {
+			// Conflit métier : le nom de grille est déjà pris pour ce pressing.
+			h.writeError(w, http.StatusConflict, ErrNameExists.Error())
+			return
+		}
+		httperr.Internal(w, h.logger, "pricelist", err, "impossible de traiter la grille tarifaire")
 		return
 	}
 	h.writeJSON(w, http.StatusCreated, pl)
@@ -118,7 +127,7 @@ func (h *Handler) CreateVersion(w http.ResponseWriter, r *http.Request) {
 			h.writeError(w, http.StatusNotFound, "grille tarifaire introuvable")
 			return
 		}
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		httperr.Internal(w, h.logger, "pricelist", err, "impossible de traiter la grille tarifaire")
 		return
 	}
 	h.writeJSON(w, http.StatusCreated, v)

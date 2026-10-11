@@ -13,29 +13,35 @@ import (
 // Assure l'isolation multi-tenant et la persistance PostgreSQL
 // Structure thread-safe pour accès concurrents
 type Service struct {
-	mu       sync.RWMutex              // Mutex RW pour protection de la map partagée
-	logger   *log.Logger               // Logger structuré pour débogage et traçabilité
-	services map[string]*ServiceItem   // Map des services en mémoire (fallback si store PostgreSQL non utilisé)
-	store    Store                     // Interface de persistance PostgreSQL
-	sequence int                       // Séquence pour générer des ID uniques par tenant
+	mu           sync.RWMutex            // Mutex RW pour protection de la map partagée
+	logger       *log.Logger             // Logger structuré pour débogage et traçabilité
+	services     map[string]*ServiceItem // Map des services en mémoire (fallback si store PostgreSQL non utilisé)
+	store        Store                   // Interface de persistance PostgreSQL
+	sequence     int                     // Séquence pour générer des ID uniques par tenant
+	tenantSeeded map[string]struct{}     // Tenants déjà initialisés avec la grille par défaut
 }
 
-// NewService initialise le service catalogue avec les tarifs par défaut
-// Configure le logger thread-safe, initialise la séquence d'ID et les données du tenant par défaut
-func NewService() *Service {
-	s := &Service{
-		services: make(map[string]*ServiceItem),
-		logger:   log.Default(),
-		sequence: 1,
+// newService crée un Service prêt à l'emploi (logger, index mémoire, séquence).
+// Toute construction d'un Service DOIT passer par cette fabrique ou par
+// NewService()/NewStore() : un Service{} nu laisserait le logger à nil et
+// provoquerait une panique à la première lecture du catalogue.
+func newService() *Service {
+	return &Service{
+		services:     make(map[string]*ServiceItem),
+		logger:       log.Default(),
+		sequence:     1,
+		tenantSeeded: make(map[string]struct{}),
 	}
+}
 
-	defaultTenantID := "a0000000-0000-0000-0000-000000000001"
-	s.logger.Printf("[catalog] Service initialisé tenant par défaut: %s (séquence: %d)", defaultTenantID, s.sequence)
-	seedItems := []ServiceItem{
+// defaultSeedItems retourne la grille tarifaire par défaut du produit,
+// rattachée au tenant fourni (copie indépendante à chaque appel).
+func defaultSeedItems(tenantID string) []ServiceItem {
+	return []ServiceItem{
 		// A. VÊTEMENTS DU QUOTIDIEN (Priorité 1)
 		{
 			ID:                 "srv-101",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Chemise / chemisier (Lavage + repassage)",
 			Article:            "Chemise / chemisier",
 			Treatment:          "Lavage + repassage",
@@ -52,7 +58,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-102",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Chemise / chemisier (Repassage seul)",
 			Article:            "Chemise / chemisier",
 			Treatment:          "Repassage seul",
@@ -69,7 +75,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-103",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "T-shirt / polo (Lavage + pliage)",
 			Article:            "T-shirt / polo",
 			Treatment:          "Lavage + pliage",
@@ -86,7 +92,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-104",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "T-shirt / polo (Lavage + repassage)",
 			Article:            "T-shirt / polo",
 			Treatment:          "Lavage + repassage",
@@ -103,7 +109,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-105",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Pantalon / jean (Lavage + repassage)",
 			Article:            "Pantalon / jean",
 			Treatment:          "Lavage + repassage",
@@ -120,7 +126,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-106",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Jupe / robe simple (Lavage + repassage)",
 			Article:            "Jupe / robe simple",
 			Treatment:          "Lavage + repassage",
@@ -137,7 +143,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-107",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Short / bermuda (Lavage + repassage)",
 			Article:            "Short / bermuda",
 			Treatment:          "Lavage + repassage",
@@ -154,7 +160,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-108",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Veste simple / costume (Nettoyage à sec spécialisé)",
 			Article:            "Veste simple",
 			Treatment:          "Nettoyage à sec spécialisé",
@@ -171,7 +177,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-109",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Costume deux pièces (Nettoyage à sec + finition)",
 			Article:            "Costume deux pièces",
 			Treatment:          "Nettoyage à sec adapté, finition",
@@ -188,7 +194,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-110",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Manteau / veste lourde (Nettoyage spécialisé)",
 			Article:            "Manteau / veste lourde",
 			Treatment:          "Nettoyage spécialisé",
@@ -205,7 +211,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-111",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Uniforme scolaire (Lavage + repassage)",
 			Article:            "Uniforme scolaire",
 			Treatment:          "Lavage + repassage",
@@ -222,7 +228,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-112",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Tenue professionnelle / Blouse (Lavage + repassage)",
 			Article:            "Tenue professionnelle",
 			Treatment:          "Lavage, repassage, finition",
@@ -241,7 +247,7 @@ func NewService() *Service {
 		// B. VÊTEMENTS TRADITIONNELS ET CÉRÉMONIELS (Priorité 1 - Côte d'Ivoire)
 		{
 			ID:                 "srv-201",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Boubou simple (Lavage et repassage)",
 			Article:            "Boubou simple",
 			Treatment:          "Lavage et repassage",
@@ -258,7 +264,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-202",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Boubou brodé (Traitement adapté aux broderies)",
 			Article:            "Boubou brodé",
 			Treatment:          "Traitement adapté aux broderies",
@@ -275,7 +281,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-203",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Ensemble en bazin (Entretien et finition brillance)",
 			Article:            "Ensemble en bazin",
 			Treatment:          "Entretien et finition selon le tissu",
@@ -292,7 +298,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-204",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Tenue en dentelle (Traitement délicat)",
 			Article:            "Tenue en dentelle",
 			Treatment:          "Traitement délicat",
@@ -308,7 +314,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-205",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Tunique ou vêtement brodé (Protection des ornements)",
 			Article:            "Tunique ou vêtement brodé",
 			Treatment:          "Protection des ornements",
@@ -325,7 +331,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-206",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Tenue de cérémonie (Contrôle d'état et mise en valeur)",
 			Article:            "Tenue de cérémonie",
 			Treatment:          "Contrôle de l’état du vêtement",
@@ -342,7 +348,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-207",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Robe de soirée (Nettoyage spécialisé)",
 			Article:            "Robe de soirée",
 			Treatment:          "Nettoyage spécialisé",
@@ -359,7 +365,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-208",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Robe de mariée (Prestige & Finition sur devis)",
 			Article:           "Robe de mariée",
 			Treatment:         "Devis éventuel selon la complexité",
@@ -375,7 +381,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-209",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Voile et accessoires de mariage (Traitement délicat)",
 			Article:           "Voile et accessoires de mariage",
 			Treatment:         "Traitement délicat",
@@ -392,7 +398,7 @@ func NewService() *Service {
 		// C. LINGE DE MAISON
 		{
 			ID:                 "srv-301",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Drap simple ou double (Standard)",
 			Article:            "Drap simple ou double",
 			Treatment:          "Lavage grand volume + calandrage",
@@ -409,7 +415,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-302",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Taie d'oreiller (Standard)",
 			Article:            "Taie d'oreiller",
 			Treatment:          "Lavage + repassage",
@@ -426,7 +432,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-303",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Housse de couette (Standard / Premium)",
 			Article:            "Housse de couette",
 			Treatment:          "Lavage assouplissant + repassage calandre",
@@ -443,7 +449,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-304",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Couette / couverture (Moderne / Premium)",
 			Article:            "Couette / couverture",
 			Treatment:          "Désinfection thermique grand tambour",
@@ -460,7 +466,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-305",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Serviette de toilette (Lavage & séchage moelleux)",
 			Article:            "Serviette de toilette",
 			Treatment:          "Lavage haute température + assouplissant",
@@ -477,7 +483,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-306",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Nappe de table (Standard / Premium)",
 			Article:            "Nappe de table",
 			Treatment:          "Détachage gras/vin + repassage impeccable",
@@ -494,7 +500,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-307",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Rideau (Panneau ou pièce)",
 			Article:           "Rideau",
 			Treatment:         "Dépoussiérage + défroissage vapeur",
@@ -509,7 +515,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-308",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Tapis / moquette (Nettoyage mécanique au m²)",
 			Article:           "Tapis / moquette",
 			Treatment:         "Brossage rotatif + injection/extraction",
@@ -525,7 +531,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-309",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Housse de canapé (Détachage + nettoyage)",
 			Article:           "Housse de canapé",
 			Treatment:         "Nettoyage haute performance",
@@ -540,7 +546,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-310",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Couverture volumineuse (Grand format)",
 			Article:           "Couverture volumineuse",
 			Treatment:         "Lavage en tambour industriel 25kg",
@@ -557,7 +563,7 @@ func NewService() *Service {
 		// D. SERVICES COMPLÉMENTAIRES MODERNES (Options de commande)
 		{
 			ID:                 "srv-401",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Lavage et pliage au kilogramme (Linge au poids)",
 			Article:            "Linge courant au poids",
 			Treatment:          "Lavage et pliage",
@@ -574,7 +580,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                 "srv-402",
-			TenantID:           defaultTenantID,
+			TenantID:           tenantID,
 			Name:               "Repassage seul au kilogramme",
 			Article:            "Linge lavé au poids",
 			Treatment:          "Repassage seul",
@@ -591,7 +597,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-403",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Détachage renforcé (Option par article)",
 			Article:           "Tache difficile (vin, herbe, graisse, rouille)",
 			Treatment:         "Détachage chimique ciblé",
@@ -606,7 +612,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-404",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Repassage avec apprêt / amidonnage",
 			Article:        "Chemise, col, boubou",
 			Treatment:      "Apprêt amidonné",
@@ -620,7 +626,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-405",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Traitement anti-odeurs & assainissant",
 			Article:        "Tout vêtement ou linge",
 			Treatment:      "Traitement anti-odeurs",
@@ -634,7 +640,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-406",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Traitement imperméabilisant déperlant",
 			Article:        "Veste, manteau, coupe-vent",
 			Treatment:      "Traitement imperméabilisant",
@@ -648,7 +654,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-407",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Mise sur cintre métallique avec film",
 			Article:        "Chemise, pantalon, veste",
 			Treatment:      "Mise sur cintre",
@@ -662,7 +668,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-408",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Emballage individuel sous housse zippée",
 			Article:        "Costumes, robes, boubous",
 			Treatment:      "Emballage individuel luxe",
@@ -676,7 +682,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-409",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Collecte & Livraison à domicile (Abidjan)",
 			Article:           "Courses pressing",
 			Treatment:         "Collecte et livraison",
@@ -693,7 +699,7 @@ func NewService() *Service {
 		// E. PRESTATIONS SPÉCIALISÉES ET LUXE
 		{
 			ID:                "srv-501",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage de vêtements de créateurs (Soins prestige)",
 			Article:           "Vêtements de créateurs / haute couture",
 			Treatment:         "Nettoyage de vêtements de créateurs",
@@ -709,7 +715,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-502",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage de soie et textiles délicats",
 			Article:           "Soie, mousseline, cachemire",
 			Treatment:         "Nettoyage de soie et textiles délicats",
@@ -724,7 +730,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-503",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage de cuir et daim (Veste, blouson)",
 			Article:           "Veste cuir, blouson daim",
 			Treatment:         "Nettoyage de cuir et daim",
@@ -740,7 +746,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-504",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage & Rénovation de baskets (Sneakers Care)",
 			Article:           "Baskets, sneakers toutes marques",
 			Treatment:         "Nettoyage de baskets",
@@ -755,7 +761,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-505",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage & Glaçage de chaussures en cuir",
 			Article:           "Chaussures de ville, richelieus, derbies",
 			Treatment:         "Nettoyage de chaussures en cuir",
@@ -770,7 +776,7 @@ func NewService() *Service {
 		},
 		{
 			ID:                "srv-506",
-			TenantID:          defaultTenantID,
+			TenantID:          tenantID,
 			Name:              "Nettoyage & Rénovation de sacs à main",
 			Article:           "Sac à main cuir, toile ou luxe",
 			Treatment:         "Nettoyage de sacs à main",
@@ -785,7 +791,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-507",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Nettoyage & Désinfection de valises",
 			Article:        "Valise cabine ou grand format",
 			Treatment:      "Nettoyage de valises",
@@ -799,7 +805,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-508",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Nettoyage de tapis précieux (Soie d'Orient, Laine nouée)",
 			Article:        "Tapis d'Orient, tapis d'art",
 			Treatment:      "Nettoyage de tapis précieux",
@@ -815,7 +821,7 @@ func NewService() *Service {
 		},
 		{
 			ID:             "srv-509",
-			TenantID:       defaultTenantID,
+			TenantID:       tenantID,
 			Name:           "Nettoyage de matelas et fauteuils à domicile",
 			Article:        "Matelas 2 places, fauteuil de salon",
 			Treatment:      "Nettoyage de matelas et fauteuils",
@@ -831,13 +837,16 @@ func NewService() *Service {
 		},
 	}
 
-	for _, it := range seedItems {
-		itemCopy := it
-		itemCopy.CreatedAt = time.Now().Add(-48 * time.Hour)
-		itemCopy.UpdatedAt = time.Now().Add(-48 * time.Hour)
-		s.services[it.ID] = &itemCopy
-	}
+}
 
+// NewService initialise le service catalogue avec les tarifs par défaut
+// du tenant de démonstration (mode mémoire).
+// NewService initialise un catalogue vide. La grille tarifaire par défaut du
+// produit n'est copiée que pour un établissement réellement inscrit
+// (SeedTenantDefaults) : aucun catalogue d'entreprise fictive n'est embarqué.
+func NewService() *Service {
+	s := newService()
+	s.logger.Printf("[catalog] Service initialisé (séquence: %d, catalogue vide)", s.sequence)
 	return s
 }
 
@@ -957,14 +966,73 @@ func (s *Service) validateTenantExistence(tenantID string) bool {
 	return false
 }
 
-// seedDefaultServices pour un nouveau tenant (copie des tarifs par défaut)
-func (s *Service) seedDefaultServices(tenantID string) {
+// seedDefaultServices copie la grille tarifaire par défaut pour un nouveau
+// tenant (création à la volée en mode mémoire). Les identifiants sont préfixés
+// par un fragment du tenant afin qu'ils soient uniques dans l'index mémoire
+// partagé : deux établissements disposent ainsi de prestations réellement
+// distinctes et attribuables à leur propriétaire.
+func (s *Service) seedDefaultServices(tenantID string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.logger.Printf("[catalog] Nouveau tenant initialisé: %s (séquence: %d)", tenantID, s.sequence)
-	// Copie des services par défaut avec le nouveau tenantID
-	// ... logique de seed similaire à NewService()
+	if _, exists := s.tenantSeeded[tenantID]; exists {
+		return 0 // déjà initialisé (double vérification sous verrou)
+	}
+
+	prefix := tenantIDSuffix(tenantID)
+	seeded := 0
+	for _, it := range defaultSeedItems(tenantID) {
+		item := it
+		item.ID = prefix + "-" + it.ID
+		item.CreatedAt = time.Now().UTC()
+		item.UpdatedAt = item.CreatedAt
+		s.services[item.ID] = &item
+		seeded++
+	}
+	s.tenantSeeded[tenantID] = struct{}{}
+
+	s.logger.Printf("[catalog] Nouveau tenant initialisé: %s (%d prestations par défaut)", tenantID, seeded)
+	return seeded
+}
+
+// SeedTenantDefaults initialise la grille tarifaire par défaut d'un nouvel
+// établissement (appelé après l'inscription d'un pressing). L'opération est
+// idempotente : un tenant disposant déjà de prestations n'est jamais modifié.
+func (s *Service) SeedTenantDefaults(ctx context.Context, tenantID string) (int, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return 0, ErrServiceNotFound
+	}
+	items := defaultSeedItems(tenantID)
+	if s.store != nil {
+		inserted, err := s.store.SeedIfEmpty(ctx, tenantID, items)
+		if err != nil {
+			return 0, err
+		}
+		if inserted > 0 {
+			s.logger.Printf("[catalog] Grille tarifaire par défaut créée pour le tenant %s (%d prestations)", tenantID, inserted)
+		}
+		return inserted, nil
+	}
+	seeded := s.seedDefaultServices(tenantID)
+	return seeded, nil
+}
+
+// tenantIDSuffix extrait un fragment stable et sûr du tenant pour préfixer les
+// identifiants mémoire (les 8 premiers caractères alphanumériques).
+func tenantIDSuffix(tenantID string) string {
+	clean := make([]rune, 0, 8)
+	for _, r := range tenantID {
+		if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			clean = append(clean, r)
+		}
+		if len(clean) == 8 {
+			break
+		}
+	}
+	if len(clean) == 0 {
+		return "t"
+	}
+	return string(clean)
 }
 
 // getSafeService vérifie l'existence et l'isolation d'un service
@@ -984,7 +1052,7 @@ func (s *Service) getSafeService(id, tenantID string) (*ServiceItem, error) {
 // Supporte le filtrage par catégorie et la recherche textuelle
 func (s *Service) GetServices(ctx context.Context, tenantID string, categoryFilter, search string) ([]*ServiceItem, error) {
 	s.logger.Printf("[catalog] Récupération services: tenant=%s, catégorie=%s, recherche='%s'", tenantID, categoryFilter, search)
-	
+
 	if s.store != nil {
 		s.logger.Printf("[catalog] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
 		return s.store.GetServices(ctx, tenantID, categoryFilter, search)
@@ -1037,7 +1105,7 @@ func (s *Service) GetServices(ctx context.Context, tenantID string, categoryFilt
 // Utilise getSafeService pour vérifications de sécurité et copie de données
 func (s *Service) GetServiceByID(ctx context.Context, tenantID, id string) (*ServiceItem, error) {
 	s.logger.Printf("[catalog] Consultation service: id=%s tenant=%s", id, tenantID)
-	
+
 	if s.store != nil {
 		s.logger.Printf("[catalog] Délégation récupération à PostgreSQL, tenant=%s", tenantID)
 		return s.store.GetService(ctx, tenantID, id)
