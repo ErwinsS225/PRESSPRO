@@ -181,3 +181,37 @@ func TestRequireActiveSubscription(t *testing.T) {
 		t.Errorf("superadmin (inspection) : attendu 200, obtenu %d", code)
 	}
 }
+
+// TestRequireFeatureQuota_Users vérifie le plafond de comptes employés
+// (users.max : 2 en formule gratuite, 5 en PRO, 15 en BUSINESS).
+func TestRequireFeatureQuota_Users(t *testing.T) {
+	const tenant = "tenant-quota-users-test"
+
+	billingSvc := billing.NewService()
+	billingSvc.SetUsageCounter(fixedCounter{users: 2}) // 2 comptes déjà actifs (plafond gratuit)
+
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusCreated) })
+	garde := apphttp.RequireFeatureQuota(billingSvc, billing.FeatureUsersMax)
+
+	appel := func(role, tenantID string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/users", nil)
+		claims := &auth.UserClaims{UserID: "usr-gerant-001", TenantID: tenantID, Role: role}
+		req = req.WithContext(auth.WithUserClaims(req.Context(), claims))
+		rec := httptest.NewRecorder()
+		garde(ok).ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := appel(auth.RoleOwner, tenant); code != http.StatusPaymentRequired {
+		t.Errorf("plafond gratuit atteint (2 comptes) : attendu 402, obtenu %d", code)
+	}
+	if code := appel(auth.RoleSuperAdmin, tenant); code != http.StatusCreated {
+		t.Errorf("superadmin : attendu 201, obtenu %d", code)
+	}
+
+	// Sous le plafond : création autorisée.
+	billingSvc.SetUsageCounter(fixedCounter{users: 1})
+	if code := appel(auth.RoleOwner, tenant); code != http.StatusCreated {
+		t.Errorf("sous le plafond : attendu 201, obtenu %d", code)
+	}
+}

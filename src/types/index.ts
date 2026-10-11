@@ -4,7 +4,8 @@ export type ViewMode =
   | "customers"
   | "services"
   | "superadmin"
-  | "billing";
+  | "billing"
+  | "team";
 
 export type UserRole =
   | "superadmin"

@@ -48,6 +48,17 @@ type LoginResponse struct {
 	Tenant *TenantSummary `json:"tenant,omitempty"`
 }
 
+// CreateUserRequest formulaire de création d'un compte employé du pressing.
+// Le rôle « superadmin » est volontairement hors de portée d'un pressing :
+// il n'est attribuable que par l'éditeur de la plateforme.
+type CreateUserRequest struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Role     string `json:"role"`
+	Password string `json:"password"`
+}
+
 // RegisterTenantRequest formulaire d'inscription d'un nouveau pressing (Onboarding)
 type RegisterTenantRequest struct {
 	TenantName    string `json:"tenant_name"`

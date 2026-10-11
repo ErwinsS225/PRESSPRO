@@ -92,7 +92,8 @@ func NewRouter(deps ServerDependencies) http.Handler {
 					authRouter.Group(func(protected chi.Router) {
 						protected.Use(AuthenticatorMiddleware(deps.JWTManager))
 						protected.Get("/me", deps.AuthHandler.Me)
-						protected.Get("/users", deps.AuthHandler.ListUsers)
+						// La liste des utilisateurs est servie par le module Équipe
+						// (/api/v1/users), réservé aux gérants et plafonné par la formule.
 					})
 				}
 			})
@@ -209,7 +210,19 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						})
 					}
 
-				}) // fin des modules métier
+					// Module Équipe : comptes employés de l'établissement, plafonnés
+				// par la formule (users.max : 2 en gratuit, 5 en PRO, 15 en BUSINESS).
+				if deps.AuthHandler != nil {
+					business.Group(func(team chi.Router) {
+						team.Use(RequireRole(auth.RoleOwner, auth.RoleManager, auth.RoleSuperAdmin))
+						team.Get("/users", deps.AuthHandler.ListUsers)
+						team.With(RequireFeatureQuota(deps.Billing, billing.FeatureUsersMax)).
+							Post("/users", deps.AuthHandler.CreateUser)
+						team.Patch("/users/{id}/status", deps.AuthHandler.SetUserStatus)
+					})
+				}
+
+			}) // fin des modules métier
 
 				// Droits effectifs du pressing (moteur d'abonnement centralisé).
 				if deps.BillingHandler != nil {

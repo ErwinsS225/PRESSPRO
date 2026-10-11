@@ -127,20 +127,50 @@ Le mode vitrine est préservé sans faille générique : les comptes embarqués 
 
 **Compteurs** : 50 tests Go (+ 1 test d'intégration PostgreSQL), 14 tests frontend, 34 + 17 + 14 = **65 assertions live** vertes.
 
-## 6. Reste à faire (backlog priorisé)
+## 6. Session 3 — module Équipe : comptes utilisateurs gardés par la formule (`users.max`)
+
+### Endpoints livrés
+| Méthode | Route | Rôle | Comportement |
+|---|---|---|---|
+| GET | `/api/v1/users` | owner, manager | Liste des comptes de l'établissement (isolation par le `tenant_id` du jeton). |
+| POST | `/api/v1/users` | owner, manager | Création d'un employé **transactionnelle** : `users` + `tenant_memberships` + `branch_memberships` (établissement principal). Gardée par `RequireFeatureQuota("users.max")`. |
+| PATCH | `/api/v1/users/{id}/status` | owner, manager | Activation / désactivation, répercutée sur l'appartenance dans la même transaction. |
+
+Le module est placé dans le groupe **métier** : un abonnement suspendu le gèle (`402`), alors que `/tenant/current` et `/me/entitlements` restent consultables. L'ancienne route `GET /api/v1/auth/users` (accessible à tout compte authentifié) est retirée au profit de la route gardée par rôle.
+
+### Décisions structurantes
+- **Fail-closed sur l'appartenance** : la désactivation écrit `tenant_memberships.status = 'suspended'` ; un jeton déjà émis perd donc l'accès aux routes métier (`403`) en plus du refus de connexion (`403` « compte désactivé »).
+- **Le quota compte tous les comptes du pressing, propriétaire inclus** : formule gratuite 2, PRO 5, BUSINESS 15 (un établissement en essai dispose du niveau BUSINESS). Dépassement → `402` avec `feature: users.max` et `usage`.
+- **Rôles attribuables** : `manager`, `cashier`, `operator` uniquement — le rôle `superadmin` de l'éditeur est refusé (`400`) ; le statut est validé (`active`/`inactive`).
+- **Protections d'interface et d'API** : impossible de modifier son propre statut (`400`) ; les comptes `owner`/`superadmin` ne sont pas désactivables depuis le module ; email normalisé en minuscules, doublon → `409`.
+- **Onboarding cohérent** : un employé créé sans appartenance serait refusé partout par le contrôle d'appartenance ; c'est pourquoi les trois écritures sont dans une seule transaction.
+
+### Interface Équipe (frontend)
+- `src/lib/teamApi.ts` : client typé (liste, création, changement de statut) qui distingue le refus de plafond (`402`) des autres erreurs.
+- `src/components/TeamView.tsx` : liste des comptes (rôle, statut, « vous »), création dans une fenêtre modale, bouton désactiver/réactiver, rappel du plafond et message dédié « passez à une formule supérieure » sur `402`.
+- Entrée **Équipe** dans la barre latérale, visible pour `owner`, `manager` et `superadmin`.
+
+### Preuves d'exécution
+- **24 assertions live** (`/tmp/verif_equipe.py`, pile réelle 3000 → 8085 → PostgreSQL 16) : inscription d'essai, liste initiale, création d'un caissier (email normalisé), connexion de l'employé, accès aux commandes, `403` pour un caissier sur le module, `409` doublon, `400` rôle superadmin / mot de passe court / email invalide, `404` identifiant inconnu, `400` auto-désactivation, plafond `402` (`feature: users.max`, total = limite, propriétaire inclus), désactivation → connexion `403` + **jeton antérieur fermé sur les routes métier**, réactivation → accès rétabli, `401` sans jeton.
+- **Tests Go** : `internal/auth/users_test.go` (validation des créations, rôle superadmin refusé, désactivation/reconnexion, isolation inter-établissement), `internal/auth/persist_integration_test.go` (les deux appartenances sont réellement écrites en base ; la désactivation les suspend), `TestRequireFeatureQuota_Users` (402 au plafond, superadmin dispensé).
+- **Tests frontend** : `src/lib/teamApi.test.ts` (10) et `src/components/TeamView.test.tsx` (3) → **27 tests Vitest** au total.
+- **Non-régression** : 14/14 (fail-closed & quotas), 17/17 (SuperAdmin), 34/34 (E2E) → **89 assertions live** vertes, aucun test rouge.
+
+**Compteurs** : 54 tests Go (+ 2 tests d'intégration PostgreSQL), 27 tests frontend ; bundle applicatif 263 kB (l'écran Équipe ajoute 13 kB), aucun avertissement de taille.
+
+## 7. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
 | 🟡 Moyenne | ESLint/Prettier côté frontend ; couverture Vitest étendue aux vues métier |
 | 🟠 Haute | Modules payants restants : `branches.multi_site` (multi-établissements), `reports.*`, `expenses.*` — routes à créer puis garder avec `RequireFeature`/`RequireFeatureQuota` |
 | 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
-| 🟡 Moyenne | Gestion des branches (établissements) et des utilisateurs dans l'interface (API d'appartenance prête) |
-| 🟡 Moyenne | Gestion des établissements (branches) et des utilisateurs dans l'interface |
+| 🟡 Moyenne | Gestion des établissements (branches / multi-sites) dans l'interface (`branches.multi_site`) |
 | 🟢 Basse | Notifications WhatsApp/SMS, rapports avancés, impression ESC/POS native, mode hors-ligne |
 
 ---
 
-## 7. Vérification finale de bout en bout — 34/34 ✅
+## 8. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -154,7 +184,7 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 8. Comment reproduire les vérifications
+## 9. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique
@@ -162,7 +192,10 @@ cd backend && go vet ./... && go test ./...
 
 # Test d'intégration sur PostgreSQL 16 (migrations appliquées)
 TEST_DATABASE_URL="postgres://pressing_app:...@localhost:5432/pressing_os?sslmode=disable" \
-  go test -tags=integration -v ./internal/catalog/...
+  go test -tags=integration -v ./internal/catalog/... ./internal/auth/...
+
+# Module Équipe de bout en bout (inscription, création, plafond, désactivation)
+python3 /tmp/verif_equipe.py
 
 # Frontend
 npm ci --legacy-peer-deps && npm run lint && npm run build

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"pressing-os/backend/internal/ratelimit"
 )
 
@@ -104,6 +106,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "trop de tentatives de connexion — réessayez dans " + strconv.Itoa(seconds) + " secondes",
 			})
+			return
+		}
+		if errors.Is(err, ErrAccountInactive) {
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": ErrAccountInactive.Error()})
 			return
 		}
 		if !errors.Is(err, ErrInvalidCredentials) {
@@ -204,6 +211,88 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(users)
+}
+
+// CreateUser traite POST /api/v1/users — création d'un compte employé.
+// Le garde-fou de quota (users.max) est appliqué en amont par le routeur.
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	claims := GetUserFromContext(r.Context())
+	if claims == nil || claims.TenantID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
+		return
+	}
+
+	var req CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "format de requête JSON invalide"})
+		return
+	}
+
+	user, err := h.service.CreateUser(r.Context(), claims.TenantID, req)
+	if err != nil {
+		status := http.StatusBadRequest
+		switch {
+		case errors.Is(err, ErrEmailAlreadyExists):
+			status = http.StatusConflict
+		case errors.Is(err, ErrInvalidRole), errors.Is(err, ErrUserNotFound):
+			status = http.StatusBadRequest
+		}
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(user)
+}
+
+// SetUserStatus traite PATCH /api/v1/users/{id}/status — désactivation ou
+// réactivation d'un compte employé de l'établissement.
+func (h *Handler) SetUserStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	claims := GetUserFromContext(r.Context())
+	if claims == nil || claims.TenantID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "format de requête JSON invalide"})
+		return
+	}
+
+	userID := chi.URLParam(r, "id")
+	// Un utilisateur ne peut pas se désactiver lui-même : le pressing se
+	// retrouverait sans personne pour administrer les comptes.
+	if userID == claims.UserID {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "vous ne pouvez pas modifier le statut de votre propre compte"})
+		return
+	}
+
+	user, err := h.service.SetUserStatus(r.Context(), claims.TenantID, userID, req.Status)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, ErrUserNotFound) {
+			status = http.StatusNotFound
+		}
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // GetUserFromContext extrait les claims de l'utilisateur injectés par le middleware

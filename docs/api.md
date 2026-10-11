@@ -8,7 +8,7 @@ Documentation complète des endpoints HTTP du serveur Go Chi, incluant l'authent
 Toutes les erreurs respectent le format `{"error": "message"}` :
 - **messages métier** (validation, transition interdite, plafond atteint) : lisibles et destinés à l'interface ;
 - **erreurs techniques** (SQL, réseau, transaction) : journalisées côté serveur, **jamais** exposées au client (réponse 500 générique) ;
-- **codes** : `400` validation · `401` authentification · `402` quota/plan · `403` rôle ou isolation · `404` ressource inconnue **ou appartenant à un autre établissement** (l'existence n'est jamais révélée) · `409` conflit (email déjà utilisé) · `429` trop de tentatives · `500` erreur interne.
+- **codes** : `400` validation · `401` authentification · `402` quota/plan · `403` rôle ou isolation · `404` ressource inconnue **ou appartenant à un autre établissement** (l'existence n'est jamais révélée) · `409` conflit (email déjà utilisé, nom de grille déjà existant pour l'établissement) · `429` trop de tentatives · `500` erreur interne.
 
 ### Limitation de débit
 `POST /api/v1/auth/login` est protégé contre la force brute :
@@ -23,7 +23,7 @@ Deux garde-fous distincts protègent les modules payants :
 
 Les **lectures ne sont jamais payantes** : une rétrogradation de formule ne rend pas l'historique inaccessible. Le superadmin est dispensé de ces garde-fous.
 
-État actuel du câblage : `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS) et `POST /api/v1/price-lists/{id}/versions`.
+État actuel du câblage : `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS), `POST /api/v1/price-lists/{id}/versions` et `POST /api/v1/users` (plafond de comptes : 2 en gratuit, 5 en PRO, 15 en BUSINESS — établissement d'essai : 15).
 
 ### Abonnement suspendu
 Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/status`), les **modules métier** de l'établissement (catalogue, commandes, clients, grilles) répondent `402` avec `{"error":"abonnement suspendu…","subscription_status":"SUSPENDED"}`. Les routes de compte (`/tenant/current`, `/me/entitlements`) et l'authentification restent ouvertes afin que le pressing puisse constater sa situation ; le superadmin conserve l'accès complet.
@@ -34,6 +34,17 @@ Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/stat
 | GET | `/api/v1/admin/stats` | superadmin | Indicateurs consolidés réels : établissements, utilisateurs actifs, abonnements actifs/en essai, MRR (somme des formules ACTIVE), répartitions par statut et par formule, `data_source` (`postgresql` ou `memoire`). |
 | GET | `/api/v1/admin/tenants` | superadmin | Annuaire des établissements : nom, ville, téléphone, compte propriétaire, formule, prix, statut, fin d'essai. Aucune donnée client ni commande n'est exposée. |
 | PATCH | `/api/v1/admin/tenants/{id}/status` | superadmin | Suspend / réactive un abonnement. Corps : `{"status":"SUSPENDED"\|"ACTIVE"\|"PAST_DUE"\|"CANCELED","reason":"…"}`. La décision et sa trace (`subscription_events`) sont écrites dans **une seule transaction** : `404` si l'établissement n'a pas d'abonnement, `400` si le statut est invalide. |
+
+### Module Équipe (comptes utilisateurs, fonctionnalité payante `users.max`)
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/users` | owner, manager (superadmin) | Liste les comptes de l'établissement (isolation par `tenant_id` du jeton). La gestion d'équipe remplace l'ancienne route `GET /api/v1/auth/users`, retirée. |
+| POST | `/api/v1/users` | owner, manager (superadmin) | Crée un compte employé dans **une seule transaction** (`users` + `tenant_memberships` + `branch_memberships` sur l'établissement principal). Corps : `{"full_name","email","phone","role","password"}`. Rôles attribuables : `manager`, `cashier`, `operator` (le rôle `superadmin` est refusé `400`). `201` avec la fiche créée (email normalisé en minuscules, mot de passe ≥ 6 caractères). |
+| PATCH | `/api/v1/users/{id}/status` | owner, manager (superadmin) | Active (`active`) ou désactive (`inactive`) un compte. Corps : `{"status":"active"\|"inactive"}`. La mise à jour du compte **et** de l'appartenance est transactionnelle : la désactivation ferme immédiatement les routes métier, y compris pour un jeton déjà émis. |
+
+Réponses : `402` `{"error":"plafond atteint (N) — passez à une formule supérieure","feature":"users.max","usage":N,"upgrade_required":"true"}` à la création au-delà du plafond de la formule ; `409` si l'email est déjà utilisé ; `404` si l'identifiant est inconnu **ou appartient à un autre établissement** ; `400` pour un rôle/statut invalide, un mot de passe trop court ou une auto-désactivation (un gérant ne peut pas se fermer l'accès lui-même) ; `403` pour un caissier ou un opérateur.
+
+Le module est placé dans le groupe des **modules métier** : un abonnement suspendu le gèle également (`402`, message d'abonnement), tandis que `/tenant/current` et `/me/entitlements` restent ouverts.
 
 ### Onboarding d'un nouvel établissement
 `POST /api/v1/auth/register-tenant` crée, en une transaction : l'organisation, l'établissement principal, le compte propriétaire, les appartenances (tenant + branche), l'abonnement d'essai 7 jours, **la grille tarifaire par défaut (catalogue)** et **la première version figée de la grille tarifaire**. Un pressing fraîchement inscrit est donc immédiatement opérationnel.
@@ -63,6 +74,7 @@ Métadonnées du monolithe modulaire.
 Connexion utilisateur par email et mot de passe.
 - **Authentification** : Aucune (Public)
 - **Retourne** : Jeton JWT signé HMAC-SHA256, profil utilisateur et établissement.
+- **Compte désactivé** : `403` `{"error":"compte désactivé — contactez le responsable de votre établissement"}` ; la désactivation (module Équipe) suspend aussi l'appartenance, donc les jetons déjà émis perdent l'accès aux routes métier (`403`).
 
 ### `POST /api/v1/auth/register-tenant`
 Inscription d'un nouveau pressing (Création de l'établissement et du compte propriétaire).

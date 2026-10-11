@@ -20,6 +20,7 @@ import { CustomersView } from './components/CustomersView';
 import { ServicesView } from './components/ServicesView';
 import { BillingView } from './components/BillingView';
 import { SuperAdminView } from './components/SuperAdminView';
+import { TeamView } from './components/TeamView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalTicketModal } from './components/ThermalTicketModal';
@@ -391,6 +392,14 @@ function PressingOSApp() {
                   onUpdateService={handleUpdateService}
                   onDeleteService={handleDeleteService}
                   onSyncWithDB={handleSyncServicesWithDB}
+                  showToast={showToast}
+                />
+              )}
+
+              {currentView === 'team' && (
+                <TeamView
+                  currentUser={session.user}
+                  token={session.token}
                   showToast={showToast}
                 />
               )}
