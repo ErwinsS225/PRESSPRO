@@ -17,16 +17,33 @@ import (
 // Règle de sécurité :
 //   - Mode DB (pool fourni)  -> fail-CLOSED. Une appartenance suspendée ou
 //     absente pour un utilisateur présent en base est refusée.
-//   - Compte démo (user absent de la base, vit en mémoire côté auth) -> fail-OPEN,
-//     car un JWT valide portant le tenant_id vaut appartenance dans ce mode.
-//   - Mode dégradé (pool nil) -> fail-OPEN (aucune vérification possible).
+//   - Compte de démonstration déclaré (vitrine embarquée, absente de la base)
+//     -> autorisé NOMINATIVEMENT (jamais « tout identifiant inconnu »).
+//   - Utilisateur inconnu de la base et non déclaré, identifiant hors format
+//     UUID, appartenance suspendue, ou toute erreur de base -> REFUS.
+//   - Mode dégradé (aucune base : pool nil) -> aucune vérification possible, le
+//     JWT signé portant le tenant_id vaut appartenance (mode démonstration).
 type MembershipChecker struct {
 	pool *pgxpool.Pool
+
+	// isDemoAccount reconnaît les identifiants des comptes de démonstration
+	// embarqués (auth.Service.IsDemoAccount). Nil => mode strict : tout
+	// utilisateur absent de la base est refusé.
+	isDemoAccount func(userID string) bool
 }
 
-// NewMembershipChecker construit le checker. Un pool nil active le mode dégradé.
-func NewMembershipChecker(pool *pgxpool.Pool) *MembershipChecker {
-	return &MembershipChecker{pool: pool}
+// NewMembershipChecker construit le contrôleur.
+//
+// La vérification est STRICTE dès qu'un pool est fourni (la base fait foi) ;
+// pool nil = mode dégradé (démonstration, aucune vérification possible).
+// isDemoAccount désigne les seuls comptes de vitrine dispensés de base.
+func NewMembershipChecker(pool *pgxpool.Pool, isDemoAccount func(userID string) bool) *MembershipChecker {
+	return &MembershipChecker{pool: pool, isDemoAccount: isDemoAccount}
+}
+
+// estCompteDemo applique le prédicat sans risque de nil (jamais de panique).
+func (c *MembershipChecker) estCompteDemo(userID string) bool {
+	return c != nil && c.isDemoAccount != nil && c.isDemoAccount(userID)
 }
 
 // membershipStateInternal marque un utilisateur présent en base mais sans
@@ -65,22 +82,25 @@ func (c *MembershipChecker) IsMember(ctx context.Context, tenantID, userID, role
 		return role == auth.RoleSuperAdmin
 	}
 	if c == nil || c.pool == nil {
-		// Mode dégradé : le JWT vérifié portant le tenant vaut appartenance.
+		// Mode dégradé (aucune base) : le JWT vérifié portant le tenant vaut
+		// appartenance — c'est le mode démonstration complet.
 		return true
 	}
 	if role == auth.RoleSuperAdmin {
 		return true
 	}
-	// Compte de démonstration (identifiant mémoire non-UUID) : le JWT signé
-	// garantit déjà l'identité, et une comparaison UUID en base échouerait.
-	// On autorise sans requête DB (mode démo).
-	if !looksLikeUUID(userID) {
+	// Comptes de vitrine : autorisés nominativement, ils n'existent pas en base.
+	if c.estCompteDemo(userID) {
 		return true
+	}
+	// Identifiant hors format UUID : aucun utilisateur réel ne peut le porter
+	// (les identifiants persistés sont des UUID) -> refus, sans requête DB.
+	if !looksLikeUUID(userID) {
+		return false
 	}
 
 	var state string
-	// LEFT JOIN : si l'utilisateur n'existe pas en base -> ErrNoRows (compte démo,
-	// autorisé). S'il existe sans membership -> '__nomembership__' (refusé).
+	// LEFT JOIN : s'il existe sans membership -> '__nomembership__' (refusé).
 	err := c.pool.QueryRow(ctx, `
 		SELECT COALESCE(tm.status, $3)
 		FROM users u
@@ -90,8 +110,9 @@ func (c *MembershipChecker) IsMember(ctx context.Context, tenantID, userID, role
 	`, tenantID, userID, membershipStateInternal).Scan(&state)
 
 	if err == pgx.ErrNoRows {
-		// Utilisateur inconnu en base : compte de démonstration en mémoire.
-		return true
+		// Utilisateur inconnu de la base et non déclaré comme compte de
+		// démonstration : jeton orphelin (compte supprimé, autre instance).
+		return false
 	}
 	if err != nil {
 		// Erreur DB : on refuse par sécurité (fail-closed).
@@ -109,16 +130,19 @@ func (c *MembershipChecker) HasBranchAccess(ctx context.Context, tenantID, branc
 	if c == nil || c.pool == nil {
 		return true
 	}
-	// Identifiants mémoire (démo) ou branche non-UUID : pas de vérification DB
-	// possible sans erreur de cast. Le JWT signé garantit déjà l'identité, et
-	// l'isolation inter-tenant reste portée par le tenant_id des claims.
-	if !looksLikeUUID(branchID) || !looksLikeUUID(userID) {
-		return true
-	}
 	// Propriétaire et superadmin couvrent l'ensemble des branches de leur tenant
 	// (l'isolation inter-tenant reste garantie par le tenant_id des claims).
 	if role == auth.RoleSuperAdmin || role == auth.RoleOwner {
 		return true
+	}
+	// Comptes de vitrine : autorisés nominativement (absents de la base).
+	if c.estCompteDemo(userID) {
+		return true
+	}
+	// Branche ou utilisateur hors format UUID : refus (fail-closed) — un
+	// identifiant non-UUID ne correspond à aucun établissement persisté.
+	if !looksLikeUUID(branchID) || !looksLikeUUID(userID) {
+		return false
 	}
 
 	var exists bool

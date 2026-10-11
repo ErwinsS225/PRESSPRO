@@ -23,6 +23,7 @@ type Service struct {
 	mu         sync.RWMutex
 	users      map[string]*User          // clé: email normalisé
 	tenants    map[string]*TenantSummary // clé: tenant_id
+	demoIDs    map[string]struct{}       // comptes de démonstration embarqués (non persistés)
 	store      *dbStore                  // nil = mode mémoire ; non-nil = persistance PostgreSQL
 
 	// onTenantRegistered est appelé après chaque inscription réussie (onboarding
@@ -56,6 +57,7 @@ func NewService(jwtManager *JWTManager) *Service {
 		jwtManager: jwtManager,
 		users:      make(map[string]*User),
 		tenants:    make(map[string]*TenantSummary),
+		demoIDs:    make(map[string]struct{}),
 	}
 
 	// Établissement initial
@@ -114,7 +116,30 @@ func NewService(jwtManager *JWTManager) *Service {
 		UpdatedAt:    time.Now().UTC(),
 	}
 
+	// Registre explicite des comptes de démonstration embarqués. Ces identifiants
+	// n'existent pas en base : le contrôle d'appartenance les autorise nommément,
+	// tout autre identifiant inconnu étant refusé (fail-closed).
+	for _, u := range s.users {
+		s.demoIDs[u.ID] = struct{}{}
+	}
+
 	return s
+}
+
+// IsDemoAccount indique si l'identifiant appartient à l'un des comptes de
+// démonstration embarqués dans le binaire (vitrine / mode dégradé).
+//
+// Le contrôle d'appartenance s'appuie sur ce registre EXHAUSTIF : hors mode
+// dégradé, tout identifiant d'utilisateur qui n'est ni un compte de
+// démonstration ni un utilisateur présent en base est refusé (fail-closed).
+func (s *Service) IsDemoAccount(userID string) bool {
+	if s == nil || userID == "" {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.demoIDs[userID]
+	return ok
 }
 
 // Login vérifie l'email et le mot de passe et retourne un jeton JWT signé.

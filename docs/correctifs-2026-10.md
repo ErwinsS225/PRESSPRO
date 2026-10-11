@@ -88,21 +88,59 @@ En mode PostgreSQL, une prestation inconnue (ou appartenant à un autre tenant) 
 
 ---
 
-## 5. Reste à faire (backlog priorisé)
+## 5. Session 2 — durcissement, monétisation et console éditeur
+
+### Fail-closed du contrôle d'appartenance
+Le contrôle #2 (appartenance) **refuse désormais par défaut** dès qu'une base est fournie :
+appartenance absente ou suspendue, utilisateur inconnu de la base **et** non déclaré comme compte de démonstration, identifiant hors format UUID, ou erreur de base → **403**.
+Le mode vitrine est préservé sans faille générique : les comptes embarqués sont reconnus **nominativement** (`auth.Service.IsDemoAccount`).
+- **Vérification live** : appartenance passée en `suspended` en base → 403 (avant : 200) ; ligne d'appartenance supprimée → 403 ; rétablie → 200 ; comptes de démonstration opérationnels.
+
+### Fonctionnalités payantes réellement gardées
+- `RequireFeature` (droit booléen) : `POST /price-lists/{id}/versions`.
+- **`RequireFeatureQuota`** (nouveau, plafond consommé mesuré sur les données réelles : `orders.monthly.max`, `users.max`, `catalog.price_lists`) : `POST /price-lists`.
+- **Vérification live** : établissement gratuit (1 grille autorisée, 2 en base) → **402** « plafond atteint (1) — passez à une formule supérieure » avec `feature`, `usage`, `upgrade_required` ; établissement en essai (niveau BUSINESS, 10 grilles) → **201**. Les **lectures restent gratuites** après rétrogradation.
+
+### Espace SuperAdmin branché sur les données réelles
+| Avant | Après |
+|---|---|
+| 5 pressings fictifs codés en dur dans le composant | `GET /admin/tenants` — annuaire réel (10 puis 13 établissements en base) |
+| MRR « 265 000 » et « 85 % de recouvrement » statiques | `GET /admin/stats` — MRR = somme des formules ACTIVE, répartitions par statut et par formule, `data_source` |
+| Bouton Suspendre purement local | `PATCH /admin/tenants/{id}/status` — décision réelle **et effective** |
+| Bouton « Enregistrer un Pressing » local | `POST /auth/register-tenant` — inscription réelle (catalogue + grille + essai) |
+| Badge « 12 pressings » figé | libellé neutre « Éditeur » |
+
+**Suspension effective** : les modules métier de l'établissement suspendu répondent `402` (catalogue, commandes, clients, grilles), tandis que `/tenant/current`, `/me/entitlements` et l'authentification restent ouverts pour que le pressing constate sa situation. Le superadmin n'est jamais bloqué. La décision et sa trace (`subscription_events`) sont écrites **dans une seule transaction** — un premier essai avait modifié le statut tout en renvoyant 500 (journal en échec) : corrigé.
+
+### Bugs trouvés et corrigés pendant cette session
+| Bug | Symptôme | Correctif |
+|---|---|---|
+| Contexte d'établissement vide | superadmin sans `X-Tenant-ID` → erreur SQL `uuid ""` → **500** | `X-Tenant-ID` explicite accepté pour un superadmin, sinon **403** explicite sur toutes les routes multi-tenant |
+| Journal d'audit non-UUID | « Suspendre » → **500** (`invalid input syntax for type uuid`) | identifiants mémoire consignés dans le motif de l'événement, jamais insérés dans une colonne UUID |
+| Décision non transactionnelle | statut modifié malgré une réponse 500 | `UPDATE` + trace dans la même transaction |
+| Doublon de grille | 2e grille du même nom → **500** `duplicate key … SQLSTATE 23505` | erreur métier `ErrNameExists` → **409** « une grille de ce nom existe déjà » (base et mémoire) |
+
+### Frontend : performance et tests
+- **Bundle découpé** : 602 kB en un seul lot → **250 kB applicatif** + `vendor-react` 219 kB + `vendor-motion` 125 kB + `vendor-icons` 13 kB (cache navigateur indépendant, avertissement « > 500 kB » supprimé).
+- **Vitest + Testing Library** installés (`npm test`) : **14 tests** — client API éditeur (jeton, 403, erreurs réseau, 409, libellés) et vue SuperAdmin (refus d'accès, affichage des données réelles, message d'indisponibilité au lieu de faux chiffres).
+- **CI** : `npm test` ajouté, plus une étape Go ciblant les paquets des correctifs.
+
+**Compteurs** : 50 tests Go (+ 1 test d'intégration PostgreSQL), 14 tests frontend, 34 + 17 + 14 = **65 assertions live** vertes.
+
+## 6. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
-| 🟠 Haute | Tests frontend (Vitest Testing Library) et ESLint/Prettier ; découpage du bundle 602 kB |
-| 🟠 Haute | Brancher `RequireFeature` sur les routes concernées + limitation d'usage (grilles, multi-sites, rapports) |
-| 🟠 Haute | Bascule « fail-closed » des contrôles d'appartenance hors mode démo `looksLikeUUID` |
-| 🟡 Moyenne | Espace SuperAdmin alimenté par les données réelles (`tenants`, `subscriptions`) au lieu de valeurs d'illustration |
+| 🟡 Moyenne | ESLint/Prettier côté frontend ; couverture Vitest étendue aux vues métier |
+| 🟠 Haute | Modules payants restants : `branches.multi_site` (multi-établissements), `reports.*`, `expenses.*` — routes à créer puis garder avec `RequireFeature`/`RequireFeatureQuota` |
 | 🟡 Moyenne | `analyse.md` et `rapports_audit_consolide.md` : à archiver (chiffres non reproductibles) |
+| 🟡 Moyenne | Gestion des branches (établissements) et des utilisateurs dans l'interface (API d'appartenance prête) |
 | 🟡 Moyenne | Gestion des établissements (branches) et des utilisateurs dans l'interface |
 | 🟢 Basse | Notifications WhatsApp/SMS, rapports avancés, impression ESC/POS native, mode hors-ligne |
 
 ---
 
-## 6. Vérification finale de bout en bout — 34/34 ✅
+## 7. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -116,7 +154,7 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 7. Comment reproduire les vérifications
+## 8. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique

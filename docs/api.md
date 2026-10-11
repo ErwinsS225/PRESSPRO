@@ -16,6 +16,25 @@ Toutes les erreurs respectent le format `{"error": "message"}` :
 - au-delà, réponse `429` avec en-tête `Retry-After` (secondes) ;
 - une connexion **réussie** remet le compteur à zéro : un utilisateur légitime n'est jamais bloqué par ses fautes de frappe.
 
+### Fonctionnalités payantes (formules)
+Deux garde-fous distincts protègent les modules payants :
+- **`RequireFeature`** (droit booléen) : la fonctionnalité doit être incluse dans la formule → `402` `{"error","feature","upgrade_required":"true"}` ;
+- **`RequireFeatureQuota`** (plafond consommé) : la consommation réelle est mesurée sur les données (`orders.monthly.max`, `users.max`, `catalog.price_lists`) et comparée à `plan_entitlements.limit_value` → `402` avec le message métier et `usage`.
+
+Les **lectures ne sont jamais payantes** : une rétrogradation de formule ne rend pas l'historique inaccessible. Le superadmin est dispensé de ces garde-fous.
+
+État actuel du câblage : `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS) et `POST /api/v1/price-lists/{id}/versions`.
+
+### Abonnement suspendu
+Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/status`), les **modules métier** de l'établissement (catalogue, commandes, clients, grilles) répondent `402` avec `{"error":"abonnement suspendu…","subscription_status":"SUSPENDED"}`. Les routes de compte (`/tenant/current`, `/me/entitlements`) et l'authentification restent ouvertes afin que le pressing puisse constater sa situation ; le superadmin conserve l'accès complet.
+
+### Supervision éditeur (SuperAdmin)
+| Méthode | Route | Rôle | Description |
+|---|---|---|---|
+| GET | `/api/v1/admin/stats` | superadmin | Indicateurs consolidés réels : établissements, utilisateurs actifs, abonnements actifs/en essai, MRR (somme des formules ACTIVE), répartitions par statut et par formule, `data_source` (`postgresql` ou `memoire`). |
+| GET | `/api/v1/admin/tenants` | superadmin | Annuaire des établissements : nom, ville, téléphone, compte propriétaire, formule, prix, statut, fin d'essai. Aucune donnée client ni commande n'est exposée. |
+| PATCH | `/api/v1/admin/tenants/{id}/status` | superadmin | Suspend / réactive un abonnement. Corps : `{"status":"SUSPENDED"\|"ACTIVE"\|"PAST_DUE"\|"CANCELED","reason":"…"}`. La décision et sa trace (`subscription_events`) sont écrites dans **une seule transaction** : `404` si l'établissement n'a pas d'abonnement, `400` si le statut est invalide. |
+
 ### Onboarding d'un nouvel établissement
 `POST /api/v1/auth/register-tenant` crée, en une transaction : l'organisation, l'établissement principal, le compte propriétaire, les appartenances (tenant + branche), l'abonnement d'essai 7 jours, **la grille tarifaire par défaut (catalogue)** et **la première version figée de la grille tarifaire**. Un pressing fraîchement inscrit est donc immédiatement opérationnel.
 

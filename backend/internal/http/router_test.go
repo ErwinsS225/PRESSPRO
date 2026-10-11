@@ -157,8 +157,9 @@ func TestRouterEndpoints(t *testing.T) {
 
 // fixedCounter simule un compteur de quotas (ex: 50 commandes déjà créées).
 type fixedCounter struct {
-	orders int64
-	users  int64
+	orders     int64
+	users      int64
+	priceLists int64
 }
 
 func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
@@ -166,6 +167,9 @@ func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, er
 }
 func (f fixedCounter) CountUsers(_ context.Context, _ string) (int64, error) {
 	return f.users, nil
+}
+func (f fixedCounter) CountPriceLists(_ context.Context, _ string) (int64, error) {
+	return f.priceLists, nil
 }
 
 func TestOrderQuotaFreeAfterTrial(t *testing.T) {

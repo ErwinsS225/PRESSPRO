@@ -7,11 +7,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"pressing-os/backend/internal/database"
 )
 
 // ErrNotFound est renvoyé quand la grille ou la version est introuvable pour ce tenant.
 var ErrNotFound = errors.New("grille tarifaire introuvable")
+
+// ErrNameExists : une grille du même nom existe déjà pour cet établissement
+// (contrainte uq_tenant_pricelist_name). Erreur métier -> 409 côté API.
+var ErrNameExists = errors.New("une grille de ce nom existe déjà pour cet établissement")
+
+// estViolationUnique reconnaît la violation de contrainte d'unicité PostgreSQL
+// (SQLSTATE 23505) sans exposer le détail SQL au client.
+func estViolationUnique(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 // Store est le contrat de persistance des grilles tarifaires.
 type Store interface {
@@ -122,6 +135,9 @@ func (s *dbStore) CreatePriceList(ctx context.Context, tenantID string, req Crea
 	pl := &PriceList{}
 	if err := row.Scan(&pl.ID, &pl.TenantID, &pl.BranchID, &pl.Name, &pl.Description,
 		&pl.IsDefault, &pl.Status, &pl.CreatedAt, &pl.UpdatedAt); err != nil {
+		if estViolationUnique(err) {
+			return nil, ErrNameExists
+		}
 		return nil, fmt.Errorf("création grille: %w", err)
 	}
 	return pl, nil

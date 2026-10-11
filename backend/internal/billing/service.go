@@ -63,6 +63,9 @@ func defaultMatrix() map[string]map[string]policyRow {
 type UsageCounter interface {
 	CountMonthlyOrders(ctx context.Context, tenantID string) (int64, error)
 	CountUsers(ctx context.Context, tenantID string) (int64, error)
+	// CountPriceLists alimente le plafond de la fonctionnalité « grilles
+	// tarifaires » (1 en formule gratuite, 3 en PRO, 10 en BUSINESS).
+	CountPriceLists(ctx context.Context, tenantID string) (int64, error)
 }
 
 // memoryCounter : zéro usage (mode dégradé).
@@ -71,6 +74,10 @@ type memoryCounter struct{}
 func (memoryCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
 	return 0, nil
 }
+func (memoryCounter) CountPriceLists(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
 func (memoryCounter) CountUsers(_ context.Context, _ string) (int64, error) {
 	return 0, nil
 }

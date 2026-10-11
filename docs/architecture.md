@@ -116,6 +116,21 @@ Un pressing fraîchement inscrit peut donc enregistrer des commandes immédiatem
 - ressource inconnue **ou appartenant à un autre établissement** → `404` (aucune fuite d'existence) ;
 - erreurs techniques (SQL, réseau, transaction) → journalisées côté serveur, `500` avec message générique.
 
+### Contrôle d'appartenance (fail-closed)
+Le middleware `MembershipChecker` refuse par défaut dès qu'une base est fournie :
+- appartenance absente ou non `active` en base → refus ;
+- utilisateur inconnu de la base **et** non déclaré comme compte de démonstration → refus (jeton orphelin) ;
+- identifiant hors format UUID (jeton forgé) → refus, sans requête ;
+- erreur de base → refus.
+
+Les comptes de la vitrine embarquée (`auth.Service.IsDemoAccount`) sont autorisés **nominativement** : le mode démonstration est préservé sans jamais ouvrir la porte à un identifiant arbitraire. Sans base connectée, aucune vérification n'est possible et le jeton signé portant le `tenant_id` vaut appartenance.
+
+### Garde-fous commerciaux
+`RequireFeature` (droit booléen) et `RequireFeatureQuota` (plafond consommé, mesuré sur les données réelles) protègent les modules payants ; `RequireActiveSubscription` gèle les modules métier d'un établissement suspendu par l'éditeur. Les lectures restent accessibles, et le superadmin est dispensé des deux premiers contrôles.
+
+### Espace SuperAdmin
+`GET /admin/stats`, `GET /admin/tenants` et `PATCH /admin/tenants/{id}/status` travaillent sur les données réelles (`billing.Service.AdminStats`, `TenantsOverview`, `SetTenantStatus`). En mode dégradé, les indicateurs sont calculés sur les abonnements en mémoire et signalés par `data_source: "memoire"`.
+
 ### Limitation de débit
 `POST /api/v1/auth/login` est protégé (`internal/ratelimit`) : 10 tentatives par couple (IP, email) et 40 par IP sur 5 minutes, réponse `429` + `Retry-After`. Une connexion réussie réinitialise le compteur. Le limiteur est en mémoire (mono-instance) ; en déploiement multi-instances, le remplacer par un compteur partagé.
 

@@ -67,6 +67,12 @@ jobs:
       - name: Tests d'intégration (PostgreSQL réel)
         run: go test -tags=integration -v ./internal/catalog/...
 
+      - name: Couverture des correctifs (index, quota, appartenance, éditeur)
+        run: >
+          go test -v
+          ./internal/ratelimit/... ./internal/httperr/...
+          ./internal/auth/... ./internal/billing/... ./internal/http/...
+
   frontend:
     name: Frontend React (types + build)
     runs-on: ubuntu-latest
@@ -86,6 +92,9 @@ jobs:
 
       - name: Vérification TypeScript
         run: npm run lint
+
+      - name: Tests frontend (Vitest)
+        run: npm test
 
       - name: Build de production
         run: npm run build

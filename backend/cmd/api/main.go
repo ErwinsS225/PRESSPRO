@@ -205,10 +205,12 @@ func main() {
 	// Pool nil => mode dégradé (vérification assouplie), sans jamais bloquer le démarrage.
 	var membershipChecker *apphttp.MembershipChecker
 	if dbReady {
-		membershipChecker = apphttp.NewMembershipChecker(dbPool.Pool)
+		// La base fait foi : contrôle d'appartenance strict (fail-closed), les
+		// seuls comptes autorisés hors base étant ceux de la vitrine.
+		membershipChecker = apphttp.NewMembershipChecker(dbPool.Pool, authService.IsDemoAccount)
 		logger.Println("Contrôle d'appartenance et de périmètre branche adossés à PostgreSQL.")
 	} else {
-		membershipChecker = apphttp.NewMembershipChecker(nil)
+		membershipChecker = apphttp.NewMembershipChecker(nil, authService.IsDemoAccount)
 		logger.Println("Contrôle d'appartenance en mode dégradé (PostgreSQL indisponible au démarrage).")
 	}
 

@@ -402,6 +402,8 @@ function PressingOSApp() {
               {currentView === 'superadmin' && isSuperadmin && (
                 <SuperAdminView
                   currentUser={session.user}
+                  token={session.token}
+                  showToast={showToast}
                   onSelectTenantView={() => {
                     setCurrentView('dashboard');
                     showToast('Bascule sur la vue du pressing');

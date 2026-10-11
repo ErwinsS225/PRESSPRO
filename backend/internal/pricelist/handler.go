@@ -2,6 +2,7 @@ package pricelist
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -95,6 +96,11 @@ func (h *Handler) CreatePriceList(w http.ResponseWriter, r *http.Request) {
 	}
 	pl, err := h.service.CreatePriceList(r.Context(), tenantID, req)
 	if err != nil {
+		if errors.Is(err, ErrNameExists) {
+			// Conflit métier : le nom de grille est déjà pris pour ce pressing.
+			h.writeError(w, http.StatusConflict, ErrNameExists.Error())
+			return
+		}
 		httperr.Internal(w, h.logger, "pricelist", err, "impossible de traiter la grille tarifaire")
 		return
 	}

@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'orders', label: 'Commandes & Linge', icon: Shirt, badge: '5 actives' },
     { id: 'customers', label: 'Fichier Clients', icon: Users, roles: ['owner', 'manager', 'cashier', 'superadmin'] },
     { id: 'services', label: 'Prestations & Tarifs', icon: Tag, roles: ['owner', 'manager', 'superadmin'] },
-    { id: 'superadmin', label: 'Plateforme SaaS', icon: ShieldCheck, roles: ['superadmin'], badge: '12 pressings' },
+    { id: 'superadmin', label: 'Plateforme SaaS', icon: ShieldCheck, roles: ['superadmin'], badge: 'Éditeur' },
   ];
 
   const visibleNavItems = navItems.filter((item) => {
