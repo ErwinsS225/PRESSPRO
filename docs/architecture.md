@@ -199,7 +199,12 @@ Les **survols** sont foncés partout : les contrôles (boutons, icônes, entrée
 onglets) passent au **noir plein avec texte blanc** en thème clair — et blanc avec texte
 noir en thème sombre ; les lignes de tableau et de liste reçoivent une **tinte noire**
 (6 à 16 %) plutôt qu'un gris. Les fenêtres modales conservent leur ombre portée profonde
-(`shadow-2xl` teinté) sans effet de survol. Le fichier `src/styles.test.ts` verrouille ces
-règles : utilitaires présents, cadres équipés et absence de retour aux survols gris clair.
+(`shadow-2xl` teinté) sans effet de survol.
+
+Répartition actuelle : **58 cadres surélevés** (cartes, encarts, boutons d'action, lignes de
+synthèse) et **9 surfaces plates** en `ps-elevated-static` — champs de saisie, pastilles et
+barre d'en-tête collante, qui gardent le relief d'un panneau sans jamais se soulever. Le
+fichier `src/styles.test.ts` verrouille ces règles : utilitaires présents, cadres équipés et
+absence de retour aux survols gris clair.
 
 - **Impression des tickets** : le rendu 80 mm est disponible en HTML (modale ticket) et en **flux ESC/POS** (`src/lib/escpos.ts`) — CP437, encodage tolérant aux accents absents de la table, transport **WebUSB** (Chrome/Edge sur ordinateur) avec aperçu du flux avant envoi ; l'impression HTML reste le repli.

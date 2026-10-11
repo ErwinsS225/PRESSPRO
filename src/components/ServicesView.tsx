@@ -787,7 +787,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 placeholder="Rechercher article, soin (ex: boubou, couette, cintre, bazin)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:border-neutral-100"
               />
             </div>
 
@@ -796,7 +796,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={modelFilter}
                 onChange={(e) => setModelFilter(e.target.value as ServiceFilter)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
               >
                 <option value="all">Tous les modes de facturation</option>
                 <option value="piece">Paiement à la pièce</option>
@@ -808,7 +808,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
               >
                 <option value="all">Tous les états</option>
                 <option value="active">Actives au comptoir</option>
@@ -819,7 +819,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as any)}
-                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-hidden"
               >
                 <option value="name">Trier par nom (A-Z)</option>
                 <option value="price-asc">Tarif croissant (FCFA)</option>
@@ -903,7 +903,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
                           {/* Catégorie */}
                           <td className="px-4 py-3.5">
-                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+                            <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
                               {item.category}
                             </span>
                           </td>
@@ -1139,7 +1139,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                       {contract.clientName}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+                      <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ps-elevated-static">
                         {contract.businessType}
                       </span>
                     </td>
@@ -1724,7 +1724,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             {/* CARTE DÉTAILLÉE DE LA PRESTATION CIBLÉE */}
             <div className="mt-4 rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800/80 dark:bg-neutral-900/50 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 ps-elevated-static">
                   {deletingItem.category}
                 </span>
                 <span className="font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100">

@@ -124,7 +124,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
             type="month"
             value={mois}
             onChange={(e) => setMois(e.target.value || moisCourant())}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 outline-none focus:border-rose-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 outline-none focus:border-rose-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
             aria-label="Mois"
           />
           <button
@@ -319,7 +319,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.label}
                     onChange={(e) => setForm({ ...form, label: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                     placeholder="Lessive en poudre (5 kg)"
                   />
                 </div>
@@ -333,7 +333,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                       min={1}
                       value={form.amount_xof || ''}
                       onChange={(e) => setForm({ ...form, amount_xof: Number(e.target.value) })}
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                       placeholder="25000"
                     />
                   </div>
@@ -345,7 +345,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                       type="date"
                       value={form.spent_at}
                       onChange={(e) => setForm({ ...form, spent_at: e.target.value })}
-                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                     />
                   </div>
                 </div>
@@ -356,7 +356,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <select
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                   >
                     {EXPENSE_CATEGORIES.map((categorie) => (
                       <option key={categorie.value} value={categorie.value}>
@@ -372,7 +372,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.note ?? ''}
                     onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-rose-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                     placeholder="Fournisseur, référence de facture…"
                   />
                 </div>

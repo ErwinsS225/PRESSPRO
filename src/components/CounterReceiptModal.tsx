@@ -301,7 +301,7 @@ export const CounterReceiptModal: React.FC<CounterReceiptModalProps> = ({
                     <select
                       value={selectedCategory}
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                     >
                       {categoriesList.map((c) => (
                         <option key={c} value={c}>

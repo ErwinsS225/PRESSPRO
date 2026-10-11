@@ -284,10 +284,13 @@ comptoir n'attend jamais la passerelle. Les autres transitions n'envoient rien, 
 - Nouveaux utilitaires `ps-elevated` / `ps-elevated-static` (`src/index.css`) : liseré
   d'ombre sur les bords, ombre portée profonde, soulèvement au survol avec trait **noir**
   (et variante sombre dédiée).
-- **96 cadres** (cartes, encarts, panneaux, lignes de synthèse) équipés ; les **survols**
-  deviennent foncés : 33 contrôles passent au noir plein avec texte blanc, les listes et
-  tableaux reçoivent une tinte noire, les modales gardent leur ombre profonde sans
-  soulèvement. Plus aucun survol gris clair dans l'application (vérifié par test).
+- **58 cadres surélevés** (cartes, encarts, panneaux, lignes de synthèse) et **9 surfaces
+  plates** (`ps-elevated-static`) pour les champs de saisie, pastilles et la barre
+  d'en-tête collante — un champ ne se soulève pas au survol ; les **survols** deviennent
+  foncés : 33 contrôles passent au noir plein avec texte blanc, 69 bordures réagissent en
+  noir, les lignes de liste reçoivent une tinte noire, les modales gardent leur ombre
+  profonde sans soulèvement. Plus aucun survol gris clair dans l'application (vérifié par
+  test).
 - `src/styles.test.ts` verrouille le jeu de styles (utilitaires, cadres équipés, absence de
   régression vers les survols clairs).
 

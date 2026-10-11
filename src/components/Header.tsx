@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xs transition-colors dark:border-neutral-800 dark:bg-[#080808]/95 md:px-8 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xs transition-colors dark:border-neutral-800 dark:bg-[#080808]/95 md:px-8 ps-elevated-static">
       {/* Zone 1: Mobile toggle + Breadcrumb trail */}
       <div className="flex items-center gap-3">
         <button

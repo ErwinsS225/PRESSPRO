@@ -196,7 +196,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
           <div className="space-y-3">
             <div>
               <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-300">Canal</span>
-              <div className="mt-1 inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+              <div className="mt-1 inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900 ps-elevated-static">
                 {NOTIFICATION_CHANNELS.map((option) => (
                   <button
                     key={option.value}
@@ -251,7 +251,7 @@ export const ClientNotificationModal: React.FC<ClientNotificationModalProps> = (
                   setMessageEdite(true);
                 }}
                 rows={6}
-                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white p-2 font-mono text-[11px] leading-relaxed text-neutral-800 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                className="mt-1 w-full rounded-lg border border-neutral-200 bg-white p-2 font-mono text-[11px] leading-relaxed text-neutral-800 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
               />
               <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                 {apercu.length} caractères · {messageEdite ? 'message personnalisé' : 'modèle appliqué'}

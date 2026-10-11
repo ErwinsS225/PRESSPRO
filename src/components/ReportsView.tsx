@@ -123,7 +123,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ currentUser, token, sh
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+          <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-900 ps-elevated-static">
             {PERIODES.map((option) => (
               <button
                 key={option.id}

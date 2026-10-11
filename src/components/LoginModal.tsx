@@ -101,7 +101,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ currentSession, onClose,
                       <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
                         {acc.label}
                       </span>
-                      <span className="font-mono text-[10px] text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+                      <span className="font-mono text-[10px] text-neutral-500 bg-white px-1.5 py-0.5 rounded border border-neutral-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400 ps-elevated-static">
                         {acc.role}
                       </span>
                     </div>

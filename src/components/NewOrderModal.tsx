@@ -179,7 +179,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                   <select
                     value={item.serviceName}
                     onChange={(e) => handleItemChange(idx, e.target.value)}
-                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                   >
                     {services
                       .filter((s) => s.isActive !== false)
@@ -195,7 +195,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                     min={1}
                     value={item.quantity}
                     onChange={(e) => handleQuantityChange(idx, parseInt(e.target.value, 10))}
-                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-center font-mono dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
                   />
 
                   <div className="w-24 text-right font-mono text-xs font-medium text-neutral-900 dark:text-neutral-100 tabular-nums">

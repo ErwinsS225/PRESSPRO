@@ -149,7 +149,7 @@ export const BranchesView: React.FC<BranchesViewProps> = ({ currentUser, token, 
           <Building2 className="h-3 w-3" />
           {branches.length} établissement(s)
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 ps-elevated-static">
           Plafond selon la formule : 1 site (Gratuit, PRO) · 3 (BUSINESS)
         </span>
       </div>
@@ -287,7 +287,7 @@ export const BranchesView: React.FC<BranchesViewProps> = ({ currentUser, token, 
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                   placeholder="Pressing Yopougon"
                 />
               </div>
@@ -299,7 +299,7 @@ export const BranchesView: React.FC<BranchesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                     placeholder="Abidjan"
                   />
                 </div>
@@ -310,7 +310,7 @@ export const BranchesView: React.FC<BranchesViewProps> = ({ currentUser, token, 
                   <input
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                     placeholder="+225 …"
                   />
                 </div>
@@ -322,7 +322,7 @@ export const BranchesView: React.FC<BranchesViewProps> = ({ currentUser, token, 
                 <input
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-400 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
                   placeholder="Rue du marché, à côté de la pharmacie"
                 />
               </div>

@@ -448,7 +448,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                   placeholder="Rechercher vêtement, soin..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:bg-white focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:bg-white focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
                 />
               </div>
 
@@ -457,7 +457,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 <select
                   value={activeCategory}
                   onChange={(e) => setActiveCategory(e.target.value)}
-                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
                 >
                   <option value="all">Toutes les catégories</option>
                   {categoriesList.map((c) => (
@@ -470,7 +470,7 @@ export const CatalogManagerModal: React.FC<CatalogManagerModalProps> = ({
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 hover:border-neutral-950 dark:hover:border-white/70 ps-elevated"
+                  className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
                 >
                   <option value="all">Tous statuts ({services.length})</option>
                   <option value="active">Actives uniquement</option>
