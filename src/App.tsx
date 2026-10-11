@@ -113,52 +113,61 @@ function PressingOSApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: 'gerant@pressing-ivoire.ci', password: 'pass123' }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          const validToken = data.token;
-          setSession({
-            token: validToken,
-            user: data.user,
-            tenant: data.tenant || CURRENT_TENANT,
-          });
-
-          // Récupération des prestations réelles depuis le backend Go
-          const srvRes = await fetch('/api/v1/services', {
-            headers: {
-              Authorization: `Bearer ${validToken}`,
-            },
-          });
-          if (srvRes.ok) {
-            const srvData = await srvRes.json();
-            if (Array.isArray(srvData) && srvData.length > 0) {
-              setServices(
-                srvData.map((d: any) => ({
-                  id: d.id,
-                  name: d.name,
-                  article: d.article || d.name,
-                  treatment: d.treatment || 'Lavage & Soin',
-                  category: d.category || 'Vêtements du quotidien',
-                  price: Number(d.unit_price) || 0,
-                  unit: d.unit || 'pièce',
-                  pricingModel: d.pricing_model || 'piece',
-                  durationHours: Number(d.estimated_hours) || 24,
-                  isActive: d.is_active !== false,
-                  isExpressAvailable: d.is_express_available === true,
-                  expressSurcharge: Number(d.express_surcharge) || 0,
-                  isPickupAvailable: d.is_pickup_available !== false,
-                  isOutsourced: d.is_outsourced === true,
-                  requiresQuote: d.requires_quote === true,
-                  description: d.description || '',
-                }))
-              );
-            }
-          }
-
-          // Charger commandes et clients depuis PostgreSQL
-          const [ordRes, custRes] = await Promise.all([fetchOrders(validToken), fetchCustomers(validToken)]);
-          if (ordRes.fromBackend && ordRes.orders.length > 0) setOrders(ordRes.orders);
-          if (custRes.fromBackend && custRes.customers.length > 0) setCustomers(custRes.customers);
+        if (!res.ok) {
+          console.warn('Connexion initiale refusée — données de démonstration conservées.');
+          return;
         }
+        const data = await res.json();
+        const validToken = typeof data.token === 'string' ? data.token : '';
+        // Robustesse : une réponse incomplète (jeton sans utilisateur) ne doit jamais
+        // écraser la session — le menu lit `role`, et l'interface entière se
+        // démonterait aussitôt (écran blanc) au moindre corps inattendu.
+        if (!validToken || !data.user || !data.user.role) {
+          console.warn('Connexion initiale incomplète — session de démonstration conservée.');
+          return;
+        }
+        setSession({
+          token: validToken,
+          user: data.user,
+          tenant: data.tenant || CURRENT_TENANT,
+        });
+
+        // Récupération des prestations réelles depuis le backend Go
+        const srvRes = await fetch('/api/v1/services', {
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+          },
+        });
+        if (srvRes.ok) {
+          const srvData = await srvRes.json();
+          if (Array.isArray(srvData) && srvData.length > 0) {
+            setServices(
+              srvData.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                article: d.article || d.name,
+                treatment: d.treatment || 'Lavage & Soin',
+                category: d.category || 'Vêtements du quotidien',
+                price: Number(d.unit_price) || 0,
+                unit: d.unit || 'pièce',
+                pricingModel: d.pricing_model || 'piece',
+                durationHours: Number(d.estimated_hours) || 24,
+                isActive: d.is_active !== false,
+                isExpressAvailable: d.is_express_available === true,
+                expressSurcharge: Number(d.express_surcharge) || 0,
+                isPickupAvailable: d.is_pickup_available !== false,
+                isOutsourced: d.is_outsourced === true,
+                requiresQuote: d.requires_quote === true,
+                description: d.description || '',
+              }))
+            );
+          }
+        }
+
+        // Charger commandes et clients depuis PostgreSQL
+        const [ordRes, custRes] = await Promise.all([fetchOrders(validToken), fetchCustomers(validToken)]);
+        if (ordRes.fromBackend && ordRes.orders.length > 0) setOrders(ordRes.orders);
+        if (custRes.fromBackend && custRes.customers.length > 0) setCustomers(custRes.customers);
       } catch (err) {
         console.warn('Initialisation session backend:', err);
       }

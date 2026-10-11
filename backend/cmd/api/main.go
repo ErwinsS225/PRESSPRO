@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -317,7 +318,7 @@ func main() {
 
 	// 4. Configuration du serveur HTTP avec timeouts stricts
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Port),
+		Addr:         net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:      router,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
@@ -330,7 +331,7 @@ func main() {
 
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Printf("Serveur HTTP à l'écoute sur http://0.0.0.0:%s", cfg.Port)
+		logger.Printf("Serveur HTTP à l'écoute sur http://%s", net.JoinHostPort(cfg.Host, cfg.Port))
 		if listenErr := server.ListenAndServe(); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
 			serverErrors <- listenErr
 		}

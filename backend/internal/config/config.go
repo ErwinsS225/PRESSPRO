@@ -12,6 +12,7 @@ import (
 // Config regroupe toutes les options de configuration de l'API PressingOS
 type Config struct {
 	Port                string
+	Host                string // adresse d'écoute ("0.0.0.0" par défaut, "127.0.0.1" pour un backend interne)
 	ServerEnv           string // "development", "staging", "production"
 	DatabaseURL         string
 	AllowedOrigins      []string
@@ -24,6 +25,10 @@ type Config struct {
 // LoadFromEnv extrait les variables d'environnement avec des valeurs par défaut sécurisées
 func LoadFromEnv() (*Config, error) {
 	port := getEnv("PORT", "8080")
+	// L'API est publique par défaut ; derrière le serveur full-stack, HOST=127.0.0.1
+	// la confine à la boucle locale (le proxy Express l'atteint, aucune prévisualisation
+	// trompeuse sur le port interne n'est alors exposée).
+	host := getEnv("HOST", "0.0.0.0")
 	serverEnv := getEnv("SERVER_ENV", "development")
 
 	// Priorité à NEON_DATABASE_URL (base managée Neon) si défini,
@@ -73,6 +78,7 @@ func LoadFromEnv() (*Config, error) {
 
 	cfg := &Config{
 		Port:                port,
+		Host:                host,
 		ServerEnv:           serverEnv,
 		DatabaseURL:         dbURL,
 		AllowedOrigins:      origins,

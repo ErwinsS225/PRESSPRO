@@ -6,6 +6,13 @@
 >
 > Mise en garde production : `SERVER_ENV=production` **exige** `JWT_SECRET` (32 caractères minimum) — le serveur refuse de démarrer sans ce secret.
 
+> Prévisualisation distante : l'interface s'ouvre derrière un domaine dynamique
+> (`https://<port>-<sandbox>.e2b.app`). Le middleware Vite accepte par défaut tout hôte
+> (`server.allowedHosts`) pour cet usage ; en production, le front est servi statiquement par
+> Express (`NODE_ENV=production`) et aucune autorisation d'hôte n'est requise. Pour restreindre
+> la liste, définir `VITE_ALLOWED_HOSTS=app.exemple.com,exemple.fr`. Le binaire Go tourne sur
+> la boucle locale (`HOST=127.0.0.1`, port `8085`) : seul le port `3000` est exposé.
+
 > Notifications clients : `NOTIFICATIONS_GATEWAY_URL` (et son jeton facultatif
 > `NOTIFICATIONS_GATEWAY_TOKEN`) active l'envoi réel WhatsApp/SMS par webhook. Laisser vide
 > pour rester en mode journalisé (« simule »), dans lequel l'interface du comptoir propose
