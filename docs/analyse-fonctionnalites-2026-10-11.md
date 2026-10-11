@@ -11,7 +11,7 @@
 
 ## 0. Synthèse en une page
 
-**Ce qu'est le produit aujourd'hui** : un ERP SaaS multi-tenant complet pour pressings ivoiriens — socle Go (17 paquets, 48 routes), base PostgreSQL 16 (21 tables, 15 migrations), interface React 19 (23 vues/modales + 22 composants d'interface réutilisables), moteur commercial (FREE/PRO/BUSINESS, essai 7 j, quotas, 402) et console éditeur opérationnelle.
+**Ce qu'est le produit aujourd'hui** : un ERP SaaS multi-tenant complet pour pressings ivoiriens — socle Go (17 paquets, 48 routes), base PostgreSQL 16 (21 tables, 15 migrations), interface React 19 (21 composants applicatifs : 11 écrans, 6 modales, 4 éléments de coque, plus 15 composants ReUI et 7 primitives `ui/`), moteur commercial (FREE/PRO/BUSINESS, essai 7 j, quotas, 402) et console éditeur opérationnelle.
 
 **Verdict global : ~8,3 / 10 — le cœur métier est livré, testé et vérifié ; les manques restants sont d'exploitation (sauvegardes, observabilité, encaissement des abonnements) et de finition (sécurité avancée, accessibilité, hors-ligne).**
 
@@ -39,7 +39,7 @@
 |---|---|
 | Backend Go | **16 084 lignes**, 17 paquets dans `backend/internal/` (+ `cmd/api`) |
 | Routes HTTP déclarées | **48** (dont 1 publique non authentifiée : vérification de ticket) |
-| Frontend TypeScript/TSX | **18 548 lignes**, 23 vues/modales, 15 composants ReUI, 7 primitives `ui/` |
+| Frontend TypeScript/TSX | **18 548 lignes** : 21 composants applicatifs (11 écrans, 6 modales, 4 éléments de coque) + 15 composants ReUI + 7 primitives `ui/` |
 | Base de données | **21 tables**, **15 migrations** up/down, 24 index, 1 table de suivi `schema_migrations` |
 | Tests Go | **94 fonctions de test** réparties sur 13 paquets + **4 suites d'intégration** (`-tags=integration`, PostgreSQL réel) |
 | Couverture Go | `ratelimit` 92 % · `config` 83 % · `health` 80 % · `notification` 61 % · `http` 59 % · `report` 59 % · `expense` 44 % · `billing` 40 % · `auth` 39,5 % · `branch` 37 % · `order` 21 % · `catalog` 16 % · `pricelist` 7,5 % · `customer`, `database`, `httperr`, `pgutil` 0 % |
@@ -278,6 +278,42 @@ Légende : ✅ livré et vérifié · 🟡 livré partiellement · ❌ absent.
 | Rétention/archivage (commandes anciennes), partitionnement | ❌ | — |
 | Colonnes d'audit (`created_by`, `updated_by`), suppression logique | ❌ | — |
 | RLS PostgreSQL | ❌ | — |
+
+### 3.18 Inventaire écran par écran (frontend)
+
+Chaque écran est un composant autonome (`src/components/`) alimenté par un client d'API typé (`src/lib/*Api.ts`) ; la navigation est un état interne filtré par rôle (`Sidebar.tsx`).
+
+| Écran (fichier) | Taille | Rôles | Ce que l'utilisateur peut y faire |
+|---|---|---|---|
+| **Tableau de bord** (`DashboardView.tsx`) | 393 l. | tous | Cartes d'indicateurs (dépôts actifs, à encaisser, CA du jour, marge), **7 graphiques** (encaissements, charge hebdomadaire, recouvrement, entonnoir du pipeline, statuts, donut des revenus, formules), tableau des dépôts partagé, actions rapides |
+| **Commandes & Linge** (`OrdersView.tsx` + `reui/orders-table.tsx`) | 56 + 522 l. | tous | Créer un dépôt ; tableau **partagé** avec tri accessible, filtres par étape comptés, recherche insensible aux accents, pagination, avancement d'étape (libellé exact de l'étape suivante), impression de ticket, notification client |
+| **Fichier Clients** (`CustomersView.tsx`) | 215 l. | owner, manager, cashier | CRUD client, recherche, téléphone/e-mail, encours et solde |
+| **Prestations & Tarifs** (`ServicesView.tsx`) | **1 947 l.** | owner, manager | Catalogue par catégories A–E, création/modification/suppression de prestation, options (express, collecte, sous-traitance, devis), **vente au comptoir** multi-articles avec reçu tarifaire 80/58 mm, ouverture du gestionnaire de catalogue |
+| **Équipe** (`TeamView.tsx`) | 583 l. | owner, manager | Créer un compte (quota `users.max`), attribuer un rôle, activer/désactiver, **affecter aux établissements** |
+| **Établissements** (`BranchesView.tsx`) | 369 l. | owner, manager | CRUD établissement, désigner le principal, limite `branches.multi_site` |
+| **Dépenses** (`ExpensesView.tsx`) | 415 l. | owner, manager, cashier | Saisir une dépense (catégorie, moyen, date, note), lister, supprimer, total et répartition de la période |
+| **Rapports** (`ReportsView.tsx`) | 418 l. | owner, manager | Choisir la période, lire CA/panier moyen/marge/statuts/top prestations/par établissement, **exporter en CSV ou PDF** |
+| **Mon abonnement** (`BillingView.tsx`, carte en bas de barre latérale) | 371 l. | tous | Formule courante, droits effectifs, compteurs et quotas, fin d'essai, comparaison des formules |
+| **Plateforme SaaS** (`SuperAdminView.tsx`) | 648 l. | super-admin | Indicateurs consolidés (MRR, essais, répartitions), annuaire, inscription d'un partenaire, suspension/réactivation, **suppression définitive** avec confirmation à cocher |
+| **Vérification de ticket** (`TicketVerificationView.tsx`) | 254 l. | **public** (aucun compte) | Saisie/scan d'un ticket → « Ticket valide ! » ou « Ticket invalide » |
+| Coque (`Header`, `Sidebar`, `ThemeToggle`) + `ErrorBoundary` | — | — | En-tête contextuel, navigation filtrée par rôle, thème clair/sombre, capture des erreurs d'affichage |
+
+Modales métier : `NewOrderModal` (dépôt multi-articles), `ThermalTicketModal` (aperçu 80 mm → ESC/POS WebUSB ou impression navigateur), `ClientNotificationModal` (WhatsApp/SMS, 4 modèles éditables), `CounterReceiptModal` (reçu/devis 80/58 mm), `CatalogManagerModal` (gestion du catalogue), `LoginModal`.
+
+### 3.19 Parcours de bout en bout vérifié sur la pile réelle (base vide)
+
+Séquence exécutée après la purge, via le proxy `:3000` → API `:8085` → PostgreSQL :
+
+| Étape | Appel | Résultat observé |
+|---|---|---|
+| 1. Inscription | `POST /api/v1/auth/register-tenant` | `201` — établissement + propriétaire + essai BUSINESS |
+| 2. Catalogue auto | `GET /api/v1/services` | **49 prestations** créées |
+| 3. Ouverture d'un dépôt | `POST /api/v1/orders` | `201` — `CMD-2026-001`, total 2 000, reste 1 500 (acompte 500) |
+| 4. Vérification publique | `GET /api/v1/public/verify/{tenant}/{order}` | `200` — `valid: true` |
+| 5. Suppression définitive | `DELETE /api/v1/admin/tenants/{id}` (super-admin) | `204`, annuaire à nouveau vide |
+| 6. Jeton du tenant supprimé | `GET /api/v1/orders` (ancien jeton) | `403` (membre inactif — fail-closed) |
+
+Le cycle complet « vendre → encaisser → contrôler » fonctionne donc **sans aucune donnée préexistante**, et l'éditeur peut défaire proprement une inscription.
 
 ---
 
