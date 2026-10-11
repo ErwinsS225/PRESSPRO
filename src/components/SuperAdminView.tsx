@@ -1,0 +1,373 @@
+import React, { useState } from 'react';
+import {
+  Building2,
+  TrendingUp,
+  CreditCard,
+  Users,
+  Shield,
+  Plus,
+  CheckCircle,
+  AlertTriangle,
+  Ban,
+  Search,
+} from 'lucide-react';
+import { Tenant } from '../types';
+
+interface SuperAdminViewProps {
+  onSelectTenantView: (tenantId: string) => void;
+}
+
+export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onSelectTenantView }) => {
+  const [tenants, setTenants] = useState<Tenant[]>([
+    {
+      id: 'a0000000-0000-0000-0000-000000000001',
+      name: 'Pressing Ivoire Cocody',
+      slug: 'pressing-ivoire-cocody',
+      phone: '+225 07 00 11 22 33',
+      city: 'Abidjan (Cocody Angré)',
+      currency: 'XOF',
+      status: 'active',
+      ownerEmail: 'gerant@pressing-ivoire.ci',
+      monthlyPlan: 'Pro (45 000 FCFA/mois)',
+    },
+    {
+      id: 'a0000000-0000-0000-0000-000000000002',
+      name: 'Buanderie Moderne du Plateau',
+      slug: 'buanderie-plateau',
+      phone: '+225 05 44 22 11 88',
+      city: 'Abidjan (Plateau)',
+      currency: 'XOF',
+      status: 'active',
+      ownerEmail: 'plateau@buanderie.ci',
+      monthlyPlan: 'Entreprise (75 000 FCFA/mois)',
+    },
+    {
+      id: 'a0000000-0000-0000-0000-000000000003',
+      name: 'Clean Express Zone 4',
+      slug: 'clean-express-zone4',
+      phone: '+225 01 22 33 44 55',
+      city: 'Abidjan (Marcory Zone 4)',
+      currency: 'XOF',
+      status: 'active',
+      ownerEmail: 'contact@cleanexpress.ci',
+      monthlyPlan: 'Pro (45 000 FCFA/mois)',
+    },
+    {
+      id: 'a0000000-0000-0000-0000-000000000004',
+      name: 'Pressing Étoile de Yopougon',
+      slug: 'pressing-etoile-yop',
+      phone: '+225 07 55 66 77 88',
+      city: 'Abidjan (Yopougon Selmer)',
+      currency: 'XOF',
+      status: 'trial',
+      ownerEmail: 'yopougon@etoile.ci',
+      monthlyPlan: 'Essai Gratuit (14 jours)',
+    },
+    {
+      id: 'a0000000-0000-0000-0000-000000000005',
+      name: 'Blanchisserie Riviera Golf',
+      slug: 'blanchisserie-riviera',
+      phone: '+225 07 11 99 88 77',
+      city: 'Abidjan (Riviera Golf)',
+      currency: 'XOF',
+      status: 'suspended',
+      ownerEmail: 'golf@blanchisserie.ci',
+      monthlyPlan: 'Starter (25 000 FCFA/mois)',
+    },
+  ]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTenantName, setNewTenantName] = useState('');
+  const [newCity, setNewCity] = useState('Abidjan (Cocody)');
+  const [newPhone, setNewPhone] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+
+  const toggleStatus = (id: string) => {
+    setTenants((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const nextStatus = t.status === 'active' ? 'suspended' : 'active';
+        return { ...t, status: nextStatus };
+      })
+    );
+  };
+
+  const handleCreateTenant = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTenantName || !newEmail) return;
+
+    const newT: Tenant = {
+      id: `tenant-${Date.now()}`,
+      name: newTenantName,
+      slug: newTenantName.toLowerCase().replace(/ /g, '-'),
+      phone: newPhone || '+225 07 00 00 00 00',
+      city: newCity,
+      currency: 'XOF',
+      status: 'trial',
+      ownerEmail: newEmail,
+      monthlyPlan: 'Essai Gratuit (14 jours)',
+    };
+
+    setTenants([newT, ...tenants]);
+    setNewTenantName('');
+    setNewEmail('');
+    setNewPhone('');
+    setIsModalOpen(false);
+  };
+
+  const filteredTenants = tenants.filter(
+    (t) =>
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.ownerEmail && t.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header Strip */}
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-white shadow-xs">
+            <Shield className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold tracking-tight text-neutral-900">
+                Espace Éditeur SaaS — Super Administration Globale
+              </h1>
+              <span className="font-mono text-[10px] bg-neutral-900 text-white px-2 py-0.5 rounded">
+                SuperAdmin
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Gestion de l'ensemble des pressings souscrits en Côte d'Ivoire, facturation et abonnements.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-1.5 self-start rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 transition-colors sm:self-auto"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Enregistrer un Pressing</span>
+        </button>
+      </div>
+
+      {/* Global SaaS KPIs */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>Pressings Souscrits</span>
+            <Building2 className="h-4 w-4 text-neutral-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-mono text-2xl font-semibold tracking-tight text-neutral-900 tabular-nums">
+              {tenants.length}
+            </span>
+            <span className="text-xs text-neutral-500">établissements</span>
+          </div>
+          <div className="mt-1 text-[11px] text-neutral-500">Côte d'Ivoire (XOF)</div>
+        </div>
+
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>Revenu Mensuel (MRR)</span>
+            <TrendingUp className="h-4 w-4 text-neutral-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-mono text-2xl font-semibold tracking-tight text-neutral-900 tabular-nums">
+              265 000
+            </span>
+            <span className="font-mono text-xs text-neutral-500 font-medium">FCFA / mois</span>
+          </div>
+          <div className="mt-1 text-[11px] text-emerald-700 font-medium">85% taux de recouvrement</div>
+        </div>
+
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>Comptes Actifs</span>
+            <CheckCircle className="h-4 w-4 text-neutral-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-mono text-2xl font-semibold tracking-tight text-neutral-900 tabular-nums">
+              {tenants.filter((t) => t.status === 'active').length}
+            </span>
+            <span className="text-xs text-neutral-500">en production</span>
+          </div>
+          <div className="mt-1 text-[11px] text-neutral-500">1 en période d'essai</div>
+        </div>
+
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>Séparation Multi-Tenant</span>
+            <Shield className="h-4 w-4 text-neutral-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-mono text-base font-semibold tracking-tight text-neutral-900">
+              100% Cloisonné
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-neutral-500">Vérifié par middleware Go Chi</div>
+        </div>
+      </div>
+
+      {/* Tenants Table */}
+      <div className="rounded-lg border border-neutral-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-neutral-200 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-neutral-900">
+              Répertoire des Pressings Partenaires
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Contrôle d'accès et souscriptions des clients de PressingOS.
+            </p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Rechercher pressing, ville..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-md border border-neutral-200 bg-white pl-8 pr-3 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-hidden"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-neutral-100 bg-neutral-50/75 text-[11px] text-neutral-500 font-medium">
+                <th className="px-5 py-2.5">Établissement</th>
+                <th className="px-4 py-2.5">Ville & Contact</th>
+                <th className="px-4 py-2.5">Compte Propriétaire</th>
+                <th className="px-4 py-2.5">Offre Souscrite</th>
+                <th className="px-4 py-2.5">Statut</th>
+                <th className="px-5 py-2.5 text-right">Actions Éditeur</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {filteredTenants.map((t) => (
+                <tr key={t.id} className="hover:bg-neutral-50/50 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <div className="font-semibold text-neutral-900">{t.name}</div>
+                    <div className="font-mono text-[10px] text-neutral-400">{t.id}</div>
+                  </td>
+                  <td className="px-4 py-3.5 text-neutral-600">
+                    <div>{t.city}</div>
+                    <div className="font-mono text-[11px] text-neutral-400">{t.phone}</div>
+                  </td>
+                  <td className="px-4 py-3.5 font-mono text-neutral-700">{t.ownerEmail}</td>
+                  <td className="px-4 py-3.5 font-medium text-neutral-800">{t.monthlyPlan}</td>
+                  <td className="px-4 py-3.5">
+                    {t.status === 'active' && (
+                      <span className="font-mono text-[11px] text-emerald-700 font-medium">Actif</span>
+                    )}
+                    {t.status === 'trial' && (
+                      <span className="font-mono text-[11px] text-amber-700 font-medium">Essai 14j</span>
+                    )}
+                    {t.status === 'suspended' && (
+                      <span className="font-mono text-[11px] text-rose-700 font-medium">Suspendu</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <button
+                      onClick={() => toggleStatus(t.id)}
+                      className={`rounded px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                        t.status === 'active'
+                          ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-100'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {t.status === 'active' ? 'Suspendre' : 'Réactiver'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Add Tenant Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-5 shadow-lg">
+            <h2 className="text-sm font-semibold text-neutral-900">Inscrire un Nouveau Pressing</h2>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Création d'un établissement partenaire avec accès d'essai.
+            </p>
+
+            <form onSubmit={handleCreateTenant} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-700">Nom du Pressing</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Pressing de la Lagune"
+                  value={newTenantName}
+                  onChange={(e) => setNewTenantName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-700">Ville / Commune</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Abidjan (Treichville)"
+                  value={newCity}
+                  onChange={(e) => setNewCity(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-700">Email Propriétaire</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="contact@pressing-lagune.ci"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-700">Téléphone (+225)</label>
+                <input
+                  type="text"
+                  placeholder="+225 07 12 34 56 78"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+                >
+                  Créer le Pressing
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

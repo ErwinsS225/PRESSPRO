@@ -1,0 +1,6 @@
+{
+  "name": "PressingOS",
+  "description": "Plateforme SaaS multi-tenant pour la gestion moderne des pressings et buanderies en Côte d'Ivoire.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
