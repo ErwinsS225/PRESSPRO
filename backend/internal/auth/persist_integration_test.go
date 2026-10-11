@@ -45,7 +45,28 @@ func TestIntegration_CreateUser_PoseLesAppartenances(t *testing.T) {
 	svc := auth.NewService(auth.NewJWTManager("secret-integration-1234567890", time.Hour))
 	svc.SetStore(auth.NewStore(database.NewStore(pool)))
 
-	const tenant = "a0000000-0000-0000-0000-000000000001"
+	// Établissement éphémère, créé par le test : plus aucune société fictive
+	// n'est livrée par les migrations (000015 a retiré le seed de démonstration).
+	var tenant string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO tenants (name, slug, city, status)
+		 VALUES ($1, $2, 'Abidjan', 'active') RETURNING id`,
+		"Pressing Intégration Équipe", "it-equipe-"+time.Now().Format("20060102150405.000000")).Scan(&tenant); err != nil {
+		t.Fatalf("création de l'établissement de test: %v", err)
+	}
+	// Établissement principal (nécessaire aux appartenances de branche) :
+	// l'inscription d'un vrai pressing le crée, le test le fait donc aussi.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO branches (tenant_id, name, code, city, is_primary, status)
+		 VALUES ($1, 'Établissement principal', 'IT-01', 'Abidjan', true, 'active')`,
+		tenant); err != nil {
+		t.Fatalf("création de l'établissement principal: %v", err)
+	}
+	// Nettoyage garanti : l'établissement emporte comptes et appartenances.
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM tenants WHERE id = $1`, tenant)
+	}()
+
 	email := "integration.equipe+" + time.Now().Format("20060102150405") + "@test.ci"
 
 	user, err := svc.CreateUser(ctx, tenant, auth.CreateUserRequest{

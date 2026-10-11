@@ -12,13 +12,16 @@ func TestTrialGrantsBusinessLevel(t *testing.T) {
 	svc := billing.NewService()
 	ctx := context.Background()
 	tenant := "a0000000-0000-0000-0000-000000000001"
+	if err := svc.EnsureTrial(ctx, tenant); err != nil {
+		t.Fatalf("inscription de l'établissement de test: %v", err)
+	}
 
 	resp, err := svc.EffectiveEntitlements(ctx, tenant)
 	if err != nil {
 		t.Fatalf("droits effectifs: %v", err)
 	}
 	if !resp.OnTrial {
-		t.Fatalf("le tenant démo devrait être en essai")
+		t.Fatalf("un établissement nouvellement inscrit devrait être en essai")
 	}
 	if resp.PlanCode != billing.PlanBusiness {
 		t.Errorf("plan effectif attendu BUSINESS pendant l'essai, obtenu %s", resp.PlanCode)

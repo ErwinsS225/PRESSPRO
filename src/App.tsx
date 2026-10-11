@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewMode, Order, Customer, ServiceItem, HealthCheckResult, AuthSession } from './types';
 import { canAccessSuperadmin } from './lib/permissions';
-import { CURRENT_TENANT, DEMO_ORDERS, DEMO_CUSTOMERS, DEMO_SERVICES } from './lib/demoData';
 import { checkEndpoint } from './lib/api';
 import {
   fetchOrders,
@@ -35,30 +34,41 @@ import { ThermalTicketModal } from './components/ThermalTicketModal';
 import { ClientNotificationModal } from './components/ClientNotificationModal';
 import { TicketVerificationView } from './components/TicketVerificationView';
 
+/**
+ * Session vide : l'application démarre sans établissement ni donnée fictive.
+ * Dès que la connexion au backend aboutit, la session réelle (établissement,
+ * compte, jeton) remplace ce placeholder — les écrans restent en état vide
+ * tant qu'aucun établissement n'est connecté.
+ */
+const SESSION_VIDE: AuthSession = {
+  token: '',
+  user: {
+    id: '',
+    tenant_id: undefined,
+    email: '',
+    full_name: 'Non connecté',
+    role: 'cashier',
+    status: 'inactive',
+  },
+  tenant: undefined,
+};
+
 function PressingOSApp() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [verificationParams, setVerificationParams] = useState<{ tenantId: string; orderId: string } | null>(
     null
   );
-  const [session, setSession] = useState<AuthSession>({
-    token: 'jwt-default-session-token',
-    user: {
-      id: 'usr-gerant-001',
-      tenant_id: CURRENT_TENANT.id,
-      email: 'gerant@pressing-ivoire.ci',
-      full_name: 'M. Bamba Seydou',
-      role: 'owner',
-      status: 'active',
-    },
-    tenant: CURRENT_TENANT,
-  });
+  // Session ouverte : nulle au démarrage (aucune entreprise de démonstration).
+  const [sessionOuverte, setSessionOuverte] = useState<AuthSession | null>(null);
+  const session = sessionOuverte ?? SESSION_VIDE;
 
   // Contrôle d'accès à l'Espace Éditeur SaaS (Super Administration Globale).
   const isSuperadmin = canAccessSuperadmin(session.user);
 
-  const [orders, setOrders] = useState<Order[]>(DEMO_ORDERS);
-  const [customers, setCustomers] = useState<Customer[]>(DEMO_CUSTOMERS);
-  const [services, setServices] = useState<ServiceItem[]>(DEMO_SERVICES);
+  // Données métier : vides au démarrage, remplies uniquement par le backend.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -114,7 +124,7 @@ function PressingOSApp() {
           body: JSON.stringify({ email: 'gerant@pressing-ivoire.ci', password: 'pass123' }),
         });
         if (!res.ok) {
-          console.warn('Connexion initiale refusée — données de démonstration conservées.');
+          console.warn('Connexion initiale refusée — aucun établissement chargé.');
           return;
         }
         const data = await res.json();
@@ -123,13 +133,15 @@ function PressingOSApp() {
         // écraser la session — le menu lit `role`, et l'interface entière se
         // démonterait aussitôt (écran blanc) au moindre corps inattendu.
         if (!validToken || !data.user || !data.user.role) {
-          console.warn('Connexion initiale incomplète — session de démonstration conservée.');
+          console.warn('Connexion initiale incomplète — session non établie.');
           return;
         }
-        setSession({
+        setSessionOuverte({
           token: validToken,
           user: data.user,
-          tenant: data.tenant || CURRENT_TENANT,
+          // L'établissement vient du serveur : aucune entreprise fictive n'est
+          // inventée lorsque la réponse ne le fournit pas.
+          tenant: data.tenant || undefined,
         });
 
         // Récupération des prestations réelles depuis le backend Go
@@ -164,10 +176,11 @@ function PressingOSApp() {
           }
         }
 
-        // Charger commandes et clients depuis PostgreSQL
+        // Charger commandes et clients depuis PostgreSQL : une réponse vide est
+        // une réponse valide (établissement sans activité), pas un repli local.
         const [ordRes, custRes] = await Promise.all([fetchOrders(validToken), fetchCustomers(validToken)]);
-        if (ordRes.fromBackend && ordRes.orders.length > 0) setOrders(ordRes.orders);
-        if (custRes.fromBackend && custRes.customers.length > 0) setCustomers(custRes.customers);
+        if (ordRes.fromBackend) setOrders(ordRes.orders);
+        if (custRes.fromBackend) setCustomers(custRes.customers);
       } catch (err) {
         console.warn('Initialisation session backend:', err);
       }
@@ -321,7 +334,7 @@ function PressingOSApp() {
   };
 
   const handleLoginSuccess = (newSession: AuthSession) => {
-    setSession(newSession);
+    setSessionOuverte(newSession);
     if (newSession.user.role === 'superadmin') {
       setCurrentView('superadmin');
       showToast('Connecté en SuperAdmin SaaS (Administration Globale)');

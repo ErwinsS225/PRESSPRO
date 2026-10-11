@@ -1,4 +1,4 @@
-import { SettingsIcon } from 'lucide-react';
+import { SettingsIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { Badge, type BadgeProps } from '@/components/reui/badge';
@@ -26,6 +26,15 @@ export interface SubscriptionsTableProps<TRow extends SubscriptionRow = Subscrip
   manageLabel?: string | ((row: TRow) => string);
   /** Valeur de `service` dont l'action est en cours (spinner/désactivation). */
   busyKey?: string | null;
+  /**
+   * Action destructive facultative (retrait définitif d'un établissement).
+   * La confirmation est demandée par l'écran appelant : ce bouton arme
+   * seulement la demande.
+   */
+  onDelete?: (row: TRow) => void;
+  deleteLabel?: string | ((row: TRow) => string);
+  /** Valeur de `service` dont la suppression est en cours. */
+  deleteBusyKey?: string | null;
 }
 
 /**
@@ -38,8 +47,13 @@ export function SubscriptionsTable<TRow extends SubscriptionRow = SubscriptionRo
   onManage,
   manageLabel = 'Gérer',
   busyKey = null,
+  onDelete,
+  deleteLabel = 'Supprimer',
+  deleteBusyKey = null,
 }: SubscriptionsTableProps<TRow>) {
   const libelle = (row: TRow) => (typeof manageLabel === 'function' ? manageLabel(row) : manageLabel);
+  const libelleSuppression = (row: TRow) =>
+    typeof deleteLabel === 'function' ? deleteLabel(row) : deleteLabel;
 
   return (
     <div className="mx-auto flex w-full flex-col">
@@ -79,17 +93,32 @@ export function SubscriptionsTable<TRow extends SubscriptionRow = SubscriptionRo
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7"
-                  onClick={() => onManage?.(row)}
-                  disabled={busyKey === row.service}
-                  aria-label={`${libelle(row)} — ${row.service}`}
-                >
-                  <SettingsIcon className="size-3.5" aria-hidden="true" />
-                  {libelle(row)}
-                </Button>
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => onManage?.(row)}
+                    disabled={busyKey === row.service}
+                    aria-label={`${libelle(row)} — ${row.service}`}
+                  >
+                    <SettingsIcon className="size-3.5" aria-hidden="true" />
+                    {libelle(row)}
+                  </Button>
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => onDelete(row)}
+                      disabled={deleteBusyKey === row.service}
+                      aria-label={`${libelleSuppression(row)} — ${row.service}`}
+                    >
+                      <Trash2Icon className="size-3.5" aria-hidden="true" />
+                      {libelleSuppression(row)}
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

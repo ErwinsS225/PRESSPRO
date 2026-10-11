@@ -9,6 +9,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { User } from '../types';
 import { Badge } from '@/components/reui/badge';
@@ -20,6 +21,7 @@ import {
   fetchPlatformStats,
   fetchTenants,
   setTenantStatus,
+  deleteTenant,
   registerTenant,
   subscriptionLabel,
   formatXOF,
@@ -56,6 +58,12 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
   const [newPassword, setNewPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Retrait définitif d'un établissement (données de démonstration incluses) :
+  // l'action n'est exécutée qu'après confirmation explicite de l'éditeur.
+  const [tenantASupprimer, setTenantASupprimer] = useState<TenantOverview | null>(null);
+  const [confirmationSuppression, setConfirmationSuppression] = useState(false);
+  const [suppressionEnCours, setSuppressionEnCours] = useState(false);
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
 
   const isSuperadmin = canAccessSuperadmin(currentUser);
 
@@ -125,6 +133,31 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
         ? `Abonnement de ${tenant.name} suspendu (opérations gelées)`
         : `Abonnement de ${tenant.name} réactivé`
     );
+    await load();
+  };
+
+  /** Ouvre la confirmation de suppression (aucun appel réseau à ce stade). */
+  const demanderSuppression = (tenant: TenantOverview) => {
+    setTenantASupprimer(tenant);
+    setConfirmationSuppression(false);
+    setErreurSuppression(null);
+  };
+
+  /** Exécute la suppression définitive décidée par l'éditeur. */
+  const handleDeleteTenant = async () => {
+    if (!tenantASupprimer || !confirmationSuppression) return;
+    setSuppressionEnCours(true);
+    setErreurSuppression(null);
+    const cible = tenantASupprimer;
+    const result = await deleteTenant(cible.tenant_id, token);
+    setSuppressionEnCours(false);
+    if (!result.ok) {
+      setErreurSuppression(result.error ?? 'suppression refusée');
+      return;
+    }
+    showToast?.(`${cible.name} supprimé avec toutes ses données`);
+    setTenantASupprimer(null);
+    setConfirmationSuppression(false);
     await load();
   };
 
@@ -355,6 +388,9 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
             busyKey={busyTenant}
             manageLabel={(row) => (row.actif ? 'Suspendre' : 'Réactiver')}
             onManage={(row) => void toggleStatus(row.origine)}
+            onDelete={(row) => demanderSuppression(row.origine)}
+            deleteLabel="Supprimer"
+            deleteBusyKey={suppressionEnCours ? (tenantASupprimer?.tenant_id ?? null) : null}
           />
         </div>
 
@@ -533,6 +569,77 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation de suppression définitive */}
+      {tenantASupprimer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 dark:bg-black/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-lg border border-rose-200 bg-white p-5 shadow-xl dark:border-rose-900/60 dark:bg-[#111111] ring-1 ring-black/5 dark:ring-white/10">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-rose-600 text-white">
+                <Trash2 className="h-4 w-4" />
+              </span>
+              <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                Supprimer définitivement cet établissement ?
+              </h2>
+            </div>
+
+            <p className="mt-3 text-xs text-neutral-600 dark:text-neutral-400">
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                {tenantASupprimer.name}
+              </span>{' '}
+              ({tenantASupprimer.slug}) sera retiré de la plateforme avec{' '}
+              <span className="font-medium">toutes ses données</span> : comptes employés, clients, commandes,
+              paiements, catalogue, dépenses, établissements et abonnement.
+            </p>
+            <p className="mt-2 text-[11px] text-rose-700 dark:text-rose-300">
+              Cette action est irréversible et ne peut pas être annulée.
+            </p>
+
+            <label className="mt-4 flex items-start gap-2 rounded-md border border-neutral-200 px-3 py-2 text-[11px] text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+              <input
+                type="checkbox"
+                checked={confirmationSuppression}
+                onChange={(e) => setConfirmationSuppression(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 accent-rose-600"
+                aria-label="Je confirme la suppression définitive de cet établissement"
+              />
+              <span>
+                Je confirme la suppression définitive de <strong>{tenantASupprimer.name}</strong> et de ses
+                données.
+              </span>
+            </label>
+
+            {erreurSuppression && (
+              <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+                {erreurSuppression}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setTenantASupprimer(null);
+                  setConfirmationSuppression(false);
+                  setErreurSuppression(null);
+                }}
+                className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-900/[0.06] dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteTenant()}
+                disabled={!confirmationSuppression || suppressionEnCours}
+                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {suppressionEnCours && <Loader2 className="h-3 w-3 animate-spin" />}
+                Supprimer définitivement
+              </button>
+            </div>
           </div>
         </div>
       )}

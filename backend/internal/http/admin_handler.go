@@ -42,6 +42,32 @@ func SuperAdminTenants(svc *billing.Service) http.HandlerFunc {
 	}
 }
 
+// SuperAdminDeleteTenant gère DELETE /api/v1/admin/tenants/{id} : retrait
+// définitif d'un établissement et de toutes ses données (comptes, clients,
+// commandes, catalogue, dépenses, abonnements). Réservé à l'éditeur ; répond
+// 204 sans corps en cas de succès et 404 si l'établissement n'existe plus.
+func SuperAdminDeleteTenant(svc *billing.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantID := strings.TrimSpace(chi.URLParam(r, "id"))
+		if tenantID == "" {
+			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement manquant")
+			return
+		}
+
+		if err := svc.DeleteTenant(r.Context(), tenantID); err != nil {
+			if err == billing.ErrTenantNotFound {
+				httperr.Error(w, http.StatusNotFound, "établissement introuvable")
+				return
+			}
+			httperr.Internal(w, log.Default(), "admin", err, "impossible de supprimer l'établissement")
+			return
+		}
+
+		log.Printf("[admin] Établissement supprimé avec ses données : %s", tenantID)
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // SuperAdminSetTenantStatus gère PATCH /api/v1/admin/tenants/{id}/status :
 // suspension ou réactivation de l'abonnement d'un établissement par l'éditeur.
 // La suspension est effective : les modules métier du pressing sont bloqués (402).

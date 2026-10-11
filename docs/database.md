@@ -12,7 +12,7 @@ Le schéma utilise des identifiants **UUID v4** pour garantir l'unicité globale
 | Colonne | Type | Contraintes | Description |
 |---|---|---|---|
 | `id` | UUID | PRIMARY KEY | Identifiant unique de l'établissement |
-| `name` | VARCHAR(255) | NOT NULL | Nom commercial (ex: Pressing Ivoire Cocody) |
+| `name` | VARCHAR(255) | NOT NULL | Nom commercial (ex: Pressing de la Lagune) |
 | `slug` | VARCHAR(100) | NOT NULL UNIQUE | Identifiant URL convivial (ex: pressing-ivoire) |
 | `phone` | VARCHAR(50) | - | Téléphone de contact (format Côte d'Ivoire) |
 | `city` | VARCHAR(100) | DEFAULT 'Abidjan' | Ville de domiciliation |
@@ -130,5 +130,11 @@ Les migrations sont stockées dans `backend/migrations/` :
   notifications clients puis droit `notifications.advanced` (faux en gratuit, vrai en PRO et
   BUSINESS), avec leurs `down.sql` respectifs — la matrice par défaut de
   `billing.defaultMatrix()` doit rester alignée sur ces entrées.
+- `000015_suppression_entreprise_demo.up.sql` : annule le seed de la société fictive livrée par
+  `000001` (établissement `a0000000-…-0001` et ses 5 prestations). Les migrations restant
+  immuables, le seed n'est pas édité : il est annulé après coup, si bien qu'une base vierge
+  finit avec **0 établissement**. Les commandes/paiements sont retirés avant l'établissement
+  (`orders` et `payments` référencent `tenants` **sans** `ON DELETE CASCADE`) ; le fichier
+  `down.sql` repose la société pour rejouer une démonstration.
 
 Lors du lancement via Docker Compose, le script `.up.sql` est automatiquement exécuté par le conteneur PostgreSQL si la base est vierge (`/docker-entrypoint-initdb.d`).

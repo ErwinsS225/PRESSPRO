@@ -343,8 +343,8 @@ func TestNotifierTransition(t *testing.T) {
 
 	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-1", StatutLinge: "ready"})
 	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-1", StatutLinge: "delivered"})
-	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-1", StatutLinge: "washing"})   // ignoré
-	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-sans-tel", StatutLinge: "ready"}) // sans téléphone
+	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-1", StatutLinge: "washing"})                               // ignoré
+	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: tenantDemo, OrderID: "cmd-sans-tel", StatutLinge: "ready"})                          // sans téléphone
 	s.NotifierTransition(ctx, notification.NotificationAuto{TenantID: "b0000000-0000-0000-0000-000000000002", OrderID: "cmd-autre", StatutLinge: "ready"}) // formule gratuite
 
 	journal, _ := s.Journal(ctx, tenantDemo, notification.Filtre{})

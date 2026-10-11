@@ -367,7 +367,81 @@ menu déroulant, carrousel, enveloppe de graphiques avec infobulles et légendes
 
 ---
 
-## 10. Reste à faire (backlog priorisé)
+## 10. Session 7 — fin des entreprises fictives : base assainie et suppression par l'éditeur
+
+**Demande** : « supprimer toutes les données des entreprises fictives » — en base **et** dans le
+jeu de démonstration du frontend, via une **vraie fonctionnalité** de l'espace éditeur (pas un
+script SQL ponctuel). Les comptes de démonstration embarqués (`gerant@…`, `atelier@…`,
+`admin@pressingos.ci`) sont conservés.
+
+### A. La purge passe par le produit : `DELETE /api/v1/admin/tenants/{id}`
+
+| Élément | Détail |
+|---|---|
+| Route | `DELETE /api/v1/admin/tenants/{id}` sous `RequireRole(superadmin)` — `backend/internal/http/router.go` |
+| Handler | `SuperAdminDeleteTenant` : `204` sans corps, `404` si l'établissement n'existe plus, `400` si l'identifiant est vide — `backend/internal/http/admin_handler.go` |
+| Métier | `billing.Service.DeleteTenant` (délègue au store, ou retire l'abonnement mémoire) et `dbStore.DeleteTenant` : **une transaction** qui purge `payments`, `orders` (et, par cascade, `order_items`) **avant** `tenants`, puis `COMMIT`. Les tables `orders` et `payments` référencent `tenants` **sans** `ON DELETE CASCADE` : sans ce traitement explicite, la suppression de l'établissement échouait en violation de clé étrangère. `404` (et non une suppression silencieuse) si le `DELETE FROM tenants` ne touche aucune ligne, identifiant non UUID compris. |
+| Interface | Bouton **Supprimer** dans l'annuaire (`SuperAdminView` → `SubscriptionsTable.onDelete`) : il ouvre une **confirmation** qui rappelle les données effacées (comptes, clients, commandes, paiements, catalogue, dépenses, sites, abonnement) et n'active le bouton rouge qu'après cochage de « Je confirme la suppression définitive ». Annuler ne déclenche **aucun** appel réseau. |
+
+### B. Ce qui a été retiré
+
+- **Frontend** : `src/lib/demoData.ts` **supprimé** (1 085 lignes : `CURRENT_TENANT`, `DEMO_ORDERS`,
+  `DEMO_CUSTOMERS`, `DEMO_SERVICES`, `DEMO_SUBSCRIPTION_PLANS`, `DEMO_B2B_CONTRACTS`) et ses quatre
+  consommateurs assainis :
+  - `App.tsx` : session initiale **vide** (`SESSION_VIDE`, rôle `cashier`, aucun établissement),
+    `orders`/`customers`/`services` initialisés à `[]`, l'établissement vient du serveur
+    (`tenant: data.tenant || undefined`) et une réponse vide du backend remplace désormais l'état
+    local (plus de repli silencieux sur des données fictives) ;
+  - `servicesApi.getLocalServices()` : cache local uniquement, `[]` par défaut ;
+  - `ServicesView` : formules d'abonnement et contrats B2B lus dans le stockage local, jamais dans
+    un jeu de démonstration ;
+  - `TicketVerificationView` : la validité d'un ticket dépend exclusivement de
+    `GET /api/v1/public/verify/...` (plus de repli hors-ligne sur des commandes fictives) ;
+  - `authApi.loginUser` : plus de session fabriquée hors-ligne (ni jeton `demo-jwt-token-…`, ni
+    établissement inventé) — erreurs explicites `401`/réseau/réponse incomplète ;
+  - `DashboardView` : titre générique « Tableau de bord » et badge honnête
+    (« Aucun dépôt enregistré » tant que la base est vide) ;
+  - `BillingView` : mention « Mode hors-ligne — formule par défaut appliquée ».
+- **Backend — seeds mémoire retirés** : `order.NewService()` (commande `ord-101`, séquence 87),
+  `billing.NewService()` (abonnement d'essai du tenant de démonstration) et `catalog.NewService()`
+  (49 prestations pré-affectées + constante `defaultTenantID`). Une fabrique ne retourne plus que
+  des structures vides ; la grille par défaut n'est copiée que pour un établissement réellement
+  inscrit (`SeedTenantDefaults`).
+- **Ticket thermique** (`order.Handler.ThermalReceipt`) : l'adresse et le téléphone codés en dur
+  (« Cocody Angre 8e Tranche, Abidjan ») ont disparu ; seul le nom de l'établissement du jeton est
+  imprimé (repli neutre « Votre pressing »).
+- **Migrations** : le seed de la société fictive livré par `000001` est annulé par
+  `000015_suppression_entreprise_demo.up.sql` (migrations immuables) ; le `down.sql` la repose pour
+  rejouer une démonstration.
+
+### C. Preuves d'exécution
+
+- **Purge de la base live via la route** : 14 établissements supprimés (`204` × 14 — 1 vitrine,
+  2 « Attrib », 11 « Notif »), annuaire ensuite à **0**, seconde suppression → `404`.
+- **Base live** : 17 tables métier à **0 ligne** (`tenants`, `users`, `customers`, `services`,
+  `orders`, `order_items`, `payments`, `subscriptions`, `subscription_events`, `expenses`,
+  `branches`, `tenant_memberships`, `branch_memberships`, `notifications`, `order_sequences`,
+  `price_lists`, `price_list_versions`). La configuration produit (3 formules, 11 fonctionnalités,
+  matrice de droits) est intacte.
+- **Base vierge** : application des migrations `000001` → `000015` sur une base neuve →
+  **0 établissement / 0 prestation** (au lieu du seed de démonstration) ; `down` puis `up` de
+  `000015` rejoués (1 → 0).
+- **API sur base vide** : `GET /api/v1/orders`, `/customers`, `/services` → `200 []` ;
+  `/expenses` → `0 FCFA` ; `/notifications` → journal vide ; `GET /api/v1/admin/stats` → tous les
+  compteurs à zéro ; `/reports/summary` → `402 reports.advanced` (le pressing de démonstration n'a
+  plus d'abonnement d'essai : comportement attendu).
+- **Tests** : frontend **23 fichiers / 171 tests** ✅ (nouveaux : `authApi.test.ts` 5,
+  `servicesApi.test.ts` 3, suppression confirmée dans `SuperAdminView.test.tsx` 1) ;
+  `go vet` + `go test ./...` (13 paquets) ✅ ; `go test -tags=integration` sur PostgreSQL 16 avec
+  les 15 migrations ✅ — dont `TestIntegration_DeleteTenant_RetireToutesLesDonnees` (17 tables à
+  zéro, établissement témoin intact, `ErrTenantNotFound` sur seconde suppression et sur identifiant
+  non UUID) et `TestIntegration_CreateUser_PoseLesAppartenances` (l'établissement de test est
+  désormais créé par le test, plus repris du seed) ; `tsc` ✅, ESLint 0 erreur / 48 avertissements,
+  Prettier ✅, `vite build` ✅.
+- **Preview** : l'application se charge sur une base vide et affiche ses états vides
+  (0 dépôt, 0 client, 0 prestation) au lieu de données inventées.
+
+## 11. Reste à faire (backlog priorisé)
 
 | Priorité | Sujet |
 |---|---|
@@ -376,7 +450,7 @@ menu déroulant, carrousel, enveloppe de graphiques avec infobulles et légendes
 
 ---
 
-## 11. Vérification finale de bout en bout — 34/34 ✅
+## 12. Vérification finale de bout en bout — 34/34 ✅
 
 Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + proxy Express) :
 
@@ -390,7 +464,7 @@ Parcours automatisé exécuté sur le stack réel (PostgreSQL 16 + binaire Go + 
 
 Script reproductible : `/tmp/e2e_final.sh` (34 assertions).
 
-## 12. Comment reproduire les vérifications
+## 13. Comment reproduire les vérifications
 
 ```bash
 # Backend : tests unitaires + analyse statique
@@ -417,7 +491,23 @@ python3 /tmp/verif_fix_demo.py
 # récepteur /tmp/passerelle.py lancés, puis npm run dev
 python3 /tmp/verif_tour6.py
 
-# Frontend : types, ESLint, formatage, tests (162), build
+# Session 7 : purge des entreprises fictives par la route éditeur (base live)
+TOKEN=$(curl -s -X POST http://127.0.0.1:8085/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@pressingos.ci","password":"admin123"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+curl -s http://127.0.0.1:8085/api/v1/admin/tenants -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+# puis, pour chaque tenant_id listé :
+curl -s -o /dev/null -w '%{http_code}\n' -X DELETE \
+  "http://127.0.0.1:8085/api/v1/admin/tenants/<tenant_id>" -H "Authorization: Bearer $TOKEN"
+
+# Session 7 : les migrations ne livrent plus d'entreprise fictive (base vierge)
+createdb -h /tmp/pgdata -U pressing_app pressing_check
+for f in $(ls backend/migrations/*.up.sql | sort); do
+  psql "$DSN_CHECK" -v ON_ERROR_STOP=1 -q -f "$f"
+done
+psql "$DSN_CHECK" -c "SELECT count(*) FROM tenants;"   # attendu : 0
+
+# Frontend : types, ESLint, formatage, tests (171), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

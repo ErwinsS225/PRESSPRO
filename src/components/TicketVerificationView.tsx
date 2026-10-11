@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, MapPin, Phone, Calendar } from 'lucide-react';
 import { Order, Tenant } from '../types';
-import { DEMO_ORDERS, CURRENT_TENANT } from '../lib/demoData';
 
 interface TicketVerificationViewProps {
   tenantId: string;
@@ -64,18 +63,17 @@ export const TicketVerificationView: React.FC<TicketVerificationViewProps> = ({ 
           receivedAt: '',
           dueDate: data.due_date,
         };
-        const mappedTenant: Tenant =
-          tenantId === CURRENT_TENANT.id
-            ? CURRENT_TENANT
-            : {
-                id: data.tenant_id,
-                name: 'Pressing partenaire',
-                slug: 'pressing-partenaire',
-                phone: '',
-                city: 'Côte d’Ivoire',
-                currency: 'XOF',
-                status: 'active',
-              };
+        // L'identité du pressing provient uniquement de la réponse de l'API
+        // publique : aucune entreprise de démonstration n'est pré-chargée.
+        const mappedTenant: Tenant = {
+          id: data.tenant_id,
+          name: 'Pressing partenaire',
+          slug: 'pressing-partenaire',
+          phone: '',
+          city: 'Côte d’Ivoire',
+          currency: 'XOF',
+          status: 'active',
+        };
         setOrder(mapped);
         setTenant(mappedTenant);
         setIsValid(true);
@@ -83,16 +81,10 @@ export const TicketVerificationView: React.FC<TicketVerificationViewProps> = ({ 
       })
       .catch(() => {
         if (cancelled) return;
-        // 2. Repli local (mode démo hors-ligne / backend indisponible).
-        const foundOrder = DEMO_ORDERS.find((o) => o.id === orderId);
-        const foundTenant = tenantId === CURRENT_TENANT.id ? CURRENT_TENANT : null;
-        if (foundOrder && foundTenant) {
-          setOrder(foundOrder);
-          setTenant(foundTenant);
-          setIsValid(true);
-        } else {
-          setIsValid(false);
-        }
+        // 2. Aucun repli local : un ticket n'est valable que si l'API de
+        // l'établissement le confirme (la vitrine n'embarque plus de données
+        // de démonstration).
+        setIsValid(false);
         setLoading(false);
       });
 

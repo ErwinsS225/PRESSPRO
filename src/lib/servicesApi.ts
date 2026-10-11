@@ -1,5 +1,4 @@
 import { ServiceItem } from '../types';
-import { DEMO_SERVICES } from './demoData';
 
 const STORAGE_KEY = 'pressingos_catalog_services_v2';
 const LAST_SYNC_KEY = 'pressingos_catalog_last_sync';
@@ -48,7 +47,9 @@ export function saveLocalServices(services: ServiceItem[]) {
   }
 }
 
-// Chargement local
+// Chargement local : uniquement ce que cet établissement a réellement
+// enregistré. Aucun catalogue fictif n'est injecté (l'écran affiche son état
+// vide tant que la grille tarifaire n'est pas remplie).
 export function getLocalServices(): ServiceItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -61,7 +62,7 @@ export function getLocalServices(): ServiceItem[] {
   } catch {
     // ignore
   }
-  return DEMO_SERVICES;
+  return [];
 }
 
 /**

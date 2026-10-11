@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SuperAdminView } from './SuperAdminView';
 import { User } from '../types';
@@ -91,6 +91,56 @@ describe('SuperAdminView', () => {
     expect(screen.getByText('gerant@pressing-ivoire.ci')).toBeInTheDocument();
     expect(screen.getByText('awa@lagune.ci')).toBeInTheDocument();
     expect(screen.getAllByText('Abidjan (Cocody)').length).toBeGreaterThan(0);
+  });
+
+  it('supprime un établissement seulement après confirmation explicite', async () => {
+    const appels: Array<{ url: string; method?: string }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        appels.push({ url: String(url), method: init?.method });
+        if (init?.method === 'DELETE') {
+          return { ok: true, status: 204, json: async () => ({}) } as Response;
+        }
+        const body = String(url).includes('/admin/stats')
+          ? STATS
+          : { tenants: TENANTS, total: TENANTS.length };
+        return { ok: true, status: 200, json: async () => body } as Response;
+      })
+    );
+
+    render(<SuperAdminView currentUser={superadmin} token="jeton-superadmin" />);
+    await waitFor(() => {
+      expect(screen.getByText('Pressing de la Lagune')).toBeInTheDocument();
+    });
+
+    // 1. Le bouton de l'annuaire ouvre une confirmation : aucun appel réseau.
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer — Pressing de la Lagune' }));
+    expect(screen.getByText('Supprimer définitivement cet établissement ?')).toBeInTheDocument();
+    expect(screen.getByText(/toutes ses données/i)).toBeInTheDocument();
+    expect(appels.some((a) => a.method === 'DELETE')).toBe(false);
+
+    // 2. La suppression reste bloquée tant que la confirmation n'est pas cochée.
+    const confirmer = screen.getByRole('button', { name: 'Supprimer définitivement' });
+    expect(confirmer).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Je confirme la suppression définitive de cet établissement'));
+    expect(confirmer).not.toBeDisabled();
+
+    // 3. Annuler n'efface rien.
+    fireEvent.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(appels.some((a) => a.method === 'DELETE')).toBe(false);
+
+    // 4. Confirmation cochée : l'API de l'éditeur est appelée, l'annuaire rechargé.
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer — Pressing de la Lagune' }));
+    fireEvent.click(screen.getByLabelText('Je confirme la suppression définitive de cet établissement'));
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer définitivement' }));
+
+    await waitFor(() => {
+      expect(appels.some((a) => a.method === 'DELETE' && a.url === '/api/v1/admin/tenants/t-2')).toBe(true);
+    });
+    await waitFor(() => {
+      expect(appels.filter((a) => a.url === '/api/v1/admin/tenants').length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("signale l'indisponibilité de l'API au lieu d'afficher de faux chiffres", async () => {

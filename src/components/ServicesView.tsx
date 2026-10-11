@@ -33,7 +33,6 @@ import {
   bulkAdjustCategoryPrices,
   getLastSyncTime,
 } from '../lib/servicesApi';
-import { DEMO_SUBSCRIPTION_PLANS, DEMO_B2B_CONTRACTS } from '../lib/demoData';
 import { CounterReceiptModal } from './CounterReceiptModal';
 import { CatalogManagerModal } from './CatalogManagerModal';
 import {
@@ -92,22 +91,25 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [isQuoteCalcOpen, setIsQuoteCalcOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  // Données Abonnements et Contrats B2B (Modèles commerciaux 3 & 4)
+  // Données Abonnements et Contrats B2B (Modèles commerciaux 3 & 4) : uniquement
+  // ce que l'établissement a enregistré localement, aucun jeu de démonstration.
   const [subscriptions] = useState<SubscriptionPlan[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_subscriptions');
-      return saved ? JSON.parse(saved) : DEMO_SUBSCRIPTION_PLANS;
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return DEMO_SUBSCRIPTION_PLANS;
+      return [];
     }
   });
 
   const [b2bContracts] = useState<B2BContract[]>(() => {
     try {
       const saved = localStorage.getItem('pressingos_b2b_contracts');
-      return saved ? JSON.parse(saved) : DEMO_B2B_CONTRACTS;
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return DEMO_B2B_CONTRACTS;
+      return [];
     }
   });
 

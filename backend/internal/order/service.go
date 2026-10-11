@@ -122,95 +122,15 @@ func isValidOrderStatus(status string) bool {
 	return validStatuses[status]
 }
 
-// NewService initialise le service des commandes avec les données de test initiales
-// Configure le logger et initialise les structures de stockage mémoire
+// NewService initialise le service des commandes vide : seules les données
+// réellement enregistrées par l'établissement existent (aucun jeu de
+// démonstration embarqué). La séquence de numérotation démarre à 1 par tenant.
 func NewService() *Service {
-	s := &Service{
+	return &Service{
 		orders:       make(map[string]*Order),
 		tenantSeqNum: make(map[string]int),
 		logger:       log.Default(),
 	}
-
-	defaultTenantID := "a0000000-0000-0000-0000-000000000001"
-	s.tenantSeqNum[defaultTenantID] = 87
-	s.logger.Printf("[order] Service initialisé, tenant par défaut: %s (séquence: %d)", defaultTenantID, s.tenantSeqNum[defaultTenantID])
-
-	// Commande exemple 1
-	s.orders["ord-101"] = &Order{
-		ID:            "ord-101",
-		TenantID:      defaultTenantID,
-		CustomerID:    "cust-1",
-		CustomerName:  "Kouassi Jean-Marc",
-		CustomerPhone: "+225 07 48 12 90 11",
-		OrderNumber:   "CMD-2026-084",
-		Status:        StatusIroning,
-		PaymentStatus: PaymentStatusPaid,
-		TotalAmount:   6000,
-		PaidAmount:    6000,
-		RemainingDue:  0,
-		DueDate:       "Demain à 17:00",
-		Notes:         "Amidon léger sur les cols de chemise",
-		Items: []OrderItem{
-			{ID: "it-1", ServiceID: "srv-1", ItemLabel: "Chemise classique", Quantity: 3, UnitPrice: 1000, Subtotal: 3000},
-			{ID: "it-2", ServiceID: "srv-2", ItemLabel: "Pantalon costume", Quantity: 2, UnitPrice: 1500, Subtotal: 3000},
-		},
-		Payments: []PaymentRecord{
-			{ID: "pay-1", Amount: 6000, PaymentMethod: MethodWave, Reference: "WAVE-CI-78912", CreatedAt: time.Now().Add(-2 * time.Hour)},
-		},
-		CreatedAt: time.Now().Add(-4 * time.Hour),
-		UpdatedAt: time.Now().Add(-1 * time.Hour),
-	}
-
-	// Commande exemple 2
-	s.orders["ord-102"] = &Order{
-		ID:            "ord-102",
-		TenantID:      defaultTenantID,
-		CustomerID:    "cust-2",
-		CustomerName:  "Bamba Aïcha",
-		CustomerPhone: "+225 05 66 34 78 90",
-		OrderNumber:   "CMD-2026-085",
-		Status:        StatusWashing,
-		PaymentStatus: PaymentStatusPartial,
-		TotalAmount:   7500,
-		PaidAmount:    4000,
-		RemainingDue:  3500,
-		DueDate:       "13 Octobre à 15:00",
-		Notes:         "Tissu soie fragile, traitement délicat",
-		Items: []OrderItem{
-			{ID: "it-3", ServiceID: "srv-4", ItemLabel: "Robe de soirée / Cérémonie", Quantity: 1, UnitPrice: 4000, Subtotal: 4000},
-			{ID: "it-4", ServiceID: "srv-3", ItemLabel: "Costume 2 pièces", Quantity: 1, UnitPrice: 3500, Subtotal: 3500},
-		},
-		Payments: []PaymentRecord{
-			{ID: "pay-2", Amount: 4000, PaymentMethod: MethodCash, CreatedAt: time.Now().Add(-3 * time.Hour)},
-		},
-		CreatedAt: time.Now().Add(-3 * time.Hour),
-		UpdatedAt: time.Now().Add(-3 * time.Hour),
-	}
-
-	// Commande exemple 3 (Prête au retrait)
-	s.orders["ord-103"] = &Order{
-		ID:            "ord-103",
-		TenantID:      defaultTenantID,
-		CustomerID:    "cust-3",
-		CustomerName:  "Konan Yao Serge",
-		CustomerPhone: "+225 01 02 44 88 12",
-		OrderNumber:   "CMD-2026-086",
-		Status:        StatusReady,
-		PaymentStatus: PaymentStatusUnpaid,
-		TotalAmount:   5000,
-		PaidAmount:    0,
-		RemainingDue:  5000,
-		DueDate:       "Aujourd'hui à 18:00",
-		Notes:         "Prêt pour retrait au comptoir",
-		Items: []OrderItem{
-			{ID: "it-5", ServiceID: "srv-5", ItemLabel: "Drap 2 places / Couette", Quantity: 2, UnitPrice: 2500, Subtotal: 5000},
-		},
-		Payments:  []PaymentRecord{},
-		CreatedAt: time.Now().Add(-24 * time.Hour),
-		UpdatedAt: time.Now().Add(-2 * time.Hour),
-	}
-
-	return s
 }
 
 // CreateOrder crée un nouveau dépôt de linge isolé par tenant_id

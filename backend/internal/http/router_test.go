@@ -129,9 +129,32 @@ func TestRouterEndpoints(t *testing.T) {
 		t.Fatalf("attendu 200 sur DELETE /api/v1/services/{id}, obtenu %d", recDeleteSrv.Code)
 	}
 
-	// 7. Vérification publique d'un ticket (sans JWT) — ord-101 du tenant seed.
+	// 7. Vérification publique d'un ticket (sans JWT) : aucun jeu de
+	// démonstration n'étant embarqué, la commande est d'abord créée par
+	// l'établissement, puis contrôlée par le client sans authentification.
 	tenantID := "a0000000-0000-0000-0000-000000000001"
-	reqVerify := httptest.NewRequest(http.MethodGet, "/api/v1/public/verify/"+tenantID+"/ord-101", nil)
+	newOrderBody, _ := json.Marshal(order.CreateOrderRequest{
+		CustomerName:  "Client Vitrine",
+		CustomerPhone: "+225 07 00 00 02",
+		Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 2, UnitPrice: 1000}},
+	})
+	reqCreateOrder := httptest.NewRequest(http.MethodPost, "/api/v1/orders", bytes.NewBuffer(newOrderBody))
+	reqCreateOrder.Header.Set("Authorization", "Bearer "+ownerToken)
+	reqCreateOrder.Header.Set("Content-Type", "application/json")
+	recCreateOrder := httptest.NewRecorder()
+	router.ServeHTTP(recCreateOrder, reqCreateOrder)
+	if recCreateOrder.Code != http.StatusCreated {
+		t.Fatalf("attendu 201 sur POST /api/v1/orders, obtenu %d (%s)", recCreateOrder.Code, recCreateOrder.Body.String())
+	}
+	var createdOrder order.Order
+	if err := json.NewDecoder(recCreateOrder.Body).Decode(&createdOrder); err != nil {
+		t.Fatalf("commande créée illisible: %v", err)
+	}
+	if createdOrder.ID == "" || createdOrder.OrderNumber == "" {
+		t.Fatalf("commande créée incomplète: %+v", createdOrder)
+	}
+
+	reqVerify := httptest.NewRequest(http.MethodGet, "/api/v1/public/verify/"+tenantID+"/"+createdOrder.ID, nil)
 	recVerify := httptest.NewRecorder()
 	router.ServeHTTP(recVerify, reqVerify)
 
@@ -142,7 +165,7 @@ func TestRouterEndpoints(t *testing.T) {
 	if err := json.NewDecoder(recVerify.Body).Decode(&verifyResp); err != nil {
 		t.Fatalf("réponse de vérification illisible: %v", err)
 	}
-	if !verifyResp.Valid || verifyResp.OrderID != "ord-101" {
+	if !verifyResp.Valid || verifyResp.OrderID != createdOrder.ID {
 		t.Errorf("vérification invalide: %+v", verifyResp)
 	}
 
@@ -186,7 +209,12 @@ func TestOrderQuotaFreeAfterTrial(t *testing.T) {
 	jwtManager := auth.NewJWTManager("test-secret-key-1234567890", 2*time.Hour)
 	authH := auth.NewHandler(auth.NewService(jwtManager))
 
-	billingSvc := billing.NewService() // tenant démo en essai par défaut
+	// L'établissement de test est inscrit (essai 7 jours) : plus aucune
+	// entreprise fictive n'est pré-enregistrée dans le moteur de facturation.
+	billingSvc := billing.NewService()
+	if err := billingSvc.EnsureTrial(context.Background(), "a0000000-0000-0000-0000-000000000001"); err != nil {
+		t.Fatalf("inscription de l'établissement de test: %v", err)
+	}
 	billingH := billing.NewHandler(billingSvc)
 	orderSvc := order.NewService()
 	orderH := order.NewHandler(orderSvc)

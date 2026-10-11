@@ -39,6 +39,14 @@ Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/stat
 | GET | `/api/v1/admin/stats` | superadmin | Indicateurs consolidés réels : établissements, utilisateurs actifs, abonnements actifs/en essai, MRR (somme des formules ACTIVE), répartitions par statut et par formule, `data_source` (`postgresql` ou `memoire`). |
 | GET | `/api/v1/admin/tenants` | superadmin | Annuaire des établissements : nom, ville, téléphone, compte propriétaire, formule, prix, statut, fin d'essai. Aucune donnée client ni commande n'est exposée. |
 | PATCH | `/api/v1/admin/tenants/{id}/status` | superadmin | Suspend / réactive un abonnement. Corps : `{"status":"SUSPENDED"\|"ACTIVE"\|"PAST_DUE"\|"CANCELED","reason":"…"}`. La décision et sa trace (`subscription_events`) sont écrites dans **une seule transaction** : `404` si l'établissement n'a pas d'abonnement, `400` si le statut est invalide. |
+| DELETE | `/api/v1/admin/tenants/{id}` | superadmin | **Retrait définitif** d'un établissement et de toutes ses données : comptes, clients, commandes, lignes de commande, paiements, catalogue, grilles, dépenses, établissements secondaires, notifications et abonnement. **Transaction unique** (les tables `orders` et `payments` ne cascadent pas depuis `tenants` : elles sont purgées explicitement) → `204` sans corps, `404` si l'établissement n'existe plus, identifiant non UUID refusé de la même façon. Action **irréversible** ; l'annuaire du frontend n'appelle cette route qu'après confirmation explicite. |
+
+### Suppression d'un établissement (nettoyage des environnements de démonstration)
+`DELETE /api/v1/admin/tenants/{id}` retire l'établissement **et tout son contenu** : le schéma
+supprime en cascade les comptes, clients, prestations, dépenses, notifications et abonnements ;
+les commandes, leurs lignes et les paiements sont retirés explicitement dans la même transaction
+avant l'établissement (aucune ligne orpheline possible, même si une étape échoue). La route sert
+notamment à purger les entreprises de test d'un environnement, sans script SQL ponctuel.
 
 ### Module Équipe (comptes utilisateurs, fonctionnalité payante `users.max`)
 | Méthode | Route | Rôle | Description |

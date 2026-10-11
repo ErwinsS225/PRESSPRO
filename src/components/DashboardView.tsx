@@ -128,10 +128,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-neutral-900 tracking-tight dark:text-neutral-100">
-              Tableau de bord — Pressing Ivoire Cocody
+              Tableau de bord
             </h1>
             <span className="font-mono text-[10px] bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700">
-              Établissement Actif
+              {orders.length > 0 ? 'Établissement actif' : 'Aucun dépôt enregistré'}
             </span>
           </div>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">

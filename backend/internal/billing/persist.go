@@ -15,6 +15,42 @@ import (
 // motif de l'événement plutôt que rejetés par PostgreSQL.
 func uuidPourColonne(id string) interface{} { return pgutil.NullableUUID(id) }
 
+// DeleteTenant retire l'établissement et ses données. Le schéma supprime en
+// cascade les comptes, clients, catalogue, dépenses, abonnements et notifications ;
+// seuls les paiements et les commandes référencent l'établissement sans cascade,
+// ils sont donc retirés d'abord, dans la même transaction : aucune ligne orpheline
+// ne peut subsister, même si une étape échoue.
+func (s *dbStore) DeleteTenant(ctx context.Context, tenantID string) error {
+	if !pgutil.IsUUID(tenantID) {
+		return ErrTenantNotFound
+	}
+
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for _, requete := range []string{
+		`DELETE FROM payments WHERE tenant_id = $1`,
+		`DELETE FROM orders WHERE tenant_id = $1`,
+	} {
+		if _, err := tx.Exec(ctx, requete, tenantID); err != nil {
+			return err
+		}
+	}
+
+	etiquette, err := tx.Exec(ctx, `DELETE FROM tenants WHERE id = $1`, tenantID)
+	if err != nil {
+		return err
+	}
+	if etiquette.RowsAffected() == 0 {
+		return ErrTenantNotFound
+	}
+
+	return tx.Commit(ctx)
+}
+
 // dbStore exécute les requêtes d'abonnement sur PostgreSQL.
 type dbStore struct {
 	database *database.Store

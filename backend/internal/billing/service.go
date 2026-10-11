@@ -116,23 +116,15 @@ type Service struct {
 	store    Store
 }
 
-// NewService initialise le moteur avec le tenant démo en essai 7 jours.
+// NewService initialise le moteur des droits sans aucun abonnement : chaque
+// établissement reçoit son abonnement à l'inscription (essai 7 jours). Aucune
+// entreprise de démonstration n'est pré-enregistrée.
 func NewService() *Service {
-	now := time.Now().UTC()
-	ends := now.Add(TrialDurationDays * 24 * time.Hour)
-	s := &Service{
+	return &Service{
 		subs:     make(map[string]*SubscriptionRecord),
 		matrix:   defaultMatrix(),
 		counters: memoryCounter{},
 	}
-	s.subs["a0000000-0000-0000-0000-000000000001"] = &SubscriptionRecord{
-		PlanCode:       PlanFree,
-		Status:         StatusTrialing,
-		TrialStartedAt: &now,
-		TrialEndsAt:    &ends,
-		PlanName:       "Gratuit permanent",
-	}
-	return s
 }
 
 // SetUsageCounter branche les compteurs réels (DB).

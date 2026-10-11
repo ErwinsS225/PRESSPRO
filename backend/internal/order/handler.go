@@ -223,7 +223,9 @@ func (h *Handler) ThermalReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantName := "Pressing Ivoire Cocody"
+	// En-tête du ticket : l'identité vient du jeton de l'établissement connecté.
+	// Aucune adresse ni société de démonstration n'est imprimée en dur.
+	tenantName := "Votre pressing"
 	if claims != nil && claims.TenantName != "" {
 		tenantName = claims.TenantName
 	}
@@ -235,8 +237,6 @@ func (h *Handler) ThermalReceipt(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	sb.WriteString(doubleDivider + "\n")
 	sb.WriteString(fmt.Sprintf("%26s\n", tenantName))
-	sb.WriteString("    Cocody Angre 8e Tranche, Abidjan\n")
-	sb.WriteString("         Tel: +225 07 00 11 22 33\n")
 	sb.WriteString(doubleDivider + "\n")
 	sb.WriteString(fmt.Sprintf(" TICKET DEPOT : %s\n", ord.OrderNumber))
 	sb.WriteString(fmt.Sprintf(" Date Depot   : %s\n", ord.CreatedAt.Format("02/01/2006 15:04")))

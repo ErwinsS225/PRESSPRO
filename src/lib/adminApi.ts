@@ -96,6 +96,29 @@ export async function setTenantStatus(
   }
 }
 
+/**
+ * Supprime définitivement un établissement et toutes ses données (comptes,
+ * clients, commandes, catalogue, dépenses, abonnement). Décision irréversible
+ * réservée à l'éditeur : la confirmation est demandée par l'écran appelant.
+ */
+export async function deleteTenant(
+  tenantId: string,
+  token?: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/v1/admin/tenants/${tenantId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    });
+    // 204 : l'établissement et ses données ont été retirés (aucun corps).
+    if (res.status === 204 || res.ok) return { ok: true };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: body.error ?? `erreur HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'réseau indisponible' };
+  }
+}
+
 /** Inscrit un nouvel établissement partenaire (catalogue et grille créés d'office). */
 export async function registerTenant(input: RegisterTenantInput): Promise<{ ok: boolean; error?: string }> {
   try {

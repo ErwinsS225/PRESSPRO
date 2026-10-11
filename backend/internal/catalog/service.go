@@ -34,9 +34,6 @@ func newService() *Service {
 	}
 }
 
-// defaultTenantID est l'établissement de démonstration livré avec les tarifs par défaut.
-const defaultTenantID = "a0000000-0000-0000-0000-000000000001"
-
 // defaultSeedItems retourne la grille tarifaire par défaut du produit,
 // rattachée au tenant fourni (copie indépendante à chaque appel).
 func defaultSeedItems(tenantID string) []ServiceItem {
@@ -844,16 +841,12 @@ func defaultSeedItems(tenantID string) []ServiceItem {
 
 // NewService initialise le service catalogue avec les tarifs par défaut
 // du tenant de démonstration (mode mémoire).
+// NewService initialise un catalogue vide. La grille tarifaire par défaut du
+// produit n'est copiée que pour un établissement réellement inscrit
+// (SeedTenantDefaults) : aucun catalogue d'entreprise fictive n'est embarqué.
 func NewService() *Service {
 	s := newService()
-	s.logger.Printf("[catalog] Service initialisé tenant par défaut: %s (séquence: %d)", defaultTenantID, s.sequence)
-	for _, it := range defaultSeedItems(defaultTenantID) {
-		itemCopy := it
-		itemCopy.CreatedAt = time.Now().Add(-48 * time.Hour)
-		itemCopy.UpdatedAt = time.Now().Add(-48 * time.Hour)
-		s.services[it.ID] = &itemCopy
-	}
-	s.tenantSeeded[defaultTenantID] = struct{}{}
+	s.logger.Printf("[catalog] Service initialisé (séquence: %d, catalogue vide)", s.sequence)
 	return s
 }
 

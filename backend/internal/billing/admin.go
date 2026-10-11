@@ -43,6 +43,30 @@ type TenantOverview struct {
 	Actif bool `json:"active"`
 }
 
+// DeleteTenant supprime un établissement et l'intégralité de ses données :
+// comptes, clients, commandes, catalogue, dépenses, abonnements. Réservé à
+// l'éditeur (espace SuperAdmin) ; l'opération est irréversible.
+//
+// Sans base connectée (mode mémoire), l'équivalent est le retrait de
+// l'abonnement de démonstration : l'appel refuse explicitement si rien ne
+// correspond, plutôt que de laisser croire à une suppression.
+func (s *Service) DeleteTenant(ctx context.Context, tenantID string) error {
+	if s == nil {
+		return ErrTenantNotFound
+	}
+	if s.store != nil {
+		return s.store.DeleteTenant(ctx, tenantID)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.subs[tenantID]; !exists {
+		return ErrTenantNotFound
+	}
+	delete(s.subs, tenantID)
+	return nil
+}
+
 // AdminStats retourne les indicateurs de la plateforme. En mode persistant, les
 // chiffres sont calculés en base ; en mode démonstration (aucune base) ils sont
 // dérivés des abonnements en mémoire et signalés comme tels.

@@ -304,6 +304,9 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						adminRouter.Get("/stats", SuperAdminStats(deps.Billing))
 						adminRouter.Get("/tenants", SuperAdminTenants(deps.Billing))
 						adminRouter.Patch("/tenants/{id}/status", SuperAdminSetTenantStatus(deps.Billing))
+						// Retrait définitif d'un établissement (et de ses données) :
+						// sert à nettoyer les entreprises de démonstration.
+						adminRouter.Delete("/tenants/{id}", SuperAdminDeleteTenant(deps.Billing))
 					})
 				}
 			})

@@ -101,8 +101,8 @@ backend/
 ### Choix du mode de persistance (au démarrage)
 1. Le pool `pgxpool` est créé, puis **un `Ping` est exécuté** : la création du pool ne prouve pas que la base répond.
 2. `Ping` réussi → tous les services sont adossés à PostgreSQL (`dbReady = true`).
-3. `Ping` échoué → **bascule complète en repli mémoire** (données de démonstration, aucune écriture persistée) et `/ready` renvoie `503`. Les logs l'annoncent explicitement ; `/health` reste `200` (processus vivant).
-4. Sans `DATABASE_URL` joignable, l'API reste utilisable (mode démonstration) au lieu de renvoyer des erreurs 500.
+3. `Ping` échoué → **bascule complète en repli mémoire** (aucune entreprise fictive pré-chargée : les écrans restent vides, aucune écriture persistée) et `/ready` renvoie `503`. Les logs l'annoncent explicitement ; `/health` reste `200` (processus vivant).
+4. Sans `DATABASE_URL` joignable, l'API reste utilisable (mode dégradé) au lieu de renvoyer des erreurs 500 ; aucune entreprise ni donnée de démonstration n'est injectée pour autant (les écrans restent en état vide).
 
 ### Sécurité du démarrage
 `SERVER_ENV=production` impose un `JWT_SECRET` d'au moins 32 caractères : sans lui, le processus refuse de démarrer. Un secret de développement n'est utilisé qu'en environnement non-production, avec un avertissement explicite dans les logs.
@@ -161,7 +161,7 @@ de WhatsApp / SMS : la fonctionnalité reste utile en formule d'essai comme en l
 échec de la passerelle est tracé (`status: "echec"`, `detail`) sans bloquer l'atelier.
 
 ### Espace SuperAdmin
-`GET /admin/stats`, `GET /admin/tenants` et `PATCH /admin/tenants/{id}/status` travaillent sur les données réelles (`billing.Service.AdminStats`, `TenantsOverview`, `SetTenantStatus`). En mode dégradé, les indicateurs sont calculés sur les abonnements en mémoire et signalés par `data_source: "memoire"`.
+`GET /admin/stats`, `GET /admin/tenants`, `PATCH /admin/tenants/{id}/status` et `DELETE /admin/tenants/{id}` travaillent sur les données réelles (`billing.Service.AdminStats`, `TenantsOverview`, `SetTenantStatus`, `DeleteTenant`). En mode dégradé, les indicateurs sont calculés sur les abonnements en mémoire et signalés par `data_source: "memoire"` ; aucune entreprise fictive n'est pré-enregistrée, les compteurs démarrent donc à zéro. La suppression (`DeleteTenant`) est transactionnelle : les commandes, leurs lignes et les paiements sont purgés explicitement (ces tables ne cascadent pas depuis `tenants`), le reste suit les `ON DELETE CASCADE`.
 
 ### Limitation de débit
 `POST /api/v1/auth/login` est protégé (`internal/ratelimit`) : 10 tentatives par couple (IP, email) et 40 par IP sur 5 minutes, réponse `429` + `Retry-After`. Une connexion réussie réinitialise le compteur. Le limiteur est en mémoire (mono-instance) ; en déploiement multi-instances, le remplacer par un compteur partagé.
@@ -180,7 +180,7 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 
 ## 7. Qualité, outillage et intégration continue
 
-- **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
+- **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000015` appliquées) ; `gofmt` imposé.
 - **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **21 fichiers / 162 tests**, vues métier, clients API, analyses du tableau de bord, dessin réel des graphiques, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
 - Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).

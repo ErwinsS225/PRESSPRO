@@ -154,6 +154,11 @@ func TestRequireActiveSubscription(t *testing.T) {
 	const autre = "tenant-non-suspendu-0000000000000"
 
 	billingSvc := billing.NewService()
+	// L'établissement de test est réellement inscrit : plus aucune entreprise
+	// fictive n'est pré-enregistrée dans le moteur de facturation.
+	if err := billingSvc.EnsureTrial(context.Background(), suspendu); err != nil {
+		t.Fatalf("inscription de l'établissement de test: %v", err)
+	}
 	if err := billingSvc.SetTenantStatus(context.Background(), suspendu,
 		billing.StatusSuspended, "usr-superadmin-000", "impayé (test)"); err != nil {
 		t.Fatalf("suspension de l'établissement de test: %v", err)

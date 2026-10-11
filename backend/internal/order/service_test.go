@@ -82,17 +82,32 @@ func TestGetOrderByID_NotFound(t *testing.T) {
 	assert.Nil(t, order)
 }
 
+// creerCommandeDepot crée une commande réelle pour les tests : le service
+// démarre sans aucune donnée de démonstration embarquée.
+func creerCommandeDepot(t *testing.T, service *Service, tenantID string, initialPaid float64) *Order {
+	t.Helper()
+	created, err := service.CreateOrder(context.Background(), tenantID, CreateOrderRequest{
+		CustomerName:  "Client Test",
+		CustomerPhone: "+225 07 00 00 00",
+		Items: []CreateOrderItemInput{
+			{ServiceID: "srv-test", ItemLabel: "Chemise", Quantity: 2, UnitPrice: 1500},
+		},
+		InitialPaid:   initialPaid,
+		PaymentMethod: MethodCash,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	return created
+}
+
 func TestUpdateOrderStatus_Invalid(t *testing.T) {
 	t.Parallel()
 	service := NewService()
 	ctx := context.Background()
-	tenantID := "a0000000-0000-0000-0000-000000000001" // Tenant par défaut
+	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	// Récupère une commande existante
-	orders, err := service.GetOrders(ctx, tenantID, "", "")
-	require.NoError(t, err)
-	require.Len(t, orders, 3)
-	firstOrder := orders[0]
+	// Une commande réellement déposée : l'établissement démarre sans données.
+	firstOrder := creerCommandeDepot(t, service, tenantID, 0)
 
 	// Tentative de mise à jour avec un statut invalide
 	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, "statut_invalide")
@@ -106,9 +121,7 @@ func TestUpdateOrderStatus_Success(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	orders, err := service.GetOrders(ctx, tenantID, "", "")
-	require.NoError(t, err)
-	firstOrder := orders[0]
+	firstOrder := creerCommandeDepot(t, service, tenantID, 0)
 
 	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, StatusReady)
 	require.NoError(t, err)
@@ -121,21 +134,20 @@ func TestAddPayment_Success(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	orders, err := service.GetOrders(ctx, tenantID, StatusWashing, "")
-	require.NoError(t, err)
-	require.Len(t, orders, 1)
-	order := orders[0] // Celle avec paiement partiel
+	// Dépôt de 3 000 F avec un acompte de 1 000 F : le solde est encaissé ensuite.
+	commande := creerCommandeDepot(t, service, tenantID, 1000)
+	require.Equal(t, 3000.0, commande.TotalAmount)
+	require.Equal(t, PaymentStatusPartial, commande.PaymentStatus)
 
-	initialPaid := order.PaidAmount
 	paymentReq := AddPaymentRequest{
-		Amount:        3500,
+		Amount:        2000,
 		PaymentMethod: MethodCash,
 		Reference:     "TEST-REF",
 	}
 
-	updated, err := service.AddPayment(ctx, tenantID, order.ID, paymentReq)
+	updated, err := service.AddPayment(ctx, tenantID, commande.ID, paymentReq)
 	require.NoError(t, err)
-	assert.Equal(t, initialPaid+3500, updated.PaidAmount)
+	assert.Equal(t, 3000.0, updated.PaidAmount)
 	assert.Equal(t, 0.0, updated.RemainingDue)
 	assert.Equal(t, PaymentStatusPaid, updated.PaymentStatus)
 	assert.Len(t, updated.Payments, 2)

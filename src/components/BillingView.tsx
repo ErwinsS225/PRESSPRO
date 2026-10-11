@@ -172,7 +172,7 @@ export const BillingView: React.FC<{
         {!fromApi && (
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
             <WifiOff className="h-3 w-3" />
-            Mode hors-ligne — données de démonstration
+            Mode hors-ligne — formule par défaut appliquée
           </span>
         )}
       </div>
