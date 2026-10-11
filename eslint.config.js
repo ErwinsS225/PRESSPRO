@@ -43,6 +43,15 @@ export default tseslint.config(
     },
   },
   {
+    // Primitives d'interface : exporter une variante (`buttonVariants`, `badgeVariants`)
+    // ou un hook de contexte à côté du composant est la convention de la bibliothèque
+    // (shadcn/ReUI) — le rafraîchissement à chaud n'en souffre pas.
+    files: ['src/components/ui/**', 'src/components/reui/**'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
     files: ['**/*.test.{ts,tsx}', 'src/test/**'],
     rules: {
       'no-console': 'off',

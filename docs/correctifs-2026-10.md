@@ -294,12 +294,37 @@ comptoir n'attend jamais la passerelle. Les autres transitions n'envoient rien, 
 - `src/styles.test.ts` verrouille le jeu de styles (utilitaires, cadres équipés, absence de
   régression vers les survols clairs).
 
+### 7. Composants d'interface ReUI (tableaux, graphiques, cartes, carrousel)
+Le registre `@reui/*` **n'est pas joignable** depuis l'atelier (`npx shadcn@latest add
+@reui/c-table-10` → « Request to https://ui.shadcn.com/r/registries.json failed » ; `reui.io`
+et `ui.shadcn.com` renvoient une connexion impossible). Les composants ont donc été
+**installés localement, fidèles aux modèles fournis** (mêmes API, mêmes variantes), à partir
+des dépendances réelles du registre npm (`recharts`, `embla-carousel-react`, Radix, CVA,
+clsx, tailwind-merge) :
+
+| Modèle | Composant livré | Contexte d'utilisation dans PressingOS |
+|---|---|---|
+| `c-table-10` | `reui/subscriptions-table` | Espace éditeur : répertoire des pressings souscrits (formule, facturation, état, action Suspendre/Réactiver) |
+| `c-chart-19` | `reui/revenue-donut-chart` | Tableau de bord : encaissements par prestation, total au centre |
+| `c-chart-21` | `reui/orders-status-chart` | Tableau de bord : suivi de l'atelier par étape, parts hachurées |
+| `c-chart-22` | `reui/plans-funnel-chart` | Espace éditeur : entonnoir des formules souscrites |
+| `c-card-15` | `reui/stat-card` | Tableau de bord : CA encaissé (variation mois/mois réelle) et encaissé du mois |
+| `c-card-17` | `reui/quick-action-card` | Tableau de bord : dépôt, comptoir, rapports |
+| `c-carousel-10` | `reui/deposits-carousel` | Tableau de bord : derniers dépôts avec bandeau de vignettes |
+| `c-badge-4` / `c-badge-9` | `reui/badge` | Statuts (succès, information, avertissement, alerte) en pleines, `-light` et `-outline` |
+
+Fondations ajoutées : primitives `src/components/ui/` (bouton, carte, tableau, séparateur,
+menu déroulant, carrousel, enveloppe de graphiques avec infobulles et légendes), `cn()` dans
+`src/lib/utils.ts`, **jetons de design shadcn** (`--chart-1` … `--chart-5`, `--card`,
+`--muted-foreground`…) exposés en utilitaires Tailwind v4, alias `@/…` → `src/`, et ponts
+`matchMedia`/`ResizeObserver`/`IntersectionObserver` pour les tests jsdom.
+
 ### Preuves d'exécution (session 6)
 | Preuve | Résultat |
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | propres |
 | `go test ./...` | **13 paquets ok**, dont `notification` (11 tests : composition, validations, passerelle `httptest` — payload, Bearer, échec 429/injoignable, hook automatique, isolation tenant) et `billing` (`notifications.advanced` réservé aux formules payantes) |
-| Frontend | `tsc --noEmit`, ESLint, Prettier, **116 tests Vitest** (16 fichiers : `notificationsApi`, `ClientNotificationModal`, fumée de l'application, garde-fou du jeu de styles), build Vite ✅ |
+| Frontend | `tsc --noEmit`, ESLint, Prettier, **126 tests Vitest** (18 fichiers : notifications, fumée de l'application, garde-fou du jeu de styles, tableau de bord et composants ReUI), build Vite ✅ |
 | Live `/tmp/verif_tour6.py` (passerelle webhook de test) | **57/57** — journal vide puis 2 messages (`envoye`, `provider: passerelle`), payload et jeton Bearer reçus par la passerelle, filtres, persistance SQL, refus `400`/`404`, repli du message blanc, messages automatiques `ready`/`delivered` réellement transmis, **isolation inter-pressings**, **402 après la fin de l'essai** avec configuration toujours lisible, non-régression des autres modules |
 
 ---
@@ -354,7 +379,7 @@ python3 /tmp/verif_fix_demo.py
 # récepteur /tmp/passerelle.py lancés, puis npm run dev
 python3 /tmp/verif_tour6.py
 
-# Frontend : types, ESLint, formatage, tests (116), build
+# Frontend : types, ESLint, formatage, tests (126), build
 npm ci --legacy-peer-deps
 npm run lint && npm run lint:eslint && npm run format:check && npm test && npm run build
 

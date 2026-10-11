@@ -181,9 +181,43 @@ Lorsqu'un signal d'arrêt est reçu (`SIGINT` via Ctrl+C ou `SIGTERM` via Docker
 ## 7. Qualité, outillage et intégration continue
 
 - **Backend** : `go vet ./...` puis `go test ./...` (tests unitaires, dont les modules métier) et `go test -tags=integration` sur un **PostgreSQL 16 réel** (migrations `000001` → `000012` appliquées) ; `gofmt` imposé.
-- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **16 fichiers / 116 tests**, vues métier, clients API, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
+- **Frontend** : `npm run lint` (TypeScript, mode `--noEmit`), `npm run lint:eslint` (ESLint 9, configuration plate + `eslint-config-prettier`), `npm run format:check` (Prettier), `npm test` (Vitest + Testing Library — **18 fichiers / 126 tests**, vues métier, clients API, modale de notification client, garde-fou du jeu de styles, fumée de l'application et flux d'impression ESC/POS) et `npm run build`.
 - **Intégration continue** (`.github/workflows/ci.yml`) : les deux chaînes tournent à chaque push et pull request, avec un service PostgreSQL 16 pour les tests d'intégration Go.
 - Les vérifications **live** (proxy `:3000` → API `:8085` → PostgreSQL) complètent les tests : parcours métier complet, plafonds de formule, isolation inter-établissements, export des rapports, périmètre d'exploitation par établissement (`X-Branch-ID`) et envoi réel des notifications via une passerelle de test (payload, jeton, journal, déclenchement automatique `ready`/`delivered`).
+### Bibliothèque d'interface : primitives shadcn/ui et composants ReUI
+
+L'interface s'appuie sur des **primitives locales** (`src/components/ui/`) — bouton, carte,
+tableau, séparateur, menu déroulant, carrousel Embla, enveloppe de graphiques — et sur des
+**composants ReUI** (`src/components/reui/`) : badge multi-variantes, `Frame`/`FramePanel`,
+carte d'indicateur, carte de raccourci, tableau d'abonnements, anneau de répartition,
+répartition par statut, entonnoir de conversion et carrousel des dépôts récents.
+Le chemin `@/…` est résolu vers `src/` (Vite, Vitest et TypeScript), suivant la convention
+shadcn — aucune autre partie du code n'utilisait cet alias.
+
+Les **jetons de design** shadcn (`--background`, `--card`, `--muted-foreground`,
+`--destructive`, `--chart-1` … `--chart-5`) sont déclarés dans `src/index.css` pour les deux
+thèmes puis exposés en utilitaires Tailwind v4 via `@theme inline` (`bg-card`,
+`text-muted-foreground`, `border-border`, `fill-foreground`…). Le thème sombre réutilise la
+classe `.dark` déjà en place : les composants ReUI suivent donc automatiquement le basculement.
+
+Dépendances ajoutées : `recharts` (graphiques), `embla-carousel-react` (carrousel),
+`class-variance-authority`, `clsx`, `tailwind-merge` (variantes et fusion de classes) et
+`@radix-ui/react-{slot,dropdown-menu,separator}` (primitives accessibles). Les ponts
+`matchMedia`, `ResizeObserver` et `IntersectionObserver` sont émulés dans
+`src/test/setup.ts` : sans eux, le carrousel et les graphiques échouent au montage en jsdom.
+
+Contextes d'utilisation retenus :
+| Composant | Modèle | Emplacement |
+|---|---|---|
+| Carte d'indicateur (variation + menu) | c-card-15 | Tableau de bord : CA encaissé, encaissé du mois |
+| Carte de raccourci | c-card-17 | Tableau de bord : dépôt, comptoir, rapports |
+| Carrousel + vignettes | c-carousel-10 | Tableau de bord : derniers dépôts au comptoir |
+| Anneau de répartition (dégradés, total au centre) | c-chart-19 | Tableau de bord : encaissements par prestation |
+| Répartition hachurée + légende | c-chart-21 | Tableau de bord : suivi de l'atelier |
+| Entonnoir de conversion | c-chart-22 | Espace éditeur : formules souscrites |
+| Tableau des abonnements | c-table-10 | Espace éditeur : répertoire des pressings souscrits |
+| Badges (pleines, `-light`, `-outline`) | c-badge-4 / c-badge-9 | Statuts d'atelier, formules, états d'abonnement |
+
 ### Jeu de styles : cadres surélevés et survols foncés
 
 Deux utilitaires Tailwind v4 portent l'identité visuelle des surfaces (`src/index.css`) :
