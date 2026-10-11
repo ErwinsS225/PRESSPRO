@@ -214,9 +214,17 @@ Trois sujets issus du backlog, livrés avec leurs preuves d'exécution sur la pi
 - Interface : bouton **« Affecter »** par employé dans l'écran Équipe, sélecteur des sites (principal signalé, statut affiché), refus local d'une sélection vide, message de confirmation.
 - Tests : `branch/service_test.go` (`TestAffectation_MembreAuxEtablissements`, 6 étapes : défaut, non-affecté, remplacement exclusif, cas limites, isolation entre pressings, archivage) ; front, `teamApi.test.ts` (**6 tests**) et `TeamView.test.tsx` (sélection d'un site, enregistrement, refus de la sélection vide).
 
+### 4. Bug — dépense impossible avec un compte de démonstration
+Détecté en alimentant le pressing vitrine : `POST /api/v1/expenses` répondait **400**
+`invalid input syntax for type uuid: "usr-gerant-001" (SQLSTATE 22P02)`.
+- Cause : `expense/persist.go` castait l'identifiant de l'auteur (`created_by UUID`) sans vérifier sa forme. Les comptes de démonstration portent des identifiants **mémoire** (`usr-gerant-001`), valides pour le jeton JWT mais impossibles à insérer dans une colonne UUID. Les modules `billing` (journal d'abonnement) et `order` avaient déjà leur conversion ; le module Dépenses l'avait oubliée — invisible jusqu'ici car tous les tests de bout en bout créaient des établissements réels (identifiants UUID).
+- Correctif : `uuidPourColonne` (même politique que `billing/persist.go`) convertit l'auteur en valeur de colonne : UUID conservé, identifiant mémoire → `NULL`. L'attribution des vrais comptes reste donc intacte et la dépense est enregistrée, simplement sans auteur.
+- Tests : `internal/expense/persist_test.go` — `TestUUIDPourColonne` (6 cas : identifiant de démonstration, chaîne vide, non hexadécimal, espaces, majuscules, UUID standard).
+
 ### Preuves d'exécution
 - **Live (pile réelle 3000 → 8085 → PostgreSQL 16)** : `/tmp/verif_tour5.py` — **30/30** (export CSV/PDF conforme et chiffres identiques à l'écran, garde-fous `400`/`401`/`402`, affectation par défaut puis exclusive, effet réel sur `X-Branch-ID` — `200` sur le site affecté, `403` sur le site retiré).
 - **Non-régression** : 35/35 (modules payants), 24/24 (Équipe), 34/34 (E2E), 17/17 (SuperAdmin), 14/14 (fail-closed & quotas) → **154 assertions live** vertes.
+- **Correctif dépense/démo** (`/tmp/verif_fix_demo.py`) : **11/11** — attribution conservée pour un compte réel, dépense acceptée avec un compte de démonstration (`created_by` NULL, aucun auteur inventé), export CSV/PDF et affectation toujours opérationnels.
 - **Backend** : `gofmt` propre, `go vet ./...` muet, `go test ./...` **12 paquets `ok`**, binaire `backend/bin/api` reconstruit et rechargé par le serveur de développement.
 - **Frontend** : `tsc --noEmit` OK · `eslint .` **0 erreur** (46 avertissements plafonnés) · `prettier --check .` conforme · **11 fichiers / 94 tests Vitest** · `npm run build` OK.
 
@@ -263,6 +271,9 @@ python3 /tmp/verif_equipe.py
 
 # Tour 5 : export CSV/PDF des rapports et affectation employé ↔ établissement
 python3 /tmp/verif_tour5.py
+
+# Correctif « dépense avec un compte de démonstration » (auteur non-UUID)
+python3 /tmp/verif_fix_demo.py
 
 # Frontend : types, ESLint, formatage, tests (94), build
 npm ci --legacy-peer-deps

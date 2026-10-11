@@ -3,6 +3,8 @@ package expense
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -17,6 +19,21 @@ type dbStore struct {
 const expenseColumns = `id, tenant_id, COALESCE(branch_id::text, ''), category, label, amount_xof,
 	COALESCE(payment_method, ''), spent_at, COALESCE(note, ''), COALESCE(created_by::text, ''),
 	created_at, updated_at`
+
+// uuidRE valide le format d'un identifiant UUID tel que stocké en base.
+var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// uuidPourColonne retourne l'identifiant exploitable dans une colonne UUID, ou
+// nil. Les comptes de démonstration (identifiants mémoire de forme libre, par
+// exemple « usr-gerant-001 ») n'existent pas en base : sans cette conversion, la
+// dépense était rejetée par PostgreSQL (22P02). Elle reste enregistrée, sans
+// attribution d'auteur.
+func uuidPourColonne(id string) interface{} {
+	if !uuidRE.MatchString(strings.TrimSpace(id)) {
+		return nil
+	}
+	return strings.TrimSpace(id)
+}
 
 func scanExpense(row pgx.Row) (*Expense, error) {
 	var e Expense
@@ -96,10 +113,10 @@ func (s *dbStore) CreateExpense(ctx context.Context, tenantID, userID string, re
 	var id string
 	err := s.database.QueryRowContext(ctx, `
 		INSERT INTO expenses (tenant_id, branch_id, category, label, amount_xof, payment_method, spent_at, note, created_by)
-		VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5, NULLIF($6, ''), $7::date, NULLIF($8, ''), NULLIF($9, '')::uuid)
+		VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5, NULLIF($6, ''), $7::date, NULLIF($8, ''), $9::uuid)
 		RETURNING id`,
 		tenantID, req.BranchID, req.Category, req.Label, req.AmountXOF,
-		req.PaymentMethod, req.SpentAt, req.Note, userID).Scan(&id)
+		req.PaymentMethod, req.SpentAt, req.Note, uuidPourColonne(userID)).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
