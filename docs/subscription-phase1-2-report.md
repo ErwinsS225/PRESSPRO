@@ -1,3 +1,8 @@
+> **Mise à jour (phase 3).** Ce rapport décrit l'état à la fin des phases 1 et 2. Le fichier
+> `quota_window_pending_test.go` (tag `phase3`) a été remplacé par `quota_window_integration_test.go`,
+> exécuté par la CI, et les tests `TestPhase3_*` sont devenus `TestQuota_*`. Voir
+> `docs/subscription-phase3-report.md`.
+
 # PRESSPRO — Rapport des phases 1 et 2 (tests de caractérisation et cycle de vie des abonnements)
 
 Suite de `docs/subscription-phase0-baseline.md`. Périmètre : tests de caractérisation (phase 1) puis

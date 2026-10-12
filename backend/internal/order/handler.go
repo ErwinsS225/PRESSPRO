@@ -18,7 +18,6 @@ import (
 // Handler gère les requêtes HTTP sur les commandes
 type Handler struct {
 	service *Service
-	quota   *billing.QuotaGuard
 	logger  *log.Logger
 }
 
@@ -35,6 +34,11 @@ func (h *Handler) respondServiceError(w http.ResponseWriter, err error, internal
 	switch {
 	case errors.Is(err, ErrOrderNotFound):
 		httperr.Error(w, http.StatusNotFound, "commande introuvable")
+	case billing.IsRefusMetier(err):
+		// Refus de formule (plafond atteint / fonctionnalité non incluse) : 402 métier.
+		httperr.ErrorWithExtra(w, http.StatusPaymentRequired, err.Error(), map[string]string{
+			"upgrade_required": "true",
+		})
 	case errors.Is(err, ErrInvalidStatusOrder),
 		errors.Is(err, ErrEmptyOrderItems),
 		errors.Is(err, ErrInvalidPayment),
@@ -45,9 +49,10 @@ func (h *Handler) respondServiceError(w http.ResponseWriter, err error, internal
 	}
 }
 
-// SetQuotaGuard branche le garde-fou du quota mensuel (plan FREE = 50).
+// SetQuotaGuard transmet le garde-fou au service : le contrôle du plafond vit
+// dans le service, pas dans le handler (un seul chemin de décision).
 func (h *Handler) SetQuotaGuard(guard *billing.QuotaGuard) {
-	h.quota = guard
+	h.service.SetQuotaGuard(guard)
 }
 
 // CreateOrder gère POST /api/v1/orders
@@ -79,21 +84,6 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// de requête si le header est absent.
 	if hdr := strings.TrimSpace(r.Header.Get("X-Branch-ID")); hdr != "" {
 		req.BranchID = hdr
-	}
-
-	// Garde-fou quota mensuel : essai dépassé = FREE plafonné à 50 commandes.
-	if h.quota != nil {
-		if err := h.quota.CheckOrdersCreation(r.Context(), tenantID); err != nil {
-			if !billing.IsRefusMetier(err) {
-				// Panne de lecture (compteur, abonnement) : 500 générique, sans détail SQL.
-				httperr.Internal(w, h.logger, "order", err, "impossible de vérifier votre formule d'abonnement")
-				return
-			}
-			httperr.ErrorWithExtra(w, http.StatusPaymentRequired, err.Error(), map[string]string{
-				"upgrade_required": "true",
-			})
-			return
-		}
 	}
 
 	created, err := h.service.CreateOrder(r.Context(), tenantID, req)

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"pressing-os/backend/internal/billing"
 )
 
 // Service gère les opérations métier sur les commandes de linge
@@ -23,6 +25,16 @@ type Service struct {
 	// toujours hors du chemin critique : une panne du hook n'empêche jamais la
 	// réponse HTTP.
 	hookStatut func(ctx context.Context, tenantID, orderID, statut string)
+
+	// quota applique le plafond de commandes du plan. Il est contrôlé par le
+	// service (et non par le handler HTTP) pour que tout chemin de création soit
+	// couvert. Facultatif : nil = aucun plafond (tests, outils internes).
+	quota *billing.QuotaGuard
+}
+
+// SetQuotaGuard branche le garde-fou du plafond de commandes (au démarrage).
+func (s *Service) SetQuotaGuard(guard *billing.QuotaGuard) {
+	s.quota = guard
 }
 
 // SetHookStatut branche le récepteur des transitions de statut (facultatif).
@@ -143,7 +155,7 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation création à persistance PostgreSQL, tenant=%s", tenantID)
-		return s.store.CreateOrder(ctx, tenantID, req)
+		return s.store.creerCommande(ctx, tenantID, req, s.quota)
 	}
 
 	// Validation et initialisation du tenant hors du verrou principal pour réduire le temps de blocage
@@ -152,6 +164,18 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	// Verrouillage exclusif seulement pour la mise à jour des maps partagées
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Plafond de commandes (mode mémoire) : contrôlé sous le verrou du service,
+	// donc atomiquement avec l'insertion. Une refus ne consomme aucun numéro.
+	if s.quota != nil {
+		plafond, err := s.quota.PlafondCommandes(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.quota.VerifierCommande(ctx, tenantID, plafond); err != nil {
+			return nil, err
+		}
+	}
 
 	s.tenantSeqNum[tenantID]++
 	seq := s.tenantSeqNum[tenantID]

@@ -101,7 +101,7 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 		}
 	}
 
-	// Enrichir les plafonds avec la consommation réelle (commandes du mois,
+	// Enrichir les plafonds avec la consommation réelle (commandes de la fenêtre de 30 jours,
 	// comptes utilisateurs, grilles tarifaires).
 	for i := range entitlements {
 		if usage, err := s.FeatureUsage(ctx, tenantID, entitlements[i].Key); err == nil && usage >= 0 && isCountedFeature(entitlements[i].Key) {
@@ -160,7 +160,7 @@ func (s *Service) FeatureUsage(ctx context.Context, tenantID, featureKey string)
 	}
 	switch featureKey {
 	case FeatureOrdersMonthlyMax:
-		return s.counters.CountMonthlyOrders(ctx, tenantID)
+		return s.counters.CountOrdersInPeriod(ctx, tenantID, time.Now().UTC())
 	case FeatureUsersMax:
 		return s.counters.CountUsers(ctx, tenantID)
 	case FeaturePriceLists:
@@ -197,15 +197,7 @@ func (s *Service) CheckLimit(ctx context.Context, tenantID, featureKey string, c
 		if e.Key != featureKey {
 			continue
 		}
-		if !e.Enabled {
-			return &refusMetier{cause: ErrFeatureNotIncluded,
-				message: fmt.Sprintf("fonctionnalité %s non incluse dans votre formule", featureKey)}
-		}
-		if e.Limit != nil && current >= *e.Limit {
-			return &refusMetier{cause: ErrLimitReached,
-				message: fmt.Sprintf("plafond atteint (%d) — passez à une formule supérieure", *e.Limit)}
-		}
-		return nil
+		return verifierPlafond(featureKey, e.Enabled, e.Limit, current)
 	}
 	return fmt.Errorf("%w : %s", ErrUnknownFeature, featureKey)
 }

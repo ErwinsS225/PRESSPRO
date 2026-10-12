@@ -25,6 +25,9 @@ const TrialDurationDays = 7
 const (
 	FeatureOrdersCreate     = "orders.create"
 	FeatureOrdersMonthlyMax = "orders.monthly.max"
+
+	// OrdersPeriodDays : longueur de la fenêtre glissante du quota de commandes (PLAN §3.4).
+	OrdersPeriodDays        = 30
 	FeatureUsersMax         = "users.max"
 	FeaturePriceLists       = "catalog.price_lists"
 	FeatureMultiSite        = "branches.multi_site"

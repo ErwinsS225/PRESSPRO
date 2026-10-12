@@ -78,12 +78,55 @@ type dbCounters struct {
 	database *database.Store
 }
 
-func (c *dbCounters) CountMonthlyOrders(ctx context.Context, tenantID string) (int64, error) {
+// requeteFenetre : ancre de la fenêtre glissante de commandes. Priorité au début
+// d'essai, sinon à la création de l'abonnement, sinon à la création de
+// l'établissement (tenants.created_at est NOT NULL, donc toujours défini).
+// La fenêtre est ouverte par tranches de OrdersPeriodDays jours depuis cette
+// ancre : elle se renouvelle sans job, et un changement de formule ne la remet
+// pas à zéro (l'ancre ne dépend pas du plan).
+const requeteFenetre = `
+	SELECT COALESCE(s.trial_started_at, s.created_at, t.created_at) AS ancre
+	FROM tenants t
+	LEFT JOIN subscriptions s ON s.tenant_id = t.id
+	WHERE t.id = $1`
+
+// requeteCompteFenetre compte les commandes de la fenêtre courante, hors annulées.
+// $1 = tenant, $2 = instant de calcul. L'index idx_orders_tenant_created (migration
+// 000016) couvre le filtre par établissement et par date.
+var requeteCompteFenetre = fmt.Sprintf(`
+	WITH ancre AS (%s),
+	bornes AS (
+		SELECT ancre.ancre + make_interval(days => %d * GREATEST(0,
+			FLOOR(EXTRACT(EPOCH FROM ($2::timestamptz - ancre.ancre)) / (%d * 86400))::int)) AS debut
+		FROM ancre
+	)
+	SELECT COUNT(*) FROM orders o, bornes
+	WHERE o.tenant_id = $1
+	  AND o.status <> 'cancelled'
+	  AND o.created_at >= bornes.debut
+	  AND o.created_at < bornes.debut + make_interval(days => %d)`,
+	requeteFenetre, OrdersPeriodDays, OrdersPeriodDays, OrdersPeriodDays)
+
+// CountOrdersInPeriod compte la consommation de la fenêtre courante (hors transaction).
+func (c *dbCounters) CountOrdersInPeriod(ctx context.Context, tenantID string, now time.Time) (int64, error) {
+	if !pgutil.IsUUID(tenantID) {
+		return 0, nil
+	}
 	var n int64
-	row := c.database.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM orders WHERE tenant_id = $1 AND date_trunc('month', created_at) = date_trunc('month', NOW())`,
-		tenantID)
-	if err := row.Scan(&n); err != nil {
+	if err := c.database.QueryRowContext(ctx, requeteCompteFenetre, tenantID, now).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// CountOrdersInPeriodTx compte dans la transaction de création, après le verrou
+// de l'établissement : la lecture voit alors les commandes déjà validées.
+func (c *dbCounters) CountOrdersInPeriodTx(ctx context.Context, tx pgx.Tx, tenantID string, now time.Time) (int64, error) {
+	if !pgutil.IsUUID(tenantID) {
+		return 0, nil
+	}
+	var n int64
+	if err := tx.QueryRow(ctx, requeteCompteFenetre, tenantID, now).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil

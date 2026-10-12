@@ -186,7 +186,7 @@ type fixedCounter struct {
 	branches   int64
 }
 
-func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
+func (f fixedCounter) CountOrdersInPeriod(_ context.Context, _ string, _ time.Time) (int64, error) {
 	return f.orders, nil
 }
 func (f fixedCounter) CountUsers(_ context.Context, _ string) (int64, error) {
