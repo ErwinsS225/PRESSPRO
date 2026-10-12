@@ -32,7 +32,7 @@ func ecrireJSON(w http.ResponseWriter, statut int, corps interface{}) {
 func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateNotification(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 

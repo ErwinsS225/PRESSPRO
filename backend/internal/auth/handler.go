@@ -197,7 +197,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -225,7 +225,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -262,7 +262,7 @@ func (h *Handler) SetUserStatus(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}

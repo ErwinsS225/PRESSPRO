@@ -44,7 +44,7 @@ func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
 	if tenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "contexte d'établissement manquant"})
 		return
 	}
@@ -68,7 +68,7 @@ func (h *Handler) CreateService(w http.ResponseWriter, r *http.Request) {
 
 	tenantID := auth.GetTenantIDFromContext(r.Context())
 	if tenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification requise"})
 		return
 	}

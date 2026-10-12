@@ -53,6 +53,10 @@ func SuperAdminDeleteTenant(svc *billing.Service) http.HandlerFunc {
 			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement manquant")
 			return
 		}
+		if !looksLikeUUID(tenantID) {
+			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement invalide")
+			return
+		}
 
 		if err := svc.DeleteTenant(r.Context(), tenantID); err != nil {
 			if err == billing.ErrTenantNotFound {
@@ -80,6 +84,10 @@ func SuperAdminSetTenantStatus(svc *billing.Service) http.HandlerFunc {
 		tenantID := chi.URLParam(r, "id")
 		if strings.TrimSpace(tenantID) == "" {
 			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement manquant")
+			return
+		}
+		if !looksLikeUUID(tenantID) {
+			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement invalide")
 			return
 		}
 
