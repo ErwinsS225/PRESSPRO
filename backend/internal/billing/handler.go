@@ -20,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service, logger: log.Default()}
 }
 
-// Me traite GET /api/me/entitlements (menus/boutons du frontend).
+// Me traite GET /api/v1/me/entitlements (menus/boutons du frontend).
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	tenantID := auth.GetTenantIDFromContext(r.Context())
