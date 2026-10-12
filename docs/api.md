@@ -23,6 +23,15 @@ Deux garde-fous distincts protègent les modules payants :
 
 Les **lectures ne sont jamais payantes** : une rétrogradation de formule ne rend pas l'historique inaccessible. Le superadmin est dispensé de ces garde-fous.
 
+### Abonnement : droits effectifs, grille et fenêtre de commandes
+
+Le backend est la seule source des droits. Le frontend ne code ni prix ni plafond.
+
+- **`GET /api/v1/me/entitlements`** (authentifié) : formule effective (`plan_code`, droits pendant l'essai : BUSINESS), formule réellement souscrite (`subscribed_plan_code` : FREE pendant l'essai), `plan_name`, `status`, `on_trial`, `trial_ends_at`, `days_left_trial`, `price_monthly_xof` (tarif de la formule souscrite, lu en base ; **absent en mode mémoire**), `orders_period` (`start`, `end` ; fin exclue) et `entitlements[]` (`key`, `enabled`, `limit`, `usage`, `remaining`, `source`).
+- **`GET /api/v1/billing/plans`** (authentifié) : grille des formules `{ "plans": [{code, name, price_monthly_xof, entitlements[]}] }`. Tarifs lus dans `plans.price_monthly_xof` ; **absents en mode mémoire**.
+- **Essai** : 7 jours avec les droits BUSINESS, initialisé une seule fois (un second appel ne prolonge pas l'essai). À l'échéance, le passage à FREE est fait côté serveur, persisté et journalisé dans `subscription_events`, sans suppression de données.
+- **Fenêtre de commandes** : quota glissant de 30 jours. L'ancre est le début de l'essai, sinon la création de l'abonnement, sinon la création de l'établissement. Les commandes annulées ne comptent pas.
+
 État actuel du câblage :
 - `POST /api/v1/price-lists` (plafond de grilles : 1 gratuite, 3 en PRO, 10 en BUSINESS) et `POST /api/v1/price-lists/{id}/versions` ;
 - `POST /api/v1/users` (plafond de comptes : 2 en gratuit, 5 en PRO, 15 en BUSINESS — établissement d'essai : 15) ;
@@ -36,9 +45,10 @@ Lorsqu'un éditeur suspend un abonnement (`PATCH /api/v1/admin/tenants/{id}/stat
 ### Supervision éditeur (SuperAdmin)
 | Méthode | Route | Rôle | Description |
 |---|---|---|---|
-| GET | `/api/v1/admin/stats` | superadmin | Indicateurs consolidés réels : établissements, utilisateurs actifs, abonnements actifs/en essai, MRR (somme des formules ACTIVE), répartitions par statut et par formule, `data_source` (`postgresql` ou `memoire`). |
-| GET | `/api/v1/admin/tenants` | superadmin | Annuaire des établissements : nom, ville, téléphone, compte propriétaire, formule, prix, statut, fin d'essai. Aucune donnée client ni commande n'est exposée. |
+| GET | `/api/v1/admin/stats` | superadmin | Indicateurs consolidés réels : établissements, utilisateurs actifs, abonnements actifs/en essai, MRR (somme des formules ACTIVE ; `null` en mode mémoire, où aucun tarif n'est stocké), répartitions par statut et par formule, `data_source` (`postgresql` ou `memoire`). |
+| GET | `/api/v1/admin/tenants` | superadmin | Annuaire des établissements : nom, ville, téléphone, compte propriétaire, formule, prix (`null` en mode mémoire : tarif inconnu, jamais 0 inventé), statut, fin d'essai. Aucune donnée client ni commande n'est exposée. |
 | PATCH | `/api/v1/admin/tenants/{id}/status` | superadmin | Suspend / réactive un abonnement. Corps : `{"status":"SUSPENDED"\|"ACTIVE"\|"PAST_DUE"\|"CANCELED","reason":"…"}`. La décision et sa trace (`subscription_events`) sont écrites dans **une seule transaction** : `404` si l'établissement n'a pas d'abonnement, `400` si le statut est invalide. |
+| PATCH | `/api/v1/admin/plans/{code}/price` | superadmin | **Modifie le tarif mensuel d'une formule payante** (PRO, BUSINESS). Corps : `{\"price_monthly_xof\":10000,\"reason\":\"…\"}` (entier XOF de 0 à 100 000 000, motif ≤ 500 caractères). Réponse `200` `{\"code\",\"price_monthly_xof\"}`. Chaque changement effectif est journalisé dans `plan_price_history` (ancien et nouveau prix, acteur, motif, date) par trigger SQL ; un montant identique n'ajoute aucune ligne. Les abonnements suivent le catalogue (pas de tarif figé par abonnement) et les commandes déjà créées ne sont pas modifiées. `400` pour la formule gratuite, un montant non entier ou hors bornes, ou un motif trop long ; `404` pour une formule inconnue ; `503` en mode mémoire (aucun tarif stocké : refus plutôt que simulation). |
 | DELETE | `/api/v1/admin/tenants/{id}` | superadmin | **Retrait définitif** d'un établissement et de toutes ses données : comptes, clients, commandes, lignes de commande, paiements, catalogue, grilles, dépenses, établissements secondaires, notifications et abonnement. **Transaction unique** (les tables `orders` et `payments` ne cascadent pas depuis `tenants` : elles sont purgées explicitement) → `204` sans corps, `404` si l'établissement n'existe plus, identifiant non UUID refusé de la même façon. Action **irréversible** ; l'annuaire du frontend n'appelle cette route qu'après confirmation explicite. |
 
 ### Suppression d'un établissement (nettoyage des environnements de démonstration)
@@ -57,7 +67,7 @@ notamment à purger les entreprises de test d'un environnement, sans script SQL 
 | PUT | `/api/v1/users/{id}/branches` | owner, manager (superadmin) | **Remplace** l'affectation du compte. Corps : `{"branch_ids":["…","…"]}`. Réponse identique au `GET` (état après enregistrement). |
 | PATCH | `/api/v1/users/{id}/status` | owner, manager (superadmin) | Active (`active`) ou désactive (`inactive`) un compte. Corps : `{"status":"active"\|"inactive"}`. La mise à jour du compte **et** de l'appartenance est transactionnelle : la désactivation ferme immédiatement les routes métier, y compris pour un jeton déjà émis. |
 
-Réponses : `402` `{"error":"plafond atteint (N) — passez à une formule supérieure","feature":"users.max","usage":N,"upgrade_required":"true"}` à la création au-delà du plafond de la formule ; `409` si l'email est déjà utilisé ; `404` si l'identifiant est inconnu **ou appartient à un autre établissement** ; `400` pour un rôle/statut invalide, un mot de passe trop court ou une auto-désactivation (un gérant ne peut pas se fermer l'accès lui-même) ; `403` pour un caissier ou un opérateur.
+Réponses : `402` `{"error":"plafond atteint (N) — passez à une formule supérieure","feature":"users.max","usage":N,"upgrade_required":"true"}` à la création au-delà du plafond de la formule ; `409` si l'email est déjà utilisé ; `404` si l'identifiant est inconnu **ou appartient à un autre établissement** ; `400` pour un rôle/statut invalide, un mot de passe trop court ou une auto-désactivation (un gérant ne peut pas se fermer l'accès lui-même) ; `403` pour un caissier ou un opérateur, et `403` pour un gérant qui crée un compte propriétaire (`role: owner`) ou modifie le statut d'un propriétaire : ces opérations sont réservées au propriétaire.
 
 ### Affectation d'un employé à un établissement (périmètre d'exploitation)
 Un compte n'opère que sur les établissements qui lui sont affectés (`branch_memberships`) :
@@ -186,7 +196,7 @@ Génère le ticket de caisse thermique standard au format 80mm ESC/POS textuel.
 Vérifie l'authenticité d'un ticket scanné depuis le QR du reçu thermique 80mm.
 - **Authentification** : Aucune (Public — projection limitée sans PII sensible)
 - **Codes HTTP** : `200 OK` (`{"valid": true, ...}`) ou `404` (`{"valid": false}`)
-- **Réponse** : `order_number`, `status`, `payment_status`, `total_amount`, `paid_amount`, `remaining_due`, `due_date`, `customer_name`, `items[]`
+- **Réponse** : `order_number`, `status`, `payment_status`, `total_amount`, `paid_amount`, `remaining_due`, `due_date`, `items[]` (le nom du client n'est **pas** exposé sur cette route publique)
 
 ---
 
@@ -225,7 +235,7 @@ invalide.
 |---|---|---|---|
 | GET | `/api/v1/expenses` | tous les membres | Dépenses de la période : `from`, `to` (`AAAA-MM-JJ`, défaut = mois courant), `category`, `branch_id`. Réponse : `{"expenses":[…],"count":N,"total_xof":N,"by_category":[…],"period":{…}}` — la lecture reste ouverte même en formule gratuite. |
 | POST | `/api/v1/expenses` | owner, manager (superadmin) | Enregistre une charge. Corps : `{"category","label","amount_xof","spent_at","branch_id","payment_method","note"}` (`spent_at` par défaut = aujourd'hui ; `branch_id` déduit de l'en-tête `X-Branch-ID` s'il est omis). Gardé par `RequireFeature(expenses.advanced)`. |
-| DELETE | `/api/v1/expenses/{id}` | owner, manager (superadmin) | Supprime une charge du pressing. `404` pour une dépense d'un autre établissement. Gardé par `RequireFeature(expenses.advanced)`. |
+| DELETE | `/api/v1/expenses/{id}` | owner, manager (superadmin) | Supprime une charge du pressing. `404` pour une dépense d'un autre établissement. Gardé par `RequireFeature(expenses.advanced)` : en formule gratuite (après rétrogradation), la suppression répond `402` et les dépenses existantes restent conservées (décision D6). |
 
 Catégories du référentiel : `matieres_premieres`, `produits_entretien`, `loyer`,
 `energie_eau`, `salaires`, `transport`, `equipement`, `maintenance`, `taxes`, `divers`.

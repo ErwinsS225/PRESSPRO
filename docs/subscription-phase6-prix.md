@@ -9,6 +9,26 @@ ajoutés.
 Le `PLAN` cité par la Phase 0 (§3.5) n'est pas dans le dépôt. Le diagnostic s'appuie sur
 la lecture qu'en fait `docs/subscription-phase0-baseline.md` (risque R4).
 
+## 0. Suivi : correction appliquée en phase 8
+
+Le diagnostic ci-dessous est conservé tel qu'il a été établi. La correction retenue (§5)
+a été implémentée en phase 8, après confirmation du propriétaire :
+
+- **Tarifs** : PRO 45 000 → **10 000** XOF, BUSINESS 75 000 → **25 000** XOF (migration
+  `000017_plan_prix_journal`, garde sur l'ancienne valeur : une base déjà modifiée n'est pas
+  écrasée). Le mapping suit l'ordre croissant des montants fournis par le propriétaire.
+- **Journal** (R-P6-4) : table `plan_price_history` et trigger `trg_plans_journal_prix`
+  (ancien et nouveau prix, acteur, motif, date ; `updated_at` mis à jour).
+- **Modification** (R-P6-5) : `PATCH /api/v1/admin/plans/{code}/price`, réservé au SuperAdmin,
+  validé (entier XOF, formule payante, bornes), journalisé. Aucun SQL manuel.
+- **Mémoire** (R-P6-1, R-P6-2) : annuaire et MRR valent `null` (et non 0) ; l'interface
+  affiche « Tarif non communiqué ». La modification y est refusée (`503`).
+- **Abonnements** : ils suivent toujours le catalogue (décision du propriétaire, phase 6).
+  Les commandes déjà créées gardent leur prix figé (`unit_price`).
+
+Les tests `prix_test.go` (inversion des caractérisations), `prix_journal_integration_test.go`,
+`tarif_formule_test.go` et `catalogue_integration_test.go` couvrent ces points.
+
 ## 1. Cartographie : où un prix est écrit, stocké, lu
 
 | Étape | Emplacement | Constat |

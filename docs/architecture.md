@@ -138,7 +138,7 @@ Modules gardés et compteurs associés :
 | Équipe (comptes employés) | `RequireFeatureQuota(users.max)` | `COUNT(users) WHERE status = 'active'` (propriétaire inclus) |
 | Multi-sites (établissements) | `RequireFeatureQuota(branches.multi_site)` | `COUNT(branches) WHERE status <> 'archived'` |
 | Grilles tarifaires | `RequireFeatureQuota(catalog.price_lists)` | `COUNT(price_lists)` |
-| Commandes du mois | `RequireFeatureQuota(orders.monthly.max)` | `COUNT(orders)` sur le mois courant |
+| Commandes sur 30 jours glissants | `RequireFeatureQuota(orders.monthly.max)` | `COUNT(orders)` non annulées sur la fenêtre de 30 jours ancrée sur l'abonnement (début d'essai, sinon création de l'abonnement, sinon création de l'établissement) |
 | Rapports avancés / consolidation | `RequireFeature(reports.advanced)` / `reports.consolidated` | droit booléen de la formule |
 | Dépenses d'exploitation | `RequireFeature(expenses.advanced)` | droit booléen de la formule |
 | Notifications clients (envoi) | `RequireFeature(notifications.advanced)` | droit booléen de la formule — la **lecture du journal reste libre** |
