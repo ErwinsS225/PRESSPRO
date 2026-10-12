@@ -295,6 +295,7 @@ func NewRouter(deps ServerDependencies) http.Handler {
 				// Droits effectifs du pressing (moteur d'abonnement centralisé).
 				if deps.BillingHandler != nil {
 					protected.Get("/me/entitlements", deps.BillingHandler.Me)
+					protected.Get("/billing/plans", deps.BillingHandler.Catalogue)
 				}
 
 				// Espace SuperAdmin (éditeur SaaS) : données réelles de la plateforme.

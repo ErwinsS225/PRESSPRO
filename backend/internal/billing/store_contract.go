@@ -10,6 +10,8 @@ import (
 type Store interface {
 	GetSubscription(ctx context.Context, tenantID string) (*SubscriptionRecord, error)
 	ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error)
+	// ListPlans retourne les formules actives (tarif en base), sans droits.
+	ListPlans(ctx context.Context) ([]PlanCatalogue, error)
 	SetPlan(ctx context.Context, tenantID, planCode, status, actorUserID, reason string) error
 	StartTrial(ctx context.Context, tenantID string, trialEndsAt time.Time) error
 	// ExpireTrial fait passer un essai terminé (now >= trial_ends_at) vers FREE/ACTIVE
@@ -49,6 +51,7 @@ func (s *Service) EnsureTrial(ctx context.Context, tenantID string) error {
 		TrialStartedAt: &now,
 		TrialEndsAt:    &ends,
 		PlanName:       "Gratuit permanent",
+		CreatedAt:      now,
 	}
 	return nil
 }

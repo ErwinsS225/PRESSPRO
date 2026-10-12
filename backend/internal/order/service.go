@@ -15,6 +15,7 @@ import (
 // Garantit l'isolation multi-tenant des données et la sécurité d'accès concurrent
 type Service struct {
 	mu           sync.RWMutex
+	creation     sync.Mutex        // sérialise les créations en mémoire (contrôle du plafond + insertion)
 	orders       map[string]*Order // clé: order_id
 	tenantSeqNum map[string]int    // clé: tenant_id -> séquenceur de ticket
 	store        *dbStore          // nil = mode mémoire ; non-nil = persistance PostgreSQL
@@ -161,12 +162,12 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	// Validation et initialisation du tenant hors du verrou principal pour réduire le temps de blocage
 	s.validateTenantExistence(tenantID)
 
-	// Verrouillage exclusif seulement pour la mise à jour des maps partagées
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Plafond de commandes (mode mémoire) : contrôlé sous le verrou du service,
-	// donc atomiquement avec l'insertion. Une refus ne consomme aucun numéro.
+	// Plafond de commandes (mode mémoire). Le contrôle se fait hors du verrou des
+	// maps (s.mu) : le compteur d'usage relit les commandes via ce service et
+	// prendrait sinon un verrou déjà tenu. L'atomicité check/insertion est assurée
+	// par s.creation, qui sérialise les créations ; un refus ne consomme aucun numéro.
+	s.creation.Lock()
+	defer s.creation.Unlock()
 	if s.quota != nil {
 		plafond, err := s.quota.PlafondCommandes(ctx, tenantID)
 		if err != nil {
@@ -176,6 +177,10 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 			return nil, err
 		}
 	}
+
+	// Verrouillage exclusif seulement pour la mise à jour des maps partagées
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	s.tenantSeqNum[tenantID]++
 	seq := s.tenantSeqNum[tenantID]
@@ -240,6 +245,22 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	s.orders[orderID] = order
 	s.logger.Printf("[order] Commande créée: %s (%s), total=%.2f, tenant=%s", orderID, orderNumber, totalAmount, tenantID)
 	return order, nil
+}
+
+// DatesCommandesNonAnnulees retourne la date de création des commandes non annulées
+// du pressing (mode mémoire). Alimente le compteur de quota du mode dégradé.
+// Ne doit pas être appelée depuis un chemin qui tient déjà s.mu.
+func (s *Service) DatesCommandesNonAnnulees(_ context.Context, tenantID string) ([]time.Time, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var dates []time.Time
+	for _, ord := range s.orders {
+		if ord.TenantID != tenantID || ord.Status == StatusCancelled {
+			continue
+		}
+		dates = append(dates, ord.CreatedAt)
+	}
+	return dates, nil
 }
 
 // GetOrders liste les commandes en filtrant obligatoirement par tenant_id

@@ -203,6 +203,8 @@ func main() {
 		logger.Println("Établissements (multi-sites) adossés à PostgreSQL.")
 	} else {
 		logger.Println("Établissements en mode mémoire (PostgreSQL indisponible au démarrage).")
+		// Mode dégradé : compteurs de quota et contrôle d'appartenance branchés sur les services mémoire.
+		apphttp.BrancherMemoire(billingService, authService, priceListService, branchService, orderService)
 	}
 	branchHandler := branch.NewHandler(branchService)
 

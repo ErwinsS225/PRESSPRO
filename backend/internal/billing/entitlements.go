@@ -3,6 +3,8 @@ package billing
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -79,26 +81,9 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 	plan := EffectivePlan(rec, now)
 	onTrial := OnTrial(rec, now)
 
-	var entitlements []Entitlement
-	if s.store != nil {
-		entitlements, err = s.store.ListEntitlements(ctx, plan)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		s.mu.RLock()
-		rows := s.matrix[plan]
-		s.mu.RUnlock()
-		for key, row := range rows {
-			var lim *int64
-			if row.limit != nil {
-				v := *row.limit
-				lim = &v
-			}
-			entitlements = append(entitlements, Entitlement{
-				Key: key, Enabled: row.enabled, Limit: lim, Source: "plan",
-			})
-		}
+	entitlements, err := s.entitlementsDuPlan(ctx, plan)
+	if err != nil {
+		return nil, err
 	}
 
 	// Enrichir les plafonds avec la consommation réelle (commandes de la fenêtre de 30 jours,
@@ -120,13 +105,18 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 		}
 	}
 
+	souscrit := strings.ToUpper(rec.PlanCode)
+	if souscrit == "" {
+		souscrit = PlanFree
+	}
 	resp := &EntitlementsResponse{
-		TenantID:     tenantID,
-		PlanCode:     plan,
-		PlanName:     rec.PlanName,
-		Status:       rec.Status,
-		OnTrial:      onTrial,
-		Entitlements: entitlements,
+		TenantID:           tenantID,
+		PlanCode:           plan,
+		SubscribedPlanCode: souscrit,
+		PlanName:           rec.PlanName,
+		Status:             rec.Status,
+		OnTrial:            onTrial,
+		Entitlements:       entitlements,
 	}
 	if onTrial && rec.TrialEndsAt != nil {
 		t := *rec.TrialEndsAt
@@ -140,7 +130,66 @@ func (s *Service) EffectiveEntitlements(ctx context.Context, tenantID string) (*
 	if resp.PlanName == "" {
 		resp.PlanName = plan
 	}
+	// Tarif de la formule souscrite (et non de la formule effective pendant l'essai).
+	if s.store != nil {
+		prix := rec.PriceMonthly
+		resp.PriceMonthlyXOF = &prix
+	}
+	if anchor := ancreFenetre(rec); !anchor.IsZero() {
+		periode := FenetreCommandes(anchor, now)
+		resp.OrdersPeriod = &periode
+	}
 	return resp, nil
+}
+
+// entitlementsDuPlan retourne les droits d'une formule (table plan_entitlements en
+// base, matrice en mémoire). Source unique pour les droits effectifs et le catalogue.
+func (s *Service) entitlementsDuPlan(ctx context.Context, plan string) ([]Entitlement, error) {
+	if s.store != nil {
+		return s.store.ListEntitlements(ctx, plan)
+	}
+	s.mu.RLock()
+	rows := s.matrix[plan]
+	s.mu.RUnlock()
+	var out []Entitlement
+	for key, row := range rows {
+		var lim *int64
+		if row.limit != nil {
+			v := *row.limit
+			lim = &v
+		}
+		out = append(out, Entitlement{Key: key, Enabled: row.enabled, Limit: lim, Source: "plan"})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out, nil
+}
+
+// Catalogue retourne les formules publiques avec leur tarif et leurs droits.
+// Le tarif vient de la base ; en mode mémoire il est absent (aucun prix n'est
+// inventé côté serveur ni côté interface).
+func (s *Service) Catalogue(ctx context.Context) ([]PlanCatalogue, error) {
+	var plans []PlanCatalogue
+	if s.store != nil {
+		var err error
+		plans, err = s.store.ListPlans(ctx)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		plans = []PlanCatalogue{
+			{Code: PlanFree, Name: "Gratuit permanent"},
+			{Code: PlanPro, Name: "Pro"},
+			{Code: PlanBusiness, Name: "Business"},
+		}
+	}
+	for i := range plans {
+		droits, err := s.entitlementsDuPlan(ctx, plans[i].Code)
+		if err != nil {
+			return nil, err
+		}
+		plans[i].Entitlements = droits
+	}
+	return plans, nil
 }
 
 // isCountedFeature indique les fonctionnalités dont la consommation est mesurée.

@@ -29,6 +29,32 @@ type MemberBranch struct {
 	Assigned  bool   `json:"assigned"`
 }
 
+// VerificateurMembre indique si le compte appartient au pressing. Injecté par
+// l'assemblage (service d'authentification) pour le mode mémoire.
+type VerificateurMembre func(ctx context.Context, tenantID, userID string) (bool, error)
+
+// SetMemberVerifier branche le contrôle d'appartenance du mode mémoire (au démarrage).
+func (s *Service) SetMemberVerifier(v VerificateurMembre) {
+	s.verifier = v
+}
+
+// verifierMembreMemoire applique le contrôle fail-closed du mode mémoire : sans
+// vérificateur, ou si le compte n'appartient pas au pressing, l'accès est refusé
+// comme pour un compte inconnu.
+func (s *Service) verifierMembreMemoire(ctx context.Context, tenantID, userID string) error {
+	if s.verifier == nil {
+		return ErrMemberNotFound
+	}
+	ok, err := s.verifier(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrMemberNotFound
+	}
+	return nil
+}
+
 // GetMemberBranches liste les établissements du pressing en indiquant ceux
 // auxquels le compte est affecté.
 func (s *Service) GetMemberBranches(ctx context.Context, tenantID, userID string) ([]*MemberBranch, error) {
@@ -37,6 +63,9 @@ func (s *Service) GetMemberBranches(ctx context.Context, tenantID, userID string
 	}
 	if s.store != nil {
 		return s.store.GetMemberBranches(ctx, tenantID, userID)
+	}
+	if err := s.verifierMembreMemoire(ctx, tenantID, userID); err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
@@ -81,6 +110,9 @@ func (s *Service) SetMemberBranches(ctx context.Context, tenantID, userID string
 	}
 	if s.store != nil {
 		return s.store.SetMemberBranches(ctx, tenantID, userID, uniques)
+	}
+	if err := s.verifierMembreMemoire(ctx, tenantID, userID); err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
@@ -142,4 +174,20 @@ func trierSites(sites []*MemberBranch) {
 		}
 		return strings.ToLower(sites[i].Name) < strings.ToLower(sites[j].Name)
 	})
+}
+
+// CompterEtablissements retourne le nombre d'établissements non archivés du pressing
+// (mode mémoire). Alimente le plafond multi-sites en mode dégradé.
+func (s *Service) CompterEtablissements(_ context.Context, tenantID string) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Le site principal est créé à la demande : il compte dès la première mesure.
+	s.ensurePrimaryLocked(tenantID)
+	var n int64
+	for _, b := range s.memoire[tenantID] {
+		if b.Status != StatusArchived {
+			n++
+		}
+	}
+	return n, nil
 }

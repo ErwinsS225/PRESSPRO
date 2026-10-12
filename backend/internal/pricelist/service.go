@@ -153,3 +153,11 @@ func (s *Service) CreateVersion(ctx context.Context, tenantID, id string, req Cr
 	s.vers[id] = append(s.vers[id], v)
 	return v, nil
 }
+
+// CompterGrilles retourne le nombre de grilles du pressing (mode mémoire). Alimente
+// le plafond « grilles tarifaires » en mode dégradé, comme CountPriceLists en SQL.
+func (s *Service) CompterGrilles(_ context.Context, tenantID string) (int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return int64(len(s.lists[tenantID])), nil
+}

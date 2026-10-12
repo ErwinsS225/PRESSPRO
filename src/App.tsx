@@ -454,7 +454,7 @@ function PressingOSApp() {
 
               {currentView === 'reports' && <ReportsView currentUser={session.user} token={session.token} />}
 
-              {currentView === 'billing' && <BillingView token={session.token} showToast={showToast} />}
+              {currentView === 'billing' && <BillingView token={session.token} />}
 
               {currentView === 'superadmin' && isSuperadmin && (
                 <SuperAdminView

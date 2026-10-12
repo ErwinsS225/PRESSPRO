@@ -107,6 +107,8 @@ type SubscriptionRecord struct {
 	TrialEndsAt    *time.Time
 	PlanName       string
 	PriceMonthly   float64
+	// CreatedAt : création de l'abonnement (ancre de la fenêtre si pas d'essai).
+	CreatedAt time.Time
 }
 
 // Service calcule les droits effectifs (moteur centralisé).

@@ -73,6 +73,7 @@ var matriceRoutes = []entreeMatrice{
 	{methode: "GET", modele: "/api/v1/auth/me"},
 	{methode: "GET", modele: "/api/v1/tenant/current"},
 	{methode: "GET", modele: "/api/v1/me/entitlements"},
+	{methode: "GET", modele: "/api/v1/billing/plans"}, // grille tarifaire : lecture sans abonnement actif requis
 
 	// Grille tarifaire & prestations.
 	{methode: "GET", modele: "/api/v1/services/", metier: true},
@@ -153,11 +154,8 @@ type environnement struct {
 	bill    *billing.Service
 
 	// persistant : les clients sont réellement stockés (PostgreSQL). En mode mémoire,
-	// le service client ne conserve rien : les tests de clients sont alors sautés.
+	// le service client ne conserve rien (limite R-P4-1) : les tests de clients sont alors sautés.
 	persistant bool
-	// quotas : les compteurs des plafonds (grilles, équipe, établissements) sont
-	// mesurés. En mode mémoire, ils ne le sont pas : les tests de plafonds sont sautés.
-	quotas bool
 	// formule fixe le plan d'un établissement de test (SQL en base, ForcePlanForTest en mémoire).
 	formule func(tenant, plan string)
 	// crees : établissements créés pendant le test (supprimés au nettoyage en base).
@@ -205,6 +203,7 @@ func nouvelEnvironnement(t *testing.T) *environnement {
 	notifSvc := notification.NewService()
 	reportSvc := report.NewService()
 	reportSvc.SetSources(orderSvc, expenseSvc)
+	apphttp.BrancherMemoire(bill, authSvc, priceSvc, branchSvc, orderSvc)
 
 	router := apphttp.NewRouter(apphttp.ServerDependencies{
 		Config:              cfg,
@@ -528,18 +527,14 @@ func TestIsolation_RessourcesDUnAutreEtablissement(t *testing.T) {
 			{"GET", "/api/v1/orders/" + ordA + "/ticket", "", false, false},
 			{"PATCH", "/api/v1/branches/" + brA, map[string]string{"name": "Piraté"}, false, false},
 			{"PATCH", "/api/v1/users/" + l.aCaissierID + "/status", map[string]string{"status": "inactive"}, false, false},
-			// Affectations aux sites : persistées en base avec contrôle d'appartenance.
-			// En mode mémoire, le service des sites ne connaît pas les comptes (limite
-			// documentée du mode dégradé) : ces deux contrôles sont sautés.
+			// Affectations aux sites : contrôle d'appartenance du compte visé, dans les
+			// deux modes (en mémoire, via le vérificateur branché par BrancherMemoire).
 			{"GET", "/api/v1/users/" + l.aCaissierID + "/branches", "", false, true},
 			{"PUT", "/api/v1/users/" + l.aCaissierID + "/branches", map[string]interface{}{"branch_ids": []string{brB}}, false, true},
 			{"DELETE", "/api/v1/expenses/" + expA, "", false, false},
 		}
 		for _, at := range attaques {
 			if at.client && !env.persistant {
-				continue
-			}
-			if at.affectation && !env.persistant {
 				continue
 			}
 			rec := env.requete(at.methode, at.chemin, l.bProprietaire, at.corps)
@@ -620,7 +615,7 @@ func TestSuspension_GeleLesModulesMetier(t *testing.T) {
 				t.Errorf("GET %s abonnement suspendu : %d, attendu 402", chemin, rec.Code)
 			}
 		}
-		for _, chemin := range []string{"/api/v1/auth/me", "/api/v1/tenant/current", "/api/v1/me/entitlements"} {
+		for _, chemin := range []string{"/api/v1/auth/me", "/api/v1/tenant/current", "/api/v1/me/entitlements", "/api/v1/billing/plans"} {
 			rec := env.requete("GET", chemin, l.bProprietaire, nil)
 			if rec.Code != http.StatusOK {
 				t.Errorf("GET %s abonnement suspendu : %d, attendu 200 (consultation de la situation)", chemin, rec.Code)
@@ -657,16 +652,12 @@ func TestPlan_FormuleFree_RefuseLesModulesPayants(t *testing.T) {
 			}
 		}
 
-		// Plafond de grilles tarifaires : FREE = 1 (mesuré en base uniquement).
-		if env.quotas {
-			if rec := env.requete("POST", "/api/v1/price-lists/", c, pricelist.CreatePriceListRequest{Name: "Première"}); rec.Code != http.StatusCreated {
-				t.Fatalf("première grille en FREE : %d %s", rec.Code, rec.Body.String())
-			}
-			if rec := env.requete("POST", "/api/v1/price-lists/", c, pricelist.CreatePriceListRequest{Name: "Seconde"}); rec.Code != http.StatusPaymentRequired {
-				t.Errorf("seconde grille en FREE : %d, attendu 402", rec.Code)
-			}
-		} else {
-			t.Log("plafonds de grilles non mesurés en mode mémoire : contrôle sauté")
+		// Plafond de grilles tarifaires : FREE = 1.
+		if rec := env.requete("POST", "/api/v1/price-lists/", c, pricelist.CreatePriceListRequest{Name: "Première"}); rec.Code != http.StatusCreated {
+			t.Fatalf("première grille en FREE : %d %s", rec.Code, rec.Body.String())
+		}
+		if rec := env.requete("POST", "/api/v1/price-lists/", c, pricelist.CreatePriceListRequest{Name: "Seconde"}); rec.Code != http.StatusPaymentRequired {
+			t.Errorf("seconde grille en FREE : %d, attendu 402", rec.Code)
 		}
 
 		// Les services et commandes restent accessibles en FREE.
@@ -699,10 +690,8 @@ func TestPlan_Downgrade_ConserveLesDonnees(t *testing.T) {
 		if rec := env.requete("GET", "/api/v1/price-lists/", b, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), plA) {
 			t.Errorf("liste des grilles après rétrogradation : %d (historique absent)", rec.Code)
 		}
-		if env.quotas {
-			if rec := env.requete("POST", "/api/v1/price-lists/", b, pricelist.CreatePriceListRequest{Name: "Nouvelle"}); rec.Code != http.StatusPaymentRequired {
-				t.Errorf("nouvelle grille au-delà du plafond FREE : %d, attendu 402", rec.Code)
-			}
+		if rec := env.requete("POST", "/api/v1/price-lists/", b, pricelist.CreatePriceListRequest{Name: "Nouvelle"}); rec.Code != http.StatusPaymentRequired {
+			t.Errorf("nouvelle grille au-delà du plafond FREE : %d, attendu 402", rec.Code)
 		}
 		if rec := env.requete("GET", "/api/v1/expenses/", b, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), expB) {
 			t.Errorf("dépenses historiques après rétrogradation : %d (dépense %s absente)", rec.Code, expB)

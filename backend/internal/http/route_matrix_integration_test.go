@@ -95,7 +95,7 @@ func nouvelEnvironnementBase(t *testing.T) *environnement {
 
 	env := &environnement{
 		t: t, router: router, jwt: jwtManager, authSvc: authSvc, bill: bill,
-		persistant: true, quotas: true,
+		persistant: true,
 		formule: func(tenant, plan string) {
 			t.Helper()
 			// Fixe le plan de la base (abonnement actif, essai effacé) : même état que

@@ -199,4 +199,69 @@ describe('TeamView', () => {
     await waitFor(() => expect(screen.getByText(/au moins un établissement/i)).toBeInTheDocument());
     expect(screen.getByText(/un employé sans site ne peut rien saisir/)).toBeInTheDocument();
   });
+
+  it('un gérant ne peut ni verrouiller ni modifier un compte propriétaire', async () => {
+    const gerantActeur: User = {
+      id: 'usr-manager-003',
+      email: 'manager@pressing-ivoire.ci',
+      full_name: 'Yao Manager',
+      role: 'manager',
+      status: 'active',
+    };
+    const equipe = [
+      ...MEMBRES,
+      {
+        id: 'usr-manager-003',
+        email: 'manager@pressing-ivoire.ci',
+        full_name: 'Yao Manager',
+        role: 'manager',
+        status: 'active',
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(equipe))
+    );
+
+    render(<TeamView currentUser={gerantActeur} token="jeton-manager" />);
+    await waitFor(() => expect(screen.getByText('Awa Koné')).toBeInTheDocument());
+
+    // La ligne du propriétaire est protégée ; seul l’employé est désactivable.
+    expect(screen.getByText('compte protégé')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Désactiver/ })).toHaveLength(1);
+  });
+
+  it('un propriétaire peut verrouiller un autre propriétaire', async () => {
+    const autreProprietaire = {
+      id: 'usr-proprio-004',
+      email: 'associee@pressing-ivoire.ci',
+      full_name: 'Adjoua Associée',
+      role: 'owner',
+      status: 'active',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse([...MEMBRES, autreProprietaire]))
+    );
+
+    render(<TeamView currentUser={gerant} token="jeton-gerant" />);
+    await waitFor(() => expect(screen.getByText('Adjoua Associée')).toBeInTheDocument());
+
+    expect(screen.queryByText('compte protégé')).toBeNull();
+    // Employé + autre propriétaire ; le compte courant reste protégé.
+    expect(screen.getAllByRole('button', { name: /Désactiver/ })).toHaveLength(2);
+  });
+
+  it('ne propose pas le rôle propriétaire à la création d’un employé', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(MEMBRES))
+    );
+
+    const { container } = render(<TeamView currentUser={gerant} token="jeton-gerant" />);
+    await waitFor(() => expect(screen.getByText('Awa Koné')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Nouvel employé/ }));
+    expect(container.querySelector('option[value="owner"]')).toBeNull();
+  });
 });

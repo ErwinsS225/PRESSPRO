@@ -168,16 +168,19 @@ func (s *dbStore) GetSubscription(ctx context.Context, tenantID string) (*Subscr
 		price                      float64
 		trialStart, trialEnd       *time.Time
 		periodEnd                  *time.Time
+		createdAt                  time.Time
 	)
 	row := s.database.QueryRowContext(ctx, `
 		SELECT p.code, sub.status, p.name, p.price_monthly_xof,
-		       sub.trial_started_at, sub.trial_ends_at, sub.current_period_end
+		       sub.trial_started_at, sub.trial_ends_at, sub.current_period_end, sub.created_at
 		FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
 		WHERE sub.tenant_id = $1`, tenantID)
-	if err := row.Scan(&planCode, &status, &planName, &price, &trialStart, &trialEnd, &periodEnd); err != nil {
-		// Absence d'abonnement : état normal (formule FREE par défaut).
+	if err := row.Scan(&planCode, &status, &planName, &price, &trialStart, &trialEnd, &periodEnd, &createdAt); err != nil {
+		// Absence d'abonnement : état normal (formule FREE par défaut). L'ancre de la
+		// fenêtre de commandes reste la date de création de l'établissement, comme dans
+		// requeteFenetre (COALESCE(..., t.created_at)).
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return s.gratuitSansAbonnement(ctx, tenantID)
 		}
 		// Toute autre erreur est une panne de lecture : jamais un état FREE silencieux.
 		return nil, fmt.Errorf("lecture de l'abonnement: %w", err)
@@ -185,8 +188,29 @@ func (s *dbStore) GetSubscription(ctx context.Context, tenantID string) (*Subscr
 	return &SubscriptionRecord{
 		PlanCode: planCode, Status: status,
 		TrialStartedAt: trialStart, TrialEndsAt: trialEnd,
-		PlanName: planName, PriceMonthly: price,
+		PlanName: planName, PriceMonthly: price, CreatedAt: createdAt,
 	}, nil
+}
+
+// ListPlans lit les formules actives et leur tarif mensuel (source : table plans).
+func (s *dbStore) ListPlans(ctx context.Context) ([]PlanCatalogue, error) {
+	rows, err := s.database.QueryContext(ctx,
+		`SELECT code, name, price_monthly_xof FROM plans WHERE is_active ORDER BY price_monthly_xof, code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PlanCatalogue
+	for rows.Next() {
+		var p PlanCatalogue
+		var prix float64
+		if err := rows.Scan(&p.Code, &p.Name, &prix); err != nil {
+			return nil, err
+		}
+		p.PriceMonthlyXOF = &prix
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (s *dbStore) ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error) {
@@ -445,4 +469,19 @@ func (s *dbStore) SetSubscriptionStatus(ctx context.Context, tenantID, status, a
 	}
 
 	return tx.Commit(ctx)
+}
+
+// gratuitSansAbonnement : état FREE d'un établissement sans ligne d'abonnement, ancré
+// sur la date de création de l'établissement. Retourne nil si l'établissement est
+// inconnu (le service applique alors son repli FREE sans ancre).
+func (s *dbStore) gratuitSansAbonnement(ctx context.Context, tenantID string) (*SubscriptionRecord, error) {
+	var creation time.Time
+	err := s.database.QueryRowContext(ctx, `SELECT created_at FROM tenants WHERE id = $1`, tenantID).Scan(&creation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lecture de l'établissement: %w", err)
+	}
+	return &SubscriptionRecord{PlanCode: PlanFree, Status: StatusActive, PlanName: "Gratuit permanent", CreatedAt: creation}, nil
 }

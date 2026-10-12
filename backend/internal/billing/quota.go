@@ -105,6 +105,30 @@ func (g *QuotaGuard) VerifierCommandeTx(ctx context.Context, tx pgx.Tx, tenantID
 	return p.verifier(current)
 }
 
+// FenetreCommandes calcule la fenêtre de 30 jours courante ancrée sur ancre
+// (début d'essai ou création de l'abonnement). Même règle que requeteFenetre :
+// début = ancre + k × 30 j, avec k = max(0, floor((now − ancre) / 30 j)).
+func FenetreCommandes(ancre, now time.Time) Periode {
+	duree := time.Duration(OrdersPeriodDays) * 24 * time.Hour
+	var k int64
+	if now.After(ancre) {
+		k = int64(now.Sub(ancre) / duree)
+	}
+	debut := ancre.Add(time.Duration(k) * duree)
+	return Periode{Start: debut, End: debut.Add(duree)}
+}
+
+// ancreFenetre renvoie l'ancre de la fenêtre de commandes (zéro si inconnue).
+func ancreFenetre(rec *SubscriptionRecord) time.Time {
+	if rec == nil {
+		return time.Time{}
+	}
+	if rec.TrialStartedAt != nil {
+		return *rec.TrialStartedAt
+	}
+	return rec.CreatedAt
+}
+
 // counter retourne le compteur branché, ou le compteur mémoire nul par défaut.
 func (g *QuotaGuard) counter() UsageCounter {
 	if g.Counter != nil {

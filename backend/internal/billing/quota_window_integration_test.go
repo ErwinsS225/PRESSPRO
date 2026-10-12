@@ -178,6 +178,23 @@ func TestQuota_AncrageSansAbonnement_SurCreatedAtDelEtablissement(t *testing.T) 
 	if n := compterFenetre(t, ctx, db, tenant); n != 1 {
 		t.Errorf("consommation = %d, attendu 1 (ancre = created_at de l'établissement)", n)
 	}
+
+	// La fenêtre exposée à l'écran suit la même ancre : créée il y a 35 jours, la fenêtre
+	// courante commence 30 jours après la création, soit il y a 5 jours.
+	resp, err := svc.EffectiveEntitlements(ctx, tenant)
+	if err != nil {
+		t.Fatalf("droits effectifs: %v", err)
+	}
+	if resp.OrdersPeriod == nil {
+		t.Fatal("sans abonnement, la fenêtre doit tout de même être exposée (ancre = création)")
+	}
+	attendu := time.Now().UTC().Add(-5 * 24 * time.Hour)
+	if ecart := resp.OrdersPeriod.Start.Sub(attendu); ecart < -time.Minute || ecart > time.Minute {
+		t.Errorf("début de fenêtre exposé = %s, attendu environ %s", resp.OrdersPeriod.Start, attendu)
+	}
+	if resp.SubscribedPlanCode != billing.PlanFree {
+		t.Errorf("sans abonnement, la formule souscrite doit être FREE, obtenu %q", resp.SubscribedPlanCode)
+	}
 }
 
 // Un changement de formule ne remet pas la fenêtre à zéro : l'ancre ne dépend pas du plan.
