@@ -100,8 +100,8 @@ le dépôt).
 - `npm test` : **196 tests OK** (25 fichiers).
 - `npm run build` OK.
 
-**CI GitHub Actions :** `38213920605` sur `f56c355` : succès (backend et frontend). Le run sur
-`f3b7389` est à vérifier et à reporter dans la PR (§7).
+**CI GitHub Actions :** `38213920605` sur `f56c355` et `38215999861` sur `1134f03` : succès
+(backend et frontend). Avertissement : `ubuntu-latest` migre vers Ubuntu 26 le 2026-10-19.
 
 ## 7. Pull request
 
