@@ -132,6 +132,11 @@ cette phase (garde de suspension, devenu test de politique documentée). Aucune 
   `created_at` ; fenêtre glissante de 30 jours ; les commandes annulées (`status = 'cancelled'`) ne
   comptent pas.
 
+**Confirmations du propriétaire (après phase 3) :**
+- **D1 : conservé en fail-open** (comportement actuel de `IsTenantSuspended`).
+- **D4 : une route d'administration de changement de formule est prévue**, à planifier après la phase 5
+  (ou ultérieurement), dans un lot dédié et protégé.
+
 ## Environnement et limites
 
 - Sandbox sans Docker. PostgreSQL 16 provient des binaires npm `@embedded-postgres/linux-x64`
