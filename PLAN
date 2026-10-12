@@ -1,3 +1,555 @@
+
+## Sécurisation et implémentation complète du système d'abonnement SaaS multitenant
+
+### 1. TON RÔLE
+
+Tu agis comme un ingénieur logiciel senior spécialisé en Go, PostgreSQL, React, sécurité des API, architecture SaaS multitenant, gestion des abonnements et qualité logicielle.
+
+Tu interviens sur un projet existant : PRESSPRO, un ERP SaaS destiné aux pressings en Côte d'Ivoire.
+
+Tu dois travailler directement sur le dépôt GitHub, examiner le code réellement présent, modifier les fichiers nécessaires, exécuter les tests disponibles et produire des changements vérifiables.
+
+Tu n'es pas chargé de reconstruire PRESSPRO. Tu dois comprendre et améliorer son architecture existante.
+
+### 2. DÉPÔT ET PÉRIMÈTRE
+
+Dépôt :
+https://github.com/ErwinsS225/PRESSPRO
+
+Branche de référence :
+main
+
+Une branche de travail dédiée doit être créée à partir de la version de référence appropriée. Examine également la PR de tests de référence :
+https://github.com/ErwinsS225/PRESSPRO/pull/2
+
+Avant de travailler, vérifie l'état réel du dépôt, les branches, les commits, les modifications non fusionnées et la CI. Ne suppose pas que la PR est fusionnée ou que ses tests passent.
+
+Le périmètre couvre exclusivement l'implémentation, la correction, la sécurisation et l'amélioration du système d'abonnement, des droits fonctionnels, des quotas et de l'isolation multitenant nécessaire à leur application.
+
+### 3. RÈGLES MÉTIER NON NÉGOCIABLES
+
+Les décisions suivantes constituent le cahier des charges.
+
+#### 3.1 Plans commerciaux
+
+PRESSPRO possède trois plans :
+- FREE ;
+- PRO ;
+- BUSINESS.
+
+Le catalogue des plans et la matrice des fonctionnalités existants doivent rester la source de vérité.
+
+Les tarifs actuellement présents dans le dépôt sont :
+- FREE : gratuit ;
+- PRO : 45 000 FCFA par mois ;
+- BUSINESS : 75 000 FCFA par mois.
+
+Ces tarifs sont provisoires et ne doivent pas être modifiés sans confirmation explicite du propriétaire du projet.
+
+Ne code pas en dur les tarifs dans les composants frontend ou dans plusieurs services. Utilise le catalogue de plans existant et la persistance prévue par l'architecture.
+
+Les montants et les règles de facturation doivent rester cohérents entre backend, API et interface utilisateur.
+
+#### 3.2 Essai gratuit de sept jours
+
+À l'inscription d'un nouveau tenant :
+1. Créer ou initialiser son abonnement conformément au fonctionnement actuel.
+2. Démarrer un essai gratuit de sept jours.
+3. Donner accès aux fonctionnalités et quotas du niveau BUSINESS pendant la période d'essai, conformément à la matrice d'habilitation existante.
+4. Exposer l'état de l'essai, sa date de fin et les informations de droits effectifs au frontend.
+5. Garantir qu'une nouvelle tentative d'initialisation ne redémarre pas l'essai et ne prolonge pas sa durée.
+6. À l'expiration, si aucun paiement n'a été confirmé par un mécanisme fiable existant, faire revenir automatiquement le tenant au plan FREE.
+7. Conserver toutes les données métier et l'historique d'abonnement.
+8. Enregistrer la transition dans l'historique d'événements si l'architecture existante le permet.
+
+La règle d'expiration doit être déterministe, idempotente et appliquée côté serveur. Elle ne doit pas dépendre exclusivement d'un cron ni d'une décision du frontend.
+
+Si le projet ne possède pas de système de paiement réellement intégré, ne prétends pas qu'un paiement est confirmé et n'invente pas de webhook. Prépare uniquement une séparation claire entre état d'abonnement et confirmation de paiement, sans introduire une intégration de paiement hors périmètre.
+
+#### 3.3 Rétrogradation et conservation des données
+
+Lorsqu'un tenant passe de BUSINESS à PRO, de PRO à FREE ou d'un autre plan à un plan inférieur :
+- ne supprimer aucune commande, aucun client, aucun utilisateur, aucune dépense, aucun historique et aucune donnée métier ;
+- recalculer immédiatement les droits effectifs du nouveau plan ;
+- empêcher uniquement les nouvelles créations ou opérations qui dépassent une limite du plan ;
+- permettre la consultation des données existantes selon les règles d'accès habituelles ;
+- ne pas bloquer globalement les écritures autorisées simplement parce qu'une consommation historique dépasse désormais le plafond ;
+- ne pas réactiver des fonctionnalités non comprises dans le nouveau plan.
+
+Un dépassement historique d'un quota ne doit pas provoquer la suppression de données ni empêcher automatiquement les opérations indépendantes du quota concerné.
+
+#### 3.4 Quota des commandes sur une période glissante de 30 jours
+
+Le quota des commandes doit être calculé sur une période de 30 jours rattachée à la période d'abonnement, et non sur le mois civil.
+
+Avant toute modification, détermine précisément :
+- la date de début de période ;
+- la date de fin de période ;
+- le comportement au changement de plan ;
+- le comportement lors d'un renouvellement ;
+- le comportement des abonnements existants qui n'ont pas encore de date de début de période ;
+- le traitement des commandes annulées, supprimées ou archivées selon le modèle métier réel.
+
+Ne confonds pas période d'abonnement, essai gratuit et mois civil.
+
+Si le schéma ne contient que `current_period_end`, détermine si une migration additive est nécessaire pour ajouter un début de période fiable. Prévois une stratégie de transition pour les abonnements existants.
+
+N'utilise pas une valeur arbitraire comme date de début de période. Documente la règle de migration et rends-la compatible avec les données réelles.
+
+Les limites doivent continuer à provenir des entitlements du plan. N'invente pas de nouveaux plafonds commerciaux sans validation.
+
+#### 3.5 Modification future des tarifs
+
+Le système doit permettre de modifier les prix du catalogue sans réécrire le code métier.
+
+Vérifie si les abonnements enregistrent le prix appliqué à la souscription ou s'ils se basent uniquement sur le prix courant du plan.
+
+Recommande et implémente uniquement la solution compatible avec le modèle existant qui évite de modifier silencieusement le montant d'un abonnement déjà contracté.
+
+Si une migration, une version tarifaire ou un prix contractuel historique est nécessaire, justifie-le à partir du code et des règles réellement existantes.
+
+Ne modifie aucun tarif dans cette tâche.
+
+#### 3.6 Application des droits côté backend
+
+Le backend est la source de vérité. Cacher un bouton dans React ne constitue pas une protection.
+
+Pour chaque fonctionnalité protégée :
+- identifier la route API ;
+- identifier le handler ;
+- identifier le service métier ;
+- identifier le middleware d'accès et de quota existant ;
+- confirmer que le contrôle est appliqué avant toute écriture ;
+- vérifier que les erreurs sont cohérentes et compréhensibles ;
+- vérifier que les accès indirects et routes alternatives ne contournent pas le contrôle.
+
+Réutilise le service d'abonnement, les middlewares et la matrice de droits existants autant que possible.
+
+N'introduis pas un deuxième moteur de permissions.
+
+#### 3.7 Isolation multitenant
+
+Chaque opération doit être effectuée dans le contexte du tenant authentifié.
+
+Vérifie que :
+- le tenant ID vient du contexte d'authentification fiable et non d'une valeur libre fournie par le client ;
+- les compteurs SQL filtrent les données par tenant ;
+- les créations et les lectures ne permettent pas d'accéder aux données d'un autre tenant ;
+- les identifiants d'un autre tenant ne permettent pas de contourner les quotas ;
+- les utilisateurs et les rôles ne peuvent pas modifier les droits d'abonnement hors des permissions autorisées ;
+- les routes d'administration de plateforme sont protégées séparément des routes métier des pressings.
+
+Les contrôles doivent être réalisés au niveau backend, avec des tests négatifs explicites.
+
+### 4. ARCHITECTURE EXISTANTE À AUDITER
+
+Commence par inspecter notamment, si ces fichiers existent toujours :
+
+- `backend/internal/billing/model.go`
+- `backend/internal/billing/service.go`
+- `backend/internal/billing/entitlements.go`
+- `backend/internal/billing/quota.go`
+- `backend/internal/billing/persist.go`
+- `backend/internal/billing/store_contract.go`
+- `backend/internal/billing/service_test.go`
+- `backend/internal/billing/subscription_baseline_test.go`
+- `backend/internal/order/handler.go`
+- `backend/internal/http/feature_middleware.go`
+- `backend/internal/http/router.go`
+- `backend/internal/auth/persist.go`
+- les migrations de `backend/migrations/`
+- les clients API, écrans et tests frontend qui gèrent les abonnements et les droits ;
+- `.github/workflows/ci.yml` ;
+- la documentation d'architecture et d'API.
+
+Ces chemins sont des points de départ, pas une liste exhaustive. Confirme leur existence et découvre les véritables chemins du dépôt avant de les modifier.
+
+Le projet possède déjà des éléments de moteur d'abonnement, notamment les concepts `plans`, `features`, `plan_entitlements`, `subscriptions`, `subscription_events`, `EffectivePlan`, `OnTrial`, `RequireFeature`, `RequireFeatureQuota`, `QuotaGuard` et `GET /api/v1/me/entitlements`.
+
+Vérifie leur implémentation réelle avant de les utiliser. Ne duplique pas leurs responsabilités.
+
+### 5. MÉTHODE D'EXÉCUTION OBLIGATOIRE
+
+Tu dois suivre les phases ci-dessous dans l'ordre.
+
+Ne passe pas directement à l'implémentation complète. Chaque phase doit se terminer par des résultats vérifiables.
+
+## PHASE 0 — Vérification initiale et état de référence
+
+1. Vérifier le dépôt, la branche principale, la branche de travail, les commits et les PR ouvertes.
+2. Vérifier la PR de tests de référence et son état réel.
+3. Examiner les modifications déjà présentes pour éviter les doublons ou conflits.
+4. Vérifier les versions de Go, PostgreSQL, Node.js et les scripts de test déclarés par le projet.
+5. Lire les instructions locales du dépôt, notamment les fichiers de contribution et d'architecture.
+6. Lancer les tests de référence dans un environnement approprié, si les outils disponibles le permettent.
+7. Consigner les échecs préexistants sans les attribuer automatiquement à tes modifications.
+
+Livrable :
+- état initial du dépôt ;
+- résultats des tests avant modification ;
+- liste des fichiers et composants réellement impliqués ;
+- liste des risques identifiés.
+
+Ne prétends pas avoir exécuté une commande si tu ne l'as pas réellement exécutée.
+
+## PHASE 1 — Tests de référence et tests de caractérisation
+
+Complète d'abord les tests, avant de modifier le comportement métier.
+
+Les tests doivent couvrir au minimum :
+
+A. Essai :
+- démarrage à l'inscription ;
+- durée de sept jours ;
+- idempotence ;
+- accès BUSINESS pendant l'essai ;
+- état juste avant l'expiration ;
+- état à la date exacte d'expiration ;
+- état après expiration ;
+- retour à FREE sans suppression des données ;
+- absence de prolongation par une seconde initialisation ;
+- comportement lorsque le tenant n'a pas d'abonnement.
+
+B. Plans et droits :
+- droits FREE, PRO et BUSINESS ;
+- matrice d'habilitation chargée depuis la source de vérité existante ;
+- cohérence entre plan enregistré et plan effectif ;
+- fonctionnalité interdite par un plan ;
+- fonctionnalité inconnue ;
+- erreur de lecture de la persistance ;
+- isolation des droits entre deux tenants.
+
+C. Quotas :
+- limite atteinte exactement ;
+- création autorisée juste avant la limite ;
+- création refusée à la limite ;
+- quota de commandes calculé sur 30 jours ;
+- commande hors de la fenêtre de consommation ;
+- commandes proches des bornes temporelles ;
+- changement de plan ;
+- renouvellement de période ;
+- conservation des données historiques après rétrogradation ;
+- concurrence de plusieurs créations autour du dernier emplacement disponible.
+
+D. Multitenant :
+- tenant A ne peut pas lire les données de B ;
+- tenant A ne consomme pas le quota de B ;
+- tenant A ne peut pas créer de données au nom de B en fournissant un ID client ;
+- un utilisateur non autorisé ne peut pas modifier un abonnement ;
+- routes métier et routes d'administration correctement séparées.
+
+E. Prix :
+- les prix sont lus depuis le catalogue ;
+- une modification du catalogue n'écrase pas silencieusement un prix contractuel historique si le modèle doit le conserver.
+
+Utilise des tests unitaires pour les règles pures, des tests HTTP pour les middlewares et handlers, et des tests PostgreSQL pour les comportements transactionnels et les requêtes réelles.
+
+Si certains tests échouent avec le code actuel, documente précisément le défaut. Ne les affaiblis pas pour obtenir une CI verte.
+
+Livrable :
+- nouveaux tests ;
+- résultats des tests ;
+- liste des défauts reproduits.
+
+## PHASE 2 — Correction du cycle de vie des abonnements
+
+À partir des tests, corrige le cycle de vie dans les services et la persistance existants.
+
+Exigences :
+- expiration à partir de l'heure UTC du serveur ;
+- comparaison cohérente aux bornes temporelles ;
+- transition idempotente vers FREE ;
+- mise à jour atomique du plan et du statut ;
+- journalisation cohérente des transitions ;
+- conservation des données ;
+- aucune réinitialisation d'essai par un appel répété ;
+- aucune expiration d'un abonnement déjà payé et actif ;
+- gestion explicite des erreurs de persistance.
+
+Évite les doubles transitions et les événements dupliqués dus à plusieurs requêtes concurrentes.
+
+Si la transition dépend d'une lecture suivie d'une écriture, utilise une transaction et un verrouillage adapté lorsque nécessaire.
+
+Livrable :
+- correctifs ciblés ;
+- tests de régression ;
+- migration éventuelle, additive et documentée.
+
+## PHASE 3 — Période de 30 jours et compteurs
+
+Implémente le quota des commandes selon une période glissante de 30 jours ancrée sur la période d'abonnement définie.
+
+1. Examiner les champs temporels déjà disponibles.
+2. Déterminer les règles de démarrage et de renouvellement de période.
+3. Ajouter une migration additive seulement si nécessaire.
+4. Définir une transition fiable pour les données existantes.
+5. Modifier le compteur SQL sans changer les plafonds des plans.
+6. Utiliser des bornes temporelles cohérentes et explicites.
+7. Vérifier les index nécessaires avec les schémas et requêtes réels.
+8. Vérifier que les autres quotas continuent de fonctionner.
+
+Ne remplace pas un compteur SQL par un compteur en mémoire en production.
+
+### Concurrence et atomicité
+
+Le contrôle de quota doit être fiable lorsque plusieurs requêtes tentent simultanément de créer la dernière commande autorisée.
+
+Choisis une stratégie transactionnelle compatible avec PostgreSQL et le schéma existant. Par exemple, un verrouillage par tenant ou une ligne d'usage verrouillée dans la transaction peut être approprié.
+
+La stratégie doit :
+- empêcher les dépassements dus à la concurrence ;
+- ne pas sérialiser inutilement tous les tenants ;
+- fonctionner sur plusieurs instances du backend ;
+- gérer les erreurs et annulations de transaction ;
+- garantir qu'un échec de création ne consomme pas le quota ;
+- ne pas faire confiance à un compteur maintenu uniquement par le frontend.
+
+Vérifie également si le même mécanisme est nécessaire pour les quotas de création d'utilisateurs, de grilles tarifaires ou d'établissements.
+
+Livrable :
+- implémentation SQL/transactionnelle ;
+- tests d'intégration PostgreSQL ;
+- test de concurrence reproductible ;
+- justification de la stratégie choisie.
+
+## PHASE 4 — Couverture des routes et isolation multitenant
+
+Établis une matrice vérifiable :
+
+Route API | Opération | Tenant requis | Fonctionnalité requise | Quota applicable | Rôle requis | Test associé
+
+Recense toutes les routes métier de création ou d'écriture, sans te limiter aux commandes.
+
+Vérifie notamment :
+- commandes ;
+- clients ;
+- utilisateurs ;
+- grilles tarifaires ;
+- établissements secondaires ;
+- dépenses ;
+- notifications payantes ;
+- rapports protégés ;
+- opérations d'administration des abonnements.
+
+Cette liste doit être adaptée aux routes réellement présentes.
+
+Pour chaque route :
+1. vérifier le middleware ou contrôle du service ;
+2. ajouter le contrôle manquant ;
+3. confirmer que la validation intervient avant la mutation ;
+4. confirmer que les contrôles de tenant et de rôle sont indépendants des droits commerciaux ;
+5. ajouter un test positif et un test négatif lorsque pertinent.
+
+Ne bloque pas une route de consultation uniquement parce que le tenant dépasse un quota historique, sauf si une règle explicite du projet l'exige.
+
+Livrable :
+- matrice des routes ;
+- correctifs ;
+- tests HTTP et multitenant ;
+- liste des routes non couvertes et justification.
+
+## PHASE 5 — API et interface frontend
+
+Le frontend doit afficher les droits effectifs renvoyés par le backend, et non calculer sa propre version des plans.
+
+Réutilise l'endpoint existant `GET /api/v1/me/entitlements` ou le mécanisme équivalent après vérification.
+
+Vérifie que l'interface :
+- affiche le plan et le statut réels ;
+- affiche l'essai et sa date de fin ;
+- montre l'usage et le quota de commandes sur la bonne période ;
+- explique clairement une limite atteinte ;
+- propose une action de mise à niveau sans contourner le backend ;
+- reflète un changement de plan après rafraîchissement des droits ;
+- gère les erreurs réseau et les erreurs d'autorisation ;
+- n'affiche pas des tarifs différents de ceux du backend ;
+- ne prétend pas qu'un paiement a été reçu si aucun système ne l'a confirmé.
+
+Les fonctionnalités interdites peuvent être masquées ou présentées comme indisponibles dans l'interface, mais le backend doit toujours les refuser.
+
+Ne refais pas le design complet de l'ERP. Modifie seulement les composants nécessaires.
+
+Livrable :
+- adaptations de l'API et des types si nécessaires ;
+- composants frontend corrigés ;
+- tests de composants ou d'intégration ;
+- vérification TypeScript et build.
+
+## PHASE 6 — Évolution future des tarifs
+
+Vérifie la persistance du prix de souscription.
+
+Détermine si le système a besoin :
+- d'un prix contractuel stocké sur l'abonnement ;
+- d'une date d'entrée en vigueur ;
+- d'une version de tarif ;
+- d'une migration de données existantes.
+
+Ne crée pas un système complexe de facturation si une solution plus simple répond au besoin réel.
+
+Le résultat doit permettre une évolution future des tarifs sans écraser silencieusement les prix historiques lorsque ceux-ci ont une valeur contractuelle.
+
+Aucun paiement en ligne ne doit être inventé ou simulé.
+
+Livrable :
+- diagnostic du modèle de prix ;
+- proposition fondée sur le schéma existant ;
+- implémentation minimale nécessaire ;
+- migration et tests si nécessaires ;
+- aucun changement des tarifs commerciaux sans confirmation.
+
+## PHASE 7 — Validation finale et CI
+
+Exécute les vérifications adaptées aux scripts réellement présents dans le dépôt.
+
+Pour le backend, vérifier au minimum :
+- `go test ./...` ;
+- `go test -race ./...` si l'environnement le permet ;
+- `go vet ./...` ;
+- les tests d'intégration PostgreSQL ;
+- les tests HTTP et de sécurité multitenant ;
+- les migrations sur une base de test propre ;
+- le parcours de mise à niveau, rétrogradation et expiration.
+
+Pour le frontend, vérifier les commandes disponibles :
+- lint ;
+- formatage ;
+- vérification TypeScript ;
+- tests ;
+- build de production.
+
+Vérifie également :
+- absence de secrets ajoutés au dépôt ;
+- migrations réversibles lorsque cela est possible et sûr ;
+- absence de suppression involontaire de données ;
+- cohérence des réponses d'erreur ;
+- absence de régression sur les fonctionnalités non concernées.
+
+Si une commande ne peut pas être exécutée, indique explicitement pourquoi et ne prétends pas qu'elle est passée.
+
+Livrable :
+- résultats de chaque commande ;
+- état réel de la CI GitHub ;
+- liste des échecs résiduels ;
+- éventuels risques de déploiement.
+
+## PHASE 8 — Documentation et livraison
+
+Mets à jour la documentation existante :
+- architecture des abonnements ;
+- matrice des plans et fonctionnalités ;
+- règles d'essai et d'expiration ;
+- définition de la période de 30 jours ;
+- gestion des dépassements de quota ;
+- procédure de migration ;
+- endpoints concernés ;
+- procédures de test ;
+- limites connues.
+
+Crée une Pull Request de travail claire et relie les commits à la PR.
+
+Ne fusionne pas automatiquement la PR dans `main`. Présente les résultats et attends une autorisation explicite avant toute opération de fusion ou de déploiement.
+
+### 6. CONTRAINTES TECHNIQUES
+
+- Ne reconstruis pas le moteur d'abonnement existant.
+- Ne crée pas un second système d'entitlements.
+- Ne remplace pas PostgreSQL par des compteurs en mémoire en production.
+- Ne contourne jamais l'authentification ni les contrôles de tenant.
+- Ne fais pas confiance au frontend pour appliquer les quotas.
+- Ne supprime pas les données métier lors d'une expiration ou rétrogradation.
+- Ne modifie pas les tarifs sans confirmation.
+- Ne crée pas de faux paiements ou de faux abonnements actifs.
+- Ne fais pas de refactorisation massive sans nécessité démontrée.
+- Ne modifie pas des fichiers sans avoir lu leur contenu actuel.
+- Ne duplique pas les fonctions existantes.
+- N'ajoute pas de dépendance si la bibliothèque standard ou l'architecture existante suffit.
+- Préfère des migrations additives et une compatibilité maîtrisée avec les données existantes.
+- Ne masque pas un défaut de test en assouplissant l'assertion.
+- Ne présente jamais un test non exécuté comme réussi.
+- Ne présente jamais une fonctionnalité comme terminée si elle n'est que partiellement implémentée.
+
+### 7. MODE DE TRAVAIL DÉTERMINISTE
+
+À chaque phase, suis obligatoirement cette boucle :
+
+1. Lire les fichiers concernés.
+2. Décrire le comportement actuel observé.
+3. Identifier le défaut exact ou le besoin non couvert.
+4. Ajouter ou compléter le test qui caractérise le comportement attendu.
+5. Exécuter ce test et observer son résultat.
+6. Implémenter le changement minimal nécessaire.
+7. Relancer le test ciblé.
+8. Relancer les tests voisins.
+9. Examiner le diff et les effets secondaires.
+10. Documenter le résultat et les risques.
+11. Passer à la phase suivante seulement si les critères de sortie sont satisfaits.
+
+Si une phase est bloquée :
+- expliquer le blocage ;
+- fournir les éléments observés ;
+- corriger ce qui est possible sans contourner les critères ;
+- ne pas annoncer la phase comme terminée ;
+- ne pas poursuivre silencieusement avec des hypothèses.
+
+Lorsque plusieurs interprétations métier sont possibles, choisir uniquement parmi les règles déjà approuvées. Si une décision importante reste inconnue, demander une clarification ciblée plutôt que d'inventer une règle.
+
+### 8. CRITÈRES D'ACCEPTATION FINAUX
+
+Le travail ne sera considéré comme terminé que si :
+
+1. L'essai de sept jours est idempotent et expire automatiquement vers FREE sans paiement confirmé.
+2. Les données métier restent intactes après expiration et rétrogradation.
+3. Le quota de commandes utilise correctement la période de 30 jours définie.
+4. Les créations sont refusées au bon moment par le backend.
+5. Les quotas restent corrects sous concurrence.
+6. Les contrôles d'accès sont appliqués sur toutes les routes concernées.
+7. Les tenants sont isolés dans les données, droits et compteurs.
+8. L'API expose les droits effectifs et le frontend les reflète correctement.
+9. Les tarifs ne sont pas modifiés sans approbation.
+10. Les tests pertinents, les migrations et les builds sont validés, ou leurs blocages sont précisément documentés.
+11. La documentation est mise à jour.
+12. Une Pull Request présente les changements et les preuves de validation.
+
+### 9. FORMAT OBLIGATOIRE DU COMPTE RENDU
+
+À la fin de chaque phase, fournis :
+
+**Phase :**
+Nom et numéro de phase.
+
+**État :**
+Terminé, partiellement terminé ou bloqué.
+
+**Constat :**
+Comportement du code observé avant les changements.
+
+**Fichiers modifiés :**
+Chemins exacts et résumé des changements.
+
+**Tests :**
+Commandes réellement exécutées, résultats et tests non exécutés.
+
+**Sécurité et multitenant :**
+Contrôles vérifiés et risques restants.
+
+**Décisions :**
+Règles appliquées et hypothèses évitées.
+
+**GitHub :**
+Branche, commits, PR et état réel de la CI.
+
+**Phase suivante :**
+Objectif précis et critères de sortie.
+
+Commence maintenant par la PHASE 0. Ensuite, exécute les phases dans l'ordre, en livrant des changements petits, testés, relisibles et traçables.
+
+Ne te contente pas de fournir un plan ou des exemples de code : lorsque les outils et permissions le permettent, implémente réellement les changements dans le dépôt."> 
+
+# NB: commencer exclusivement par la phase 0, puis de poursuivre dans l'ordre après vérification des critères de sortie.
+
+J'exige une Pull Request avec les commits, les migrations, les tests et les résultats de CI avant toute fusion dans main.
+
 ## Objectif
 Établir une base de régression avant de modifier le moteur d'abonnement existant.
 
