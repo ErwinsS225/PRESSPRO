@@ -8,9 +8,9 @@ concurrent-safe à la création. Aucun tarif modifié, aucun paiement ou webhook
 
 ## Phase 3 — Quota de commandes sur 30 jours, concurrence
 
-**État :** terminé dans le périmètre de la phase 3 (code, migration, tests, stress). Les 4 points
-de l'exigence « concurrence » sont couverts par des tests d'intégration PostgreSQL réels. Aucun
-commit ni push n'a encore été effectué au moment de la rédaction (voir section GitHub).
+**État :** terminé dans le périmètre de la phase 3 (code, migration, tests, stress). Les points
+de l'exigence « concurrence » sont couverts par des tests d'intégration PostgreSQL réels. Commit
+dédié, poussé sur la branche de session (voir section GitHub).
 
 **Constat (avant correctif, mesuré par les tests de caractérisation de la phase 1) :**
 
@@ -126,9 +126,10 @@ preuve absolue. Les deux mutations montrent que les tests détectent la régress
 
 **GitHub :**
 - Branche de travail : `arena/a06916de-presspro`. Aucun merge, aucune PR, aucun déploiement.
-- Les modifications des phases 1 à 3 sont dans l'arbre de travail. **Une seule série de commits**
-  est prévue (les fichiers des phases 2 et 3 se recouvrent, et une séparation propre n'est pas
-  possible sans reconstruction risquée) ; le message de commit décrit les phases séparément.
+- Phase 1 : commit `8c8e6f7` (tests de caractérisation), poussé.
+- Phase 2 : commit `1236301` (correctifs du cycle de vie), poussé.
+- Phase 3 : commit `2970bc2` (quota de commandes), poussé sur la même branche.
+- Aucune PR ouverte : l'ouverture et la fusion attendent l'autorisation explicite du propriétaire.
 
 **Phase suivante :** phase 4 — couverture des routes et matrice d'isolation multitenant (tests négatifs
 sur toutes les routes de commandes, clients, catalogue, facturation, établissements). Suivi :
