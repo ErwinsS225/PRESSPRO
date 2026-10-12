@@ -10,7 +10,7 @@ interface NewOrderModalProps {
 }
 
 export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, services, onClose, onSubmit }) => {
-  const [selectedCustomer, setSelectedCustomer] = useState(customers[0]?.fullName || '');
+  const [selectedCustomer, setSelectedCustomer] = useState(customers[0]?.id || '');
   const [phone, setPhone] = useState(customers[0]?.phone || '+225 07 00 00 00 00');
   const [items, setItems] = useState<OrderItem[]>([
     {
@@ -21,12 +21,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
       subtotal: (services[0]?.price || 1000) * 2,
     },
   ]);
-  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | 'partially_paid'>('paid');
+  const [paymentMethod, setPaymentMethod] = useState<string>('cash');
+  const [tenderedInput, setTenderedInput] = useState<string>('');
   const [notes, setNotes] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleCustomerChange = (name: string) => {
-    setSelectedCustomer(name);
-    const found = customers.find((c) => c.fullName === name);
+  const handleCustomerChange = (id: string) => {
+    setSelectedCustomer(id);
+    const found = customers.find((c) => c.id === id);
     if (found) setPhone(found.phone);
   };
 
@@ -74,25 +76,41 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
 
   const totalAmount = items.reduce((sum, it) => sum + it.subtotal, 0);
 
+  // Somme remise : si non saisie, équivaut au montant exact dû.
+  const tenderedAmount = tenderedInput.trim() !== '' ? Number(tenderedInput) : totalAmount;
+  const changeDue = Math.max(0, tenderedAmount - totalAmount);
+  const isTenderInsufficient = tenderedAmount < totalAmount;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) return;
+    setErrorMessage(null);
+
+    if (items.length === 0) {
+      setErrorMessage('Veuillez ajouter au moins un vêtement.');
+      return;
+    }
+
+    if (isTenderInsufficient) {
+      setErrorMessage(
+        `Le paiement intégral est obligatoire au dépôt. Montant remis insuffisant (${tenderedAmount.toLocaleString('fr-FR')} F pour ${totalAmount.toLocaleString('fr-FR')} F dus).`
+      );
+      return;
+    }
 
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       orderNumber: `CMD-2026-${Math.floor(100 + Math.random() * 900)}`,
-      customerName: selectedCustomer,
+      customerId: selectedCustomer || undefined,
+      customerName: customers.find((c) => c.id === selectedCustomer)?.fullName || '',
       customerPhone: phone,
       items,
       status: 'received',
-      paymentStatus,
+      paymentStatus: 'paid',
       totalAmount,
-      paidAmount:
-        paymentStatus === 'paid'
-          ? totalAmount
-          : paymentStatus === 'partially_paid'
-            ? Math.floor(totalAmount / 2)
-            : 0,
+      paidAmount: totalAmount,
+      amountReceived: tenderedAmount,
+      changeGiven: changeDue,
+      paymentMethod,
       receivedAt: 'À l’instant',
       dueDate: 'Dans 2 jours (18:00)',
       notes: notes || undefined,
@@ -111,7 +129,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
               Enregistrer un Dépôt de Linge
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Création d'un ticket de pressing avec calcul automatique.
+              Paiement intégral obligatoire au dépôt & calcul de la monnaie.
             </p>
           </div>
           <button
@@ -121,6 +139,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="mt-3 rounded-md bg-red-50 p-2.5 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {errorMessage}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -134,7 +158,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
                 className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               >
                 {customers.map((c) => (
-                  <option key={c.id} value={c.fullName}>
+                  <option key={c.id} value={c.id}>
                     {c.fullName}
                   </option>
                 ))}
@@ -216,39 +240,67 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
-                Règlement au Dépôt
+                Mode d'encaissement
               </label>
               <select
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value as any)}
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               >
-                <option value="paid">Payé d'avance (Total)</option>
-                <option value="partially_paid">Acompte versé (50%)</option>
-                <option value="unpaid">Paiement au retrait</option>
+                <option value="cash">Espèces</option>
+                <option value="wave">Wave</option>
+                <option value="orange_money">Orange Money</option>
+                <option value="mtn_momo">MTN Mobile Money</option>
+                <option value="card">Carte bancaire</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
-                Instructions particulières
+                Somme remise (FCFA)
               </label>
               <input
-                type="text"
-                placeholder="Ex: Tache café, col dur..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                type="number"
+                min={totalAmount}
+                step={100}
+                placeholder={totalAmount.toString()}
+                value={tenderedInput}
+                onChange={(e) => setTenderedInput(e.target.value)}
                 className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
               />
             </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                Monnaie à rendre
+              </label>
+              <div className="mt-1 flex h-8 items-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-xs font-mono font-semibold text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 tabular-nums">
+                {changeDue.toLocaleString('fr-FR')} FCFA
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+              Instructions particulières
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: Tache café, col dur..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="mt-1 w-full rounded-md border border-neutral-200 px-3 py-1.5 text-xs text-neutral-900 focus:border-neutral-900 focus:outline-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-100"
+            />
           </div>
 
           <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-3">
             <div>
-              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Total à payer :</span>
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Total réglé (intégral) :
+              </span>
               <div className="font-mono text-base font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
                 {totalAmount.toLocaleString('fr-FR')} FCFA
               </div>
@@ -264,7 +316,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ customers, service
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                disabled={isTenderInsufficient}
+                className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
               >
                 Valider le Dépôt
               </button>

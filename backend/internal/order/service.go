@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/customer"
 )
 
 // Service gère les opérations métier sur les commandes de linge
@@ -18,7 +19,8 @@ type Service struct {
 	creation     sync.Mutex        // sérialise les créations en mémoire (contrôle du plafond + insertion)
 	orders       map[string]*Order // clé: order_id
 	tenantSeqNum map[string]int    // clé: tenant_id -> séquenceur de ticket
-	store        *dbStore          // nil = mode mémoire ; non-nil = persistance PostgreSQL
+	mutations    map[string]memoryMutation
+	store        *dbStore // nil = mode mémoire ; non-nil = persistance PostgreSQL
 	logger       *log.Logger
 
 	// hookStatut est appelé en tâche de fond après une transition de statut de
@@ -142,6 +144,7 @@ func NewService() *Service {
 	return &Service{
 		orders:       make(map[string]*Order),
 		tenantSeqNum: make(map[string]int),
+		mutations:    make(map[string]memoryMutation),
 		logger:       log.Default(),
 	}
 }
@@ -149,14 +152,28 @@ func NewService() *Service {
 // CreateOrder crée un nouveau dépôt de linge isolé par tenant_id
 // Valide les entrées, génère les identifiants uniques et persiste la commande
 func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOrderRequest) (*Order, error) {
-	if len(req.Items) == 0 {
-		s.logger.Printf("[order] Création échouée: aucune item fournie, tenant=%s", tenantID)
-		return nil, ErrEmptyOrderItems
+	if err := validMutationKey(req.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	var err error
+	req, err = normalizeOrderCustomer(req)
+	if err != nil {
+		return nil, err
+	}
+	finance, err := validateOrderFinance(req)
+	if err != nil {
+		return nil, err
 	}
 
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation création à persistance PostgreSQL, tenant=%s", tenantID)
 		return s.store.creerCommande(ctx, tenantID, req, s.quota)
+	}
+
+	// Le fichier clients mémoire n'est pas persistant : ne pas accepter un ID
+	// dont l'appartenance ne peut pas être établie.
+	if req.CustomerID != "" {
+		return nil, customer.ErrCustomerNotFound
 	}
 
 	// Validation et initialisation du tenant hors du verrou principal pour réduire le temps de blocage
@@ -182,37 +199,35 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	hash := mutationHash(ctx, req)
+	if existing, err := s.replayMemory(tenantID, "create_order", req.IdempotencyKey, hash); err != nil || existing != nil {
+		return existing, err
+	}
+
 	s.tenantSeqNum[tenantID]++
 	seq := s.tenantSeqNum[tenantID]
 	orderNumber := fmt.Sprintf("CMD-2026-%03d", seq)
 	orderID := fmt.Sprintf("ord-%d", time.Now().UnixNano())
 
-	// Utilisation du helper pour créer les items et calculer le total
-	items, totalAmount := createOrderItems(orderID, req.Items)
-
-	// Validation du montant payé initial
-	paidAmount := req.InitialPaid
-	if paidAmount < 0 {
-		paidAmount = 0
-	} else if paidAmount > totalAmount {
-		paidAmount = totalAmount
+	totalAmount := money(finance.total)
+	paidAmount := totalAmount
+	paymentStatus := PaymentStatusPaid
+	var items []OrderItem
+	for i, it := range finance.items {
+		it.ID = fmt.Sprintf("it-%s-%d", orderID, i+1)
+		items = append(items, it)
 	}
 
-	// Utilisation du helper pour calculer le statut de paiement
-	paymentStatus := calculatePaymentStatus(paidAmount, totalAmount)
-
-	// Création de l'enregistrement de paiement si nécessaire
 	var payments []PaymentRecord
-	if paidAmount > 0 {
-		method := req.PaymentMethod
-		if method == "" {
-			method = MethodCash
-		}
+	if finance.total > 0 {
 		payments = append(payments, PaymentRecord{
-			ID:            fmt.Sprintf("pay-%d", time.Now().UnixNano()),
-			Amount:        paidAmount,
-			PaymentMethod: method,
-			CreatedAt:     time.Now().UTC(),
+			ID:             fmt.Sprintf("pay-%d", time.Now().UnixNano()),
+			Amount:         totalAmount,
+			PaymentMethod:  finance.method,
+			AmountReceived: moneyPointer(finance.received),
+			ChangeGiven:    moneyPointer(finance.change),
+			ReceivedBy:     paymentActor(ctx),
+			CreatedAt:      time.Now().UTC(),
 		})
 	}
 
@@ -242,9 +257,11 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 		UpdatedAt:     time.Now().UTC(),
 	}
 
+	order.Persisted = false
 	s.orders[orderID] = order
+	s.saveMemory(tenantID, "create_order", req.IdempotencyKey, hash, order)
 	s.logger.Printf("[order] Commande créée: %s (%s), total=%.2f, tenant=%s", orderID, orderNumber, totalAmount, tenantID)
-	return order, nil
+	return cloneOrder(order), nil
 }
 
 // DatesCommandesNonAnnulees retourne la date de création des commandes non annulées
@@ -364,6 +381,9 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 		s.logger.Printf("[order] Statut invalide: %s pour commande %s", newStatus, orderID)
 		return nil, ErrInvalidStatusOrder
 	}
+	if newStatus == StatusDelivered && !settled(ord.TotalAmount, ord.PaidAmount) {
+		return nil, ErrUnpaidDelivery
+	}
 
 	oldStatus := ord.Status
 	ord.Status = newStatus
@@ -382,9 +402,12 @@ func (s *Service) UpdateOrderStatus(ctx context.Context, tenantID, orderID, newS
 func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
 	s.logger.Printf("[order] Ajout paiement: commande=%s, montant=%.2f, tenant=%s", orderID, req.Amount, tenantID)
 
-	if req.Amount <= 0 {
-		s.logger.Printf("[order] Paiement refusé: montant invalide %.2f pour commande %s", req.Amount, orderID)
-		return nil, ErrInvalidPayment
+	if err := validMutationKey(req.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	finance, err := validatePayment(req)
+	if err != nil {
+		return nil, err
 	}
 
 	if s.store != nil {
@@ -395,46 +418,56 @@ func (s *Service) AddPayment(ctx context.Context, tenantID, orderID string, req 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	hash := mutationHash(ctx, req)
+	if existing, err := s.replayMemory(tenantID, "add_payment:"+orderID, req.IdempotencyKey, hash); err != nil || existing != nil {
+		return existing, err
+	}
+
 	// Vérification d'accès sécurisée
 	ord, err := s.getSafeOrder(tenantID, orderID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Intégrité comptable : refus de tout encaissement supérieur au solde dû.
-	due := ord.TotalAmount - ord.PaidAmount
-	if req.Amount > due {
-		s.logger.Printf("[order] Paiement refusé: montant %.2f > solde dû %.2f (commande %s, tenant=%s)",
-			req.Amount, due, orderID, tenantID)
+	totalCents, err := moneyCents(ord.TotalAmount)
+	if err != nil {
+		return nil, err
+	}
+	paidCents, err := moneyCents(ord.PaidAmount)
+	if err != nil {
+		return nil, err
+	}
+	dueCents := totalCents - paidCents
+	if finance.amount > dueCents {
+		s.logger.Printf("[order] Paiement refusé: montant %d > solde dû %d (commande %s, tenant=%s)",
+			finance.amount, dueCents, orderID, tenantID)
 		return nil, ErrPaymentExceedsDue
 	}
 
-	// Mise à jour des montants
-	ord.PaidAmount += req.Amount
+	newPaidCents := paidCents + finance.amount
+	ord.PaidAmount = money(newPaidCents)
 	ord.RemainingDue = ord.TotalAmount - ord.PaidAmount
-
-	// Utilisation du helper pour calculer le nouveau statut de paiement
-	ord.PaymentStatus = calculatePaymentStatus(ord.PaidAmount, ord.TotalAmount)
-
-	// Enregistrement du paiement
-	method := req.PaymentMethod
-	if method == "" {
-		method = MethodCash
+	ord.PaymentStatus = PaymentStatusPartial
+	if newPaidCents >= totalCents {
+		ord.PaymentStatus = PaymentStatusPaid
 	}
 
 	ord.Payments = append(ord.Payments, PaymentRecord{
-		ID:            fmt.Sprintf("pay-%d", time.Now().UnixNano()),
-		Amount:        req.Amount,
-		PaymentMethod: method,
-		Reference:     req.Reference,
-		CreatedAt:     time.Now().UTC(),
+		ID:             fmt.Sprintf("pay-%d", time.Now().UnixNano()),
+		Amount:         money(finance.amount),
+		PaymentMethod:  finance.method,
+		Reference:      req.Reference,
+		AmountReceived: moneyPointer(finance.received),
+		ChangeGiven:    moneyPointer(finance.change),
+		ReceivedBy:     paymentActor(ctx),
+		CreatedAt:      time.Now().UTC(),
 	})
 	ord.UpdatedAt = time.Now().UTC()
 
 	s.logger.Printf("[order] Paiement enregistré: commande=%s, nouveau statut paiement=%s, restant=%.2f",
 		orderID, ord.PaymentStatus, ord.RemainingDue)
 
-	// Copie de sécurité
-	ordCopy := *ord
-	return &ordCopy, nil
+	ordCopy := cloneOrder(ord)
+	s.saveMemory(tenantID, "add_payment:"+orderID, req.IdempotencyKey, hash, ordCopy)
+	return ordCopy, nil
 }

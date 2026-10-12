@@ -12,6 +12,7 @@ import (
 
 	"pressing-os/backend/internal/auth"
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/customer"
 	"pressing-os/backend/internal/httperr"
 )
 
@@ -34,6 +35,17 @@ func (h *Handler) respondServiceError(w http.ResponseWriter, err error, internal
 	switch {
 	case errors.Is(err, ErrOrderNotFound):
 		httperr.Error(w, http.StatusNotFound, "commande introuvable")
+	case errors.Is(err, customer.ErrCustomerNotFound):
+		httperr.Error(w, http.StatusNotFound, "client introuvable")
+	case errors.Is(err, ErrIdempotencyConflict), errors.Is(err, ErrUnpaidDelivery):
+		httperr.Error(w, http.StatusConflict, err.Error())
+	case errors.Is(err, ErrFullPaymentRequired), errors.Is(err, ErrInvalidOrderItem), errors.Is(err, ErrInvalidPaymentMethod), errors.Is(err, ErrInvalidIdempotencyKey):
+		httperr.Error(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, ErrCustomerSelectionRequired):
+		httperr.ErrorWithExtra(w, http.StatusConflict, err.Error(), map[string]string{"code": "customer_selection_required"})
+	case errors.Is(err, ErrAmbiguousCustomer), errors.Is(err, customer.ErrEmptyFirstName),
+		errors.Is(err, customer.ErrEmptyPhone), errors.Is(err, customer.ErrInvalidFields):
+		httperr.Error(w, http.StatusBadRequest, err.Error())
 	case billing.IsRefusMetier(err):
 		// Refus de formule (plafond atteint / fonctionnalité non incluse) : 402 métier.
 		httperr.ErrorWithExtra(w, http.StatusPaymentRequired, err.Error(), map[string]string{
@@ -73,12 +85,6 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.CustomerName == "" || len(req.Items) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "le nom du client et les vêtements sont obligatoires"})
-		return
-	}
-
 	// Établissement d'imputation : le header X-Branch-ID a déjà été validé par le
 	// contrôle de périmètre (#4 RequireBranchScope) en amont. Repli sur le corps
 	// de requête si le header est absent.
@@ -86,6 +92,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		req.BranchID = hdr
 	}
 
+	req.IdempotencyKey = r.Header.Get("Idempotency-Key")
 	created, err := h.service.CreateOrder(r.Context(), tenantID, req)
 	if err != nil {
 		h.respondServiceError(w, err, "impossible d'enregistrer la commande")
@@ -190,6 +197,7 @@ func (h *Handler) AddPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.IdempotencyKey = r.Header.Get("Idempotency-Key")
 	settled, err := h.service.AddPayment(r.Context(), tenantID, orderID, req)
 	if err != nil {
 		h.respondServiceError(w, err, "impossible d'enregistrer le paiement")

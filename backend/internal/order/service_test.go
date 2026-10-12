@@ -24,7 +24,6 @@ func TestCreateOrder_EmptyItems(t *testing.T) {
 	tenantID := "test-tenant-1"
 
 	req := CreateOrderRequest{
-		CustomerID:    "cust-1",
 		CustomerName:  "Test Client",
 		CustomerPhone: "+22500000000",
 		Items:         []CreateOrderItemInput{}, // Aucun item
@@ -42,7 +41,6 @@ func TestCreateOrder_Success(t *testing.T) {
 	tenantID := "test-tenant-1"
 
 	req := CreateOrderRequest{
-		CustomerID:    "cust-1",
 		CustomerName:  "Test Client",
 		CustomerPhone: "+22500000000",
 		Items: []CreateOrderItemInput{
@@ -53,7 +51,7 @@ func TestCreateOrder_Success(t *testing.T) {
 				UnitPrice: 1500,
 			},
 		},
-		InitialPaid:   2000,
+		InitialPaid:   3000,
 		PaymentMethod: MethodCash,
 	}
 
@@ -63,9 +61,9 @@ func TestCreateOrder_Success(t *testing.T) {
 
 	assert.Equal(t, tenantID, order.TenantID)
 	assert.Equal(t, 3000.0, order.TotalAmount)
-	assert.Equal(t, 2000.0, order.PaidAmount)
-	assert.Equal(t, 1000.0, order.RemainingDue)
-	assert.Equal(t, PaymentStatusPartial, order.PaymentStatus)
+	assert.Equal(t, 3000.0, order.PaidAmount)
+	assert.Equal(t, 0.0, order.RemainingDue)
+	assert.Equal(t, PaymentStatusPaid, order.PaymentStatus)
 	assert.Equal(t, StatusReceived, order.Status)
 	assert.Len(t, order.Items, 1)
 	assert.Len(t, order.Payments, 1)
@@ -107,7 +105,7 @@ func TestUpdateOrderStatus_Invalid(t *testing.T) {
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
 	// Une commande réellement déposée : l'établissement démarre sans données.
-	firstOrder := creerCommandeDepot(t, service, tenantID, 0)
+	firstOrder := creerCommandeDepot(t, service, tenantID, 3000)
 
 	// Tentative de mise à jour avec un statut invalide
 	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, "statut_invalide")
@@ -121,7 +119,7 @@ func TestUpdateOrderStatus_Success(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	firstOrder := creerCommandeDepot(t, service, tenantID, 0)
+	firstOrder := creerCommandeDepot(t, service, tenantID, 3000)
 
 	updated, err := service.UpdateOrderStatus(ctx, tenantID, firstOrder.ID, StatusReady)
 	require.NoError(t, err)
@@ -134,10 +132,23 @@ func TestAddPayment_Success(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	// Dépôt de 3 000 F avec un acompte de 1 000 F : le solde est encaissé ensuite.
-	commande := creerCommandeDepot(t, service, tenantID, 1000)
-	require.Equal(t, 3000.0, commande.TotalAmount)
-	require.Equal(t, PaymentStatusPartial, commande.PaymentStatus)
+	// Commande historique avec acompte de 1 000 F sur 3 000 F : le solde est encaissé ensuite.
+	commande := &Order{
+		ID:            "ord-historique-solde",
+		TenantID:      tenantID,
+		OrderNumber:   "CMD-2026-HIST",
+		Status:        StatusReceived,
+		PaymentStatus: PaymentStatusPartial,
+		TotalAmount:   3000,
+		PaidAmount:    1000,
+		RemainingDue:  2000,
+		Payments: []PaymentRecord{
+			{ID: "pay-initial", Amount: 1000, PaymentMethod: MethodCash},
+		},
+	}
+	service.mu.Lock()
+	service.orders[commande.ID] = commande
+	service.mu.Unlock()
 
 	paymentReq := AddPaymentRequest{
 		Amount:        2000,
@@ -161,12 +172,12 @@ func TestIsolationMultitenant(t *testing.T) {
 	// Crée un deuxième tenant
 	tenant2 := "test-tenant-2"
 	req := CreateOrderRequest{
-		CustomerID:    "cust-2",
 		CustomerName:  "Client Tenant 2",
 		CustomerPhone: "+225111111111",
 		Items: []CreateOrderItemInput{
 			{ServiceID: "srv-1", ItemLabel: "Test", Quantity: 1, UnitPrice: 1000},
 		},
+		InitialPaid: 1000,
 	}
 	order2, err := service.CreateOrder(ctx, tenant2, req)
 	require.NoError(t, err)
@@ -195,18 +206,24 @@ func TestAddPayment_ExceedsRemainingDue(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "a0000000-0000-0000-0000-000000000001"
 
-	ord, err := service.CreateOrder(ctx, tenantID, CreateOrderRequest{
-		CustomerName:  "Client Intégrité",
-		CustomerPhone: "+225 07 00 00 00 01",
-		Items: []CreateOrderItemInput{
-			{ServiceID: "srv-101", ItemLabel: "Chemise", Quantity: 3, UnitPrice: 500},
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1500.0, ord.TotalAmount)
+	// Commande historique non soldée (1500 F dus, 0 F réglé) pour tester l'encaissement et le dépassement.
+	ord := &Order{
+		ID:            "ord-historique-integrité",
+		TenantID:      tenantID,
+		OrderNumber:   "CMD-2026-HIST-2",
+		Status:        StatusReceived,
+		PaymentStatus: PaymentStatusUnpaid,
+		TotalAmount:   1500,
+		PaidAmount:    0,
+		RemainingDue:  1500,
+		Payments:      []PaymentRecord{},
+	}
+	service.mu.Lock()
+	service.orders[ord.ID] = ord
+	service.mu.Unlock()
 
 	// Surpaiement : refusé, aucun mouvement financier.
-	_, err = service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 999999, PaymentMethod: "cash"})
+	_, err := service.AddPayment(ctx, tenantID, ord.ID, AddPaymentRequest{Amount: 999999, PaymentMethod: "cash"})
 	assert.ErrorIs(t, err, ErrPaymentExceedsDue)
 
 	reloaded, err := service.GetOrderByID(ctx, tenantID, ord.ID)

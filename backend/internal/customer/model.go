@@ -9,11 +9,12 @@ var (
 	ErrCustomerNotFound = errors.New("client introuvable")
 	ErrEmptyFirstName   = errors.New("le prénom du client est obligatoire")
 	ErrEmptyPhone       = errors.New("le numéro de téléphone du client est obligatoire")
+	ErrInvalidFields    = errors.New("les coordonnées du client dépassent les longueurs autorisées")
 	ErrPhoneExists      = errors.New("ce numéro de téléphone est déjà enregistré pour ce établissement")
 )
 
 // Customer représente un client du pressing, isolé par tenant.
-// Un même numéro ne peut exister qu'une fois par établissement (UNIQUE tenant_id+phone).
+// Un numéro obligatoire peut être partagé par plusieurs personnes : seul l’ID identifie la fiche.
 type Customer struct {
 	ID        string    `json:"id"`
 	TenantID  string    `json:"tenant_id"`

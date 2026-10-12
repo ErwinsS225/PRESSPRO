@@ -109,6 +109,8 @@ func requeteCommande(i int) order.CreateOrderRequest {
 		CustomerName:  fmt.Sprintf("Client Concurrent %d", i),
 		CustomerPhone: fmt.Sprintf("+225 07 11 %02d %02d", i/100%100, i%100),
 		Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 1, UnitPrice: 1000}},
+		InitialPaid:   1000,
+		PaymentMethod: order.MethodCash,
 	}
 }
 

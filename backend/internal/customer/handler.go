@@ -68,8 +68,11 @@ func (h *Handler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateCustomer(r.Context(), tenantID, req)
 	if err != nil {
-		w.WriteHeader(customerErrorStatus(err))
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if customerErrorStatus(err) == http.StatusInternalServerError {
+			httperr.Internal(w, h.logger, "customer", err, "impossible d'enregistrer le client")
+		} else {
+			httperr.Error(w, customerErrorStatus(err), err.Error())
+		}
 		return
 	}
 
@@ -128,8 +131,11 @@ func (h *Handler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			return
 		}
-		w.WriteHeader(customerErrorStatus(err))
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if customerErrorStatus(err) == http.StatusInternalServerError {
+			httperr.Internal(w, h.logger, "customer", err, "impossible d'enregistrer le client")
+		} else {
+			httperr.Error(w, customerErrorStatus(err), err.Error())
+		}
 		return
 	}
 
@@ -163,11 +169,11 @@ func (h *Handler) DeleteCustomer(w http.ResponseWriter, r *http.Request) {
 // customerErrorStatus mappe les erreurs de validation vers le bon code HTTP.
 func customerErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, ErrEmptyFirstName), errors.Is(err, ErrEmptyPhone):
+	case errors.Is(err, ErrEmptyFirstName), errors.Is(err, ErrEmptyPhone), errors.Is(err, ErrInvalidFields):
 		return http.StatusBadRequest
 	case errors.Is(err, ErrPhoneExists):
 		return http.StatusConflict
 	default:
-		return http.StatusBadRequest
+		return http.StatusInternalServerError
 	}
 }

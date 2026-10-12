@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"pressing-os/backend/internal/billing"
+	"pressing-os/backend/internal/customer"
 	"pressing-os/backend/internal/database"
 )
 
@@ -109,27 +110,51 @@ func nextOrderNumberTx(ctx context.Context, tx pgx.Tx, tenantID string) (string,
 	return fmt.Sprintf("CMD-%d-%03d", year, seq), nil
 }
 
-// upsertCustomerTx résout (ou crée) le client du dépôt. L'unicité métier est
-// UNIQUE(tenant_id, phone) : un même numéro met à jour le nom existant.
-func upsertCustomerTx(ctx context.Context, tx pgx.Tx, tenantID, fullName, phone string) (string, error) {
-	first, last := splitName(fullName)
-	phone = strings.TrimSpace(phone)
-	if phone == "" {
-		phone = fmt.Sprintf("anonyme-%d", time.Now().UnixNano())
+// resolveCustomerTx ne fusionne jamais par téléphone et ne modifie jamais une fiche.
+// La lecture et la création restent dans la transaction du dépôt.
+func resolveCustomerTx(ctx context.Context, tx pgx.Tx, tenantID string, req CreateOrderRequest) (string, error) {
+	if req.CustomerID != "" {
+		if !isUUID(req.CustomerID) {
+			return "", customer.ErrCustomerNotFound
+		}
+		var id, phone string
+		err := tx.QueryRow(ctx, `SELECT id, phone FROM customers
+			WHERE tenant_id=$1 AND id=$2 FOR SHARE`, tenantID, req.CustomerID).Scan(&id, &phone)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", customer.ErrCustomerNotFound
+		}
+		if err != nil {
+			return "", fmt.Errorf("lecture du client du dépôt: %w", err)
+		}
+		if strings.TrimSpace(phone) == "" {
+			return "", customer.ErrEmptyPhone
+		}
+		return id, nil
+	}
+
+	input, err := newCustomerInput(req)
+	if err != nil {
+		return "", err
+	}
+	if req.NewCustomer == nil {
+		// Ancien contrat : l'identité est ambiguë dès qu'un numéro correspond.
+		// Ne choisir aucune des fiches automatiquement, même si le nom correspond.
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM customers
+			WHERE tenant_id=$1 AND phone=$2)`, tenantID, input.Phone).Scan(&exists); err != nil {
+			return "", fmt.Errorf("recherche de correspondance client: %w", err)
+		}
+		if exists {
+			return "", ErrCustomerSelectionRequired
+		}
 	}
 	var id string
-	err := tx.QueryRow(ctx, `
-		INSERT INTO customers (tenant_id, first_name, last_name, phone, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
-		ON CONFLICT (tenant_id, phone) DO UPDATE
-			SET first_name = EXCLUDED.first_name,
-			    last_name  = EXCLUDED.last_name,
-			    updated_at = NOW()
-		RETURNING id`,
-		tenantID, first, last, phone,
-	).Scan(&id)
+	err = tx.QueryRow(ctx, `INSERT INTO customers
+		(tenant_id, first_name, last_name, phone, email, address, notes)
+		VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')) RETURNING id`,
+		tenantID, input.FirstName, input.LastName, input.Phone, input.Email, input.Address, input.Notes).Scan(&id)
 	if err != nil {
-		return "", fmt.Errorf("résolution du client: %w", err)
+		return "", fmt.Errorf("création du client du dépôt: %w", err)
 	}
 	return id, nil
 }
@@ -187,8 +212,12 @@ func resolveBranchTx(ctx context.Context, tx pgx.Tx, tenantID, requested string)
 // verrou propre à l'établissement : deux créations concurrentes ne peuvent pas
 // dépasser le plafond, et un échec (rollback) ne consomme aucune place.
 func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req CreateOrderRequest, quota *billing.QuotaGuard) (*Order, error) {
-	if len(req.Items) == 0 {
-		return nil, ErrEmptyOrderItems
+	if err := validMutationKey(req.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	finance, err := validateOrderFinance(req)
+	if err != nil {
+		return nil, err
 	}
 
 	var plafond billing.PlafondCommandes
@@ -206,6 +235,11 @@ func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req Creat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	hash := mutationHash(ctx, req)
+	if existing, err := replayTx(ctx, tx, tenantID, "create_order", req.IdempotencyKey, hash); err != nil || existing != nil {
+		return existing, err
+	}
+
 	if quota != nil {
 		if err := quota.VerifierCommandeTx(ctx, tx, tenantID, plafond); err != nil {
 			return nil, err
@@ -216,7 +250,7 @@ func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req Creat
 	if err != nil {
 		return nil, err
 	}
-	customerID, err := upsertCustomerTx(ctx, tx, tenantID, req.CustomerName, req.CustomerPhone)
+	customerID, err := resolveCustomerTx(ctx, tx, tenantID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -225,48 +259,9 @@ func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req Creat
 		return nil, err
 	}
 
-	var totalAmount float64
-	type itemCalc struct {
-		serviceID *string
-		label     string
-		qty       int
-		unitPrice float64
-		subtotal  float64
-		notes     *string
-	}
-	var calc []itemCalc
-	for idx, it := range req.Items {
-		if it.Quantity <= 0 {
-			it.Quantity = 1
-		}
-		sub := float64(it.Quantity) * it.UnitPrice
-		totalAmount += sub
-		label := strings.TrimSpace(it.ItemLabel)
-		if label == "" {
-			label = fmt.Sprintf("Article %d", idx+1)
-		}
-		calc = append(calc, itemCalc{
-			serviceID: nullUUID(it.ServiceID),
-			label:     label,
-			qty:       it.Quantity,
-			unitPrice: it.UnitPrice,
-			subtotal:  sub,
-			notes:     nullIfEmptyStr(it.Notes),
-		})
-	}
-
-	paidAmount := req.InitialPaid
-	if paidAmount < 0 {
-		paidAmount = 0
-	} else if paidAmount > totalAmount {
-		paidAmount = totalAmount
-	}
-	paymentStatus := PaymentStatusUnpaid
-	if paidAmount >= totalAmount && totalAmount > 0 {
-		paymentStatus = PaymentStatusPaid
-	} else if paidAmount > 0 {
-		paymentStatus = PaymentStatusPartial
-	}
+	totalAmount := money(finance.total)
+	paidAmount := totalAmount
+	paymentStatus := PaymentStatusPaid
 
 	var duePtr *time.Time
 	if d := strings.TrimSpace(req.DueDate); d != "" {
@@ -288,38 +283,37 @@ func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req Creat
 		return nil, fmt.Errorf("insertion de la commande: %w", err)
 	}
 
-	for i, c := range calc {
+	for i, it := range finance.items {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO order_items (order_id, service_id, item_label, quantity, unit_price, subtotal, notes, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-			orderID, c.serviceID, c.label, c.qty, c.unitPrice, c.subtotal, c.notes,
+			orderID, nullUUID(it.ServiceID), it.ItemLabel, it.Quantity, it.UnitPrice, it.Subtotal, nullIfEmptyStr(it.Notes),
 		); err != nil {
 			return nil, fmt.Errorf("insertion de la ligne article %d: %w", i+1, err)
 		}
 	}
 
-	if paidAmount > 0 {
-		method := req.PaymentMethod
-		if method == "" {
-			method = MethodCash
-		}
+	if finance.total > 0 {
+		actorID := nullUUID(paymentActor(ctx))
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO payments (tenant_id, order_id, amount, payment_method, created_at)
-			VALUES ($1, $2, $3, $4, NOW())`,
-			tenantID, orderID, paidAmount, method,
+			INSERT INTO payments (tenant_id, order_id, amount, payment_method, amount_received, change_given, received_by, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+			tenantID, orderID, money(finance.total), finance.method, money(finance.received), money(finance.change), actorID,
 		); err != nil {
 			return nil, fmt.Errorf("insertion du paiement initial: %w", err)
 		}
 	}
 
+	created, err := st.getOrderByIDTx(ctx, tx, tenantID, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("chargement de la commande créée: %w", err)
+	}
+	created.Persisted = true
+	if err := saveReplayTx(ctx, tx, tenantID, "create_order", req.IdempotencyKey, hash, created); err != nil {
+		return nil, fmt.Errorf("sauvegarde de réessai: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("validation de la transaction: %w", err)
-	}
-
-	// Rechargement complet (client + articles + paiements) après commit.
-	created, err := st.GetOrderByID(ctx, tenantID, orderID)
-	if err != nil {
-		return nil, fmt.Errorf("rechargement de la commande créée: %w", err)
 	}
 	return created, nil
 }
@@ -356,6 +350,7 @@ func scanOrder(row pgx.Row) (*Order, error) {
 	o.CustomerPhone = phone
 	o.RemainingDue = o.TotalAmount - o.PaidAmount
 	o.DueDate = dueDateString(due, o.CreatedAt)
+	o.Persisted = true
 	if notes != nil {
 		o.Notes = *notes
 	}
@@ -394,7 +389,7 @@ func (st *dbStore) loadOrderDetails(ctx context.Context, o *Order) error {
 	}
 
 	payRows, err := st.database.QueryContext(ctx, `
-		SELECT id, amount, payment_method, reference, created_at
+		SELECT id, amount, payment_method, reference, amount_received, change_given, received_by, created_at
 		FROM payments WHERE order_id = $1 ORDER BY created_at`, o.ID)
 	if err != nil {
 		return fmt.Errorf("chargement des paiements: %w", err)
@@ -403,14 +398,18 @@ func (st *dbStore) loadOrderDetails(ctx context.Context, o *Order) error {
 	o.Payments = []PaymentRecord{}
 	for payRows.Next() {
 		var (
-			p   PaymentRecord
-			ref *string
+			p     PaymentRecord
+			ref   *string
+			recBy *string
 		)
-		if err := payRows.Scan(&p.ID, &p.Amount, &p.PaymentMethod, &ref, &p.CreatedAt); err != nil {
+		if err := payRows.Scan(&p.ID, &p.Amount, &p.PaymentMethod, &ref, &p.AmountReceived, &p.ChangeGiven, &recBy, &p.CreatedAt); err != nil {
 			return fmt.Errorf("lecture d'un paiement: %w", err)
 		}
 		if ref != nil {
 			p.Reference = *ref
+		}
+		if recBy != nil {
+			p.ReceivedBy = *recBy
 		}
 		o.Payments = append(o.Payments, p)
 	}
@@ -481,26 +480,6 @@ func (st *dbStore) UpdateOrderStatus(ctx context.Context, tenantID, orderID, new
 	if !valid[newStatus] {
 		return nil, ErrInvalidStatusOrder
 	}
-	tag, err := st.database.ExecContext(ctx, `
-		UPDATE orders SET status = $1, updated_at = NOW()
-		WHERE tenant_id = $2 AND id = $3`, newStatus, tenantID, orderID)
-	if err != nil {
-		return nil, fmt.Errorf("mise à jour du statut: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return nil, ErrOrderNotFound
-	}
-	return st.GetOrderByID(ctx, tenantID, orderID)
-}
-
-// AddPayment enregistre un encaissement et met à jour le solde ainsi que le
-// statut de paiement, le tout en transaction (verrou de ligne FOR UPDATE).
-// Un encaissement supérieur au solde restant dû est refusé
-// (ErrPaymentExceedsDue) afin de préserver l'intégrité comptable.
-func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
-	if req.Amount <= 0 {
-		return nil, ErrInvalidPayment
-	}
 	tx, err := st.database.Pool().Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ouverture de transaction: %w", err)
@@ -517,24 +496,90 @@ func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req
 		}
 		return nil, fmt.Errorf("vérification de la commande: %w", err)
 	}
+	if newStatus == StatusDelivered && !settled(total, paid) {
+		return nil, ErrUnpaidDelivery
+	}
 
-	newPaid := paid + req.Amount
-	if req.Amount > total-paid {
+	tag, err := tx.Exec(ctx, `
+		UPDATE orders SET status = $1, updated_at = NOW()
+		WHERE tenant_id = $2 AND id = $3`, newStatus, tenantID, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("mise à jour du statut: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrOrderNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("validation de la mise à jour statut: %w", err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("mise à jour du statut: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrOrderNotFound
+	}
+	return st.GetOrderByID(ctx, tenantID, orderID)
+}
+
+// AddPayment enregistre un encaissement et met à jour le solde ainsi que le
+// statut de paiement, le tout en transaction (verrou de ligne FOR UPDATE).
+// Un encaissement supérieur au solde restant dû est refusé
+// (ErrPaymentExceedsDue) afin de préserver l'intégrité comptable.
+func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req AddPaymentRequest) (*Order, error) {
+	if err := validMutationKey(req.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	finance, err := validatePayment(req)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := st.database.Pool().Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ouverture de transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	hash := mutationHash(ctx, req)
+	if existing, err := replayTx(ctx, tx, tenantID, "add_payment:"+orderID, req.IdempotencyKey, hash); err != nil || existing != nil {
+		return existing, err
+	}
+
+	var total, paid float64
+	err = tx.QueryRow(ctx, `
+		SELECT total_amount, paid_amount FROM orders
+		WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, tenantID, orderID).Scan(&total, &paid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		return nil, fmt.Errorf("vérification de la commande: %w", err)
+	}
+
+	totalCents, err := moneyCents(total)
+	if err != nil {
+		return nil, err
+	}
+	paidCents, err := moneyCents(paid)
+	if err != nil {
+		return nil, err
+	}
+	dueCents := totalCents - paidCents
+	if finance.amount > dueCents {
 		return nil, ErrPaymentExceedsDue
 	}
+	newPaidCents := paidCents + finance.amount
+	newPaid := money(newPaidCents)
 	newStatus := PaymentStatusPartial
-	if newPaid >= total {
+	if newPaidCents >= totalCents {
 		newStatus = PaymentStatusPaid
 	}
 
-	method := req.PaymentMethod
-	if method == "" {
-		method = MethodCash
-	}
+	actorID := nullUUID(paymentActor(ctx))
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO payments (tenant_id, order_id, amount, payment_method, reference, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())`,
-		tenantID, orderID, req.Amount, method, nullIfEmptyStr(req.Reference),
+		INSERT INTO payments (tenant_id, order_id, amount, payment_method, reference, amount_received, change_given, received_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+		tenantID, orderID, money(finance.amount), finance.method, nullIfEmptyStr(req.Reference),
+		money(finance.received), money(finance.change), actorID,
 	); err != nil {
 		return nil, fmt.Errorf("insertion du paiement: %w", err)
 	}
@@ -544,8 +589,76 @@ func (st *dbStore) AddPayment(ctx context.Context, tenantID, orderID string, req
 	); err != nil {
 		return nil, fmt.Errorf("mise à jour du solde: %w", err)
 	}
+	settledOrder, err := st.getOrderByIDTx(ctx, tx, tenantID, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("chargement de la commande réglée: %w", err)
+	}
+	settledOrder.Persisted = true
+	if err := saveReplayTx(ctx, tx, tenantID, "add_payment:"+orderID, req.IdempotencyKey, hash, settledOrder); err != nil {
+		return nil, fmt.Errorf("sauvegarde du réessai paiement: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("validation de la transaction: %w", err)
 	}
-	return st.GetOrderByID(ctx, tenantID, orderID)
+	return settledOrder, nil
+}
+
+func (st *dbStore) getOrderByIDTx(ctx context.Context, tx pgx.Tx, tenantID, orderID string) (*Order, error) {
+	o, err := scanOrder(tx.QueryRow(ctx, orderSelect+" WHERE o.tenant_id = $1 AND o.id = $2", tenantID, orderID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotFound
+		}
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id, service_id, item_label, quantity, unit_price, subtotal, notes
+		FROM order_items WHERE order_id = $1 ORDER BY created_at`, o.ID)
+	if err != nil {
+		return nil, err
+	}
+	o.Items = []OrderItem{}
+	for rows.Next() {
+		var it OrderItem
+		var svcID, notes *string
+		if err := rows.Scan(&it.ID, &svcID, &it.ItemLabel, &it.Quantity, &it.UnitPrice, &it.Subtotal, &notes); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if svcID != nil {
+			it.ServiceID = *svcID
+		}
+		if notes != nil {
+			it.Notes = *notes
+		}
+		o.Items = append(o.Items, it)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	payRows, err := tx.Query(ctx, `
+		SELECT id, amount, payment_method, reference, amount_received, change_given, received_by, created_at
+		FROM payments WHERE order_id = $1 ORDER BY created_at`, o.ID)
+	if err != nil {
+		return nil, err
+	}
+	o.Payments = []PaymentRecord{}
+	for payRows.Next() {
+		var p PaymentRecord
+		var ref, recBy *string
+		if err := payRows.Scan(&p.ID, &p.Amount, &p.PaymentMethod, &ref, &p.AmountReceived, &p.ChangeGiven, &recBy, &p.CreatedAt); err != nil {
+			payRows.Close()
+			return nil, err
+		}
+		if ref != nil {
+			p.Reference = *ref
+		}
+		if recBy != nil {
+			p.ReceivedBy = *recBy
+		}
+		o.Payments = append(o.Payments, p)
+	}
+	payRows.Close()
+	return o, payRows.Err()
 }

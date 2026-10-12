@@ -189,7 +189,7 @@ function PressingOSApp() {
     initSessionAndServices();
   }, []);
 
-  const handleAdvanceOrderStatus = (orderId: string) => {
+  const handleAdvanceOrderStatus = async (orderId: string) => {
     const ord = orders.find((o) => o.id === orderId);
     if (!ord) return;
 
@@ -208,9 +208,17 @@ function PressingOSApp() {
       return; // Déjà au dernier statut
     }
 
-    // Persistance best-effort (les IDs démo non-UUID restent locaux)
+    if (nextStatus === 'delivered' && ord.totalAmount - ord.paidAmount > 0) {
+      showToast(`Restitution impossible : le solde de ${ord.orderNumber} doit être nul.`);
+      return;
+    }
+
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
-      updateOrderStatusOnBackend(orderId, nextStatus, session.token);
+      const ok = await updateOrderStatusOnBackend(orderId, nextStatus, session.token);
+      if (!ok) {
+        showToast(`Échec du passage à "${nextStatus}" pour ${ord.orderNumber} côté serveur.`);
+        return;
+      }
     }
 
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
@@ -301,12 +309,23 @@ function PressingOSApp() {
     showToast('Grille tarifaire synchronisée avec PostgreSQL');
   };
 
-  const handleSettleBalance = (orderId: string, amount: number, method: string) => {
-    // Persistance best-effort du paiement (les IDs démo non-UUID restent locaux)
+  const handleSettleBalance = async (orderId: string, amount: number, method: string) => {
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
-      addOrderPaymentOnBackend(orderId, amount, method, session.token).then((ok) => {
-        if (!ok) console.warn('[App] Échec enregistrement du paiement côté serveur');
-      });
+      const res = await addOrderPaymentOnBackend(orderId, amount, method, session.token);
+      if (!res.ok) {
+        showToast(`Échec encaissement serveur : ${res.error || 'erreur inconnue'}`);
+        return;
+      }
+      if (res.order) {
+        setOrders((prev) => prev.map((ord) => (ord.id === orderId ? res.order! : ord)));
+        if (selectedTicketOrder && selectedTicketOrder.id === orderId) {
+          setSelectedTicketOrder(res.order);
+        }
+        showToast(
+          `Solde de ${amount.toLocaleString('fr-FR')} FCFA encaissé avec succès via ${method.toUpperCase()}`
+        );
+        return;
+      }
     }
 
     setOrders((prev) =>
@@ -323,7 +342,6 @@ function PressingOSApp() {
     showToast(
       `Solde de ${amount.toLocaleString('fr-FR')} FCFA encaissé avec succès via ${method.toUpperCase()}`
     );
-    // Mettre à jour la commande ouverte si active
     if (selectedTicketOrder && selectedTicketOrder.id === orderId) {
       setSelectedTicketOrder({
         ...selectedTicketOrder,

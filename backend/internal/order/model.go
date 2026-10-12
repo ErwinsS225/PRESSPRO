@@ -3,6 +3,8 @@ package order
 import (
 	"errors"
 	"time"
+
+	"pressing-os/backend/internal/customer"
 )
 
 // Constantes des statuts du cycle de traitement du linge
@@ -32,10 +34,18 @@ const (
 )
 
 var (
-	ErrOrderNotFound      = errors.New("commande introuvable")
-	ErrInvalidStatusOrder = errors.New("transition de statut de linge non autorisée")
-	ErrEmptyOrderItems    = errors.New("une commande doit comporter au moins un vêtement")
-	ErrInvalidPayment     = errors.New("le montant du paiement est invalide")
+	ErrFullPaymentRequired       = errors.New("le paiement intégral est obligatoire au dépôt")
+	ErrUnpaidDelivery            = errors.New("restitution impossible : le solde doit être nul")
+	ErrInvalidOrderItem          = errors.New("article invalide : désignation, quantité ou prix hors limites")
+	ErrInvalidPaymentMethod      = errors.New("mode de paiement non autorisé")
+	ErrIdempotencyConflict       = errors.New("cette clé de requête a déjà été utilisée avec un contenu différent")
+	ErrInvalidIdempotencyKey     = errors.New("clé d'idempotence invalide")
+	ErrCustomerSelectionRequired = errors.New("un client utilise déjà ce téléphone : sélectionnez sa fiche ou confirmez explicitement un nouveau client")
+	ErrAmbiguousCustomer         = errors.New("choisissez un client existant ou un nouveau client, sans mélanger les deux saisies")
+	ErrOrderNotFound             = errors.New("commande introuvable")
+	ErrInvalidStatusOrder        = errors.New("transition de statut de linge non autorisée")
+	ErrEmptyOrderItems           = errors.New("une commande doit comporter au moins un vêtement")
+	ErrInvalidPayment            = errors.New("le montant du paiement est invalide")
 	// ErrPaymentExceedsDue protège l'intégrité comptable : un encaissement ne
 	// peut jamais dépasser le solde restant dû (le journal des paiements doit
 	// toujours correspondre au montant encaissable de la commande).
@@ -55,15 +65,19 @@ type OrderItem struct {
 
 // PaymentRecord enregistre un paiement perçu
 type PaymentRecord struct {
-	ID            string    `json:"id"`
-	Amount        float64   `json:"amount"`
-	PaymentMethod string    `json:"payment_method"`
-	Reference     string    `json:"reference,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	AmountReceived *float64  `json:"amount_received,omitempty"`
+	ChangeGiven    *float64  `json:"change_given,omitempty"`
+	ReceivedBy     string    `json:"received_by,omitempty"`
+	ID             string    `json:"id"`
+	Amount         float64   `json:"amount"`
+	PaymentMethod  string    `json:"payment_method"`
+	Reference      string    `json:"reference,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // Order représente une commande de pressing
 type Order struct {
+	Persisted     bool            `json:"persisted"`
 	ID            string          `json:"id"`
 	TenantID      string          `json:"tenant_id"`
 	CustomerID    string          `json:"customer_id"`
@@ -94,22 +108,27 @@ type CreateOrderItemInput struct {
 
 // CreateOrderRequest corps de requête pour la création d'un dépôt
 type CreateOrderRequest struct {
-	CustomerID    string                 `json:"customer_id,omitempty"`
-	BranchID      string                 `json:"branch_id,omitempty"`
-	CustomerName  string                 `json:"customer_name"`
-	CustomerPhone string                 `json:"customer_phone"`
-	Items         []CreateOrderItemInput `json:"items"`
-	InitialPaid   float64                `json:"initial_paid"`
-	PaymentMethod string                 `json:"payment_method,omitempty"`
-	DueDate       string                 `json:"due_date,omitempty"`
-	Notes         string                 `json:"notes,omitempty"`
+	AmountReceived *float64                        `json:"amount_received,omitempty"`
+	IdempotencyKey string                          `json:"-"`
+	CustomerID     string                          `json:"customer_id,omitempty"`
+	NewCustomer    *customer.CreateCustomerRequest `json:"new_customer,omitempty"`
+	BranchID       string                          `json:"branch_id,omitempty"`
+	CustomerName   string                          `json:"customer_name"`
+	CustomerPhone  string                          `json:"customer_phone"`
+	Items          []CreateOrderItemInput          `json:"items"`
+	InitialPaid    float64                         `json:"initial_paid"`
+	PaymentMethod  string                          `json:"payment_method,omitempty"`
+	DueDate        string                          `json:"due_date,omitempty"`
+	Notes          string                          `json:"notes,omitempty"`
 }
 
 // AddPaymentRequest saisie d'un règlement acompte ou solde
 type AddPaymentRequest struct {
-	Amount        float64 `json:"amount"`
-	PaymentMethod string  `json:"payment_method"`
-	Reference     string  `json:"reference,omitempty"`
+	AmountReceived *float64 `json:"amount_received,omitempty"`
+	IdempotencyKey string   `json:"-"`
+	Amount         float64  `json:"amount"`
+	PaymentMethod  string   `json:"payment_method"`
+	Reference      string   `json:"reference,omitempty"`
 }
 
 // UpdateStatusRequest mise à jour du statut en atelier

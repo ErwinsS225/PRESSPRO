@@ -137,6 +137,7 @@ func TestRouterEndpoints(t *testing.T) {
 		CustomerName:  "Client Vitrine",
 		CustomerPhone: "+225 07 00 00 02",
 		Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 2, UnitPrice: 1000}},
+		InitialPaid:   2000,
 	})
 	reqCreateOrder := httptest.NewRequest(http.MethodPost, "/api/v1/orders", bytes.NewBuffer(newOrderBody))
 	reqCreateOrder.Header.Set("Authorization", "Bearer "+ownerToken)
@@ -255,6 +256,7 @@ func TestOrderQuotaFreeAfterTrial(t *testing.T) {
 			CustomerName:  "Client Essai",
 			CustomerPhone: "+225 07 00 00 01",
 			Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 1, UnitPrice: 1000}},
+			InitialPaid:   1000,
 		})
 		return bytes.NewBuffer(b)
 	}

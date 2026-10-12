@@ -93,7 +93,7 @@ func buildFullName(first, last string) string {
 // translateCustomerErr convertit une violation d'unicité (tenant_id, phone) en erreur métier.
 func translateCustomerErr(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "uq_tenant_customer_phone" {
 		return ErrPhoneExists
 	}
 	return err

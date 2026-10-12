@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 	"strings"
+	"unicode/utf8"
 )
 
 // Service expose la logique métier clients et délègue la persistance au store.
@@ -24,6 +25,25 @@ func normalize(v string) string {
 	return strings.TrimSpace(v)
 }
 
+// NormalizeCreateRequest partage les règles entre le CRUD et le dépôt atomique.
+// Les limites correspondent aux colonnes existantes, sans nouvelle règle de format téléphonique.
+func NormalizeCreateRequest(req CreateCustomerRequest) (CreateCustomerRequest, error) {
+	req.FirstName = normalize(req.FirstName)
+	req.LastName = normalize(req.LastName)
+	req.Phone = normalize(req.Phone)
+	if req.FirstName == "" {
+		return req, ErrEmptyFirstName
+	}
+	if req.Phone == "" {
+		return req, ErrEmptyPhone
+	}
+	if utf8.RuneCountInString(req.FirstName) > 100 || utf8.RuneCountInString(req.LastName) > 100 ||
+		utf8.RuneCountInString(req.Phone) > 50 || utf8.RuneCountInString(req.Email) > 255 {
+		return req, ErrInvalidFields
+	}
+	return req, nil
+}
+
 // GetCustomers retourne les clients du tenant (recherche optionnelle).
 func (s *Service) GetCustomers(ctx context.Context, tenantID, search string) ([]*Customer, error) {
 	if s.store != nil {
@@ -42,14 +62,10 @@ func (s *Service) GetCustomer(ctx context.Context, tenantID, id string) (*Custom
 
 // CreateCustomer valide puis crée un client.
 func (s *Service) CreateCustomer(ctx context.Context, tenantID string, req CreateCustomerRequest) (*Customer, error) {
-	req.FirstName = normalize(req.FirstName)
-	req.LastName = normalize(req.LastName)
-	req.Phone = normalize(req.Phone)
-	if req.FirstName == "" {
-		return nil, ErrEmptyFirstName
-	}
-	if req.Phone == "" {
-		return nil, ErrEmptyPhone
+	var err error
+	req, err = NormalizeCreateRequest(req)
+	if err != nil {
+		return nil, err
 	}
 	if s.store != nil {
 		return s.store.CreateCustomer(ctx, tenantID, req)
@@ -68,15 +84,11 @@ func (s *Service) CreateCustomer(ctx context.Context, tenantID string, req Creat
 
 // UpdateCustomer valide puis met à jour un client.
 func (s *Service) UpdateCustomer(ctx context.Context, tenantID, id string, req UpdateCustomerRequest) (*Customer, error) {
-	req.FirstName = normalize(req.FirstName)
-	req.LastName = normalize(req.LastName)
-	req.Phone = normalize(req.Phone)
-	if req.FirstName == "" {
-		return nil, ErrEmptyFirstName
+	normalized, err := NormalizeCreateRequest(CreateCustomerRequest(req))
+	if err != nil {
+		return nil, err
 	}
-	if req.Phone == "" {
-		return nil, ErrEmptyPhone
-	}
+	req = UpdateCustomerRequest(normalized)
 	if s.store != nil {
 		return s.store.UpdateCustomer(ctx, tenantID, id, req)
 	}

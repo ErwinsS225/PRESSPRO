@@ -61,6 +61,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  customerId?: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
@@ -69,9 +70,13 @@ export interface Order {
   paymentStatus: PaymentStatus;
   totalAmount: number;
   paidAmount: number;
+  amountReceived?: number;
+  changeGiven?: number;
+  paymentMethod?: string;
   receivedAt: string;
   dueDate: string;
   notes?: string;
+  persisted?: boolean;
 }
 
 export interface Customer {

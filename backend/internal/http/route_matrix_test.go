@@ -491,7 +491,8 @@ func TestIsolation_RessourcesDUnAutreEtablissement(t *testing.T) {
 		}))
 		ordA := env.idDe(env.requete("POST", "/api/v1/orders/", a, order.CreateOrderRequest{
 			CustomerName: "Yao Koffi", CustomerPhone: "+225 07 22 22 22 22",
-			Items: []order.CreateOrderItemInput{{ItemLabel: "Robe", Quantity: 1, UnitPrice: 3000}},
+			Items:       []order.CreateOrderItemInput{{ItemLabel: "Robe", Quantity: 1, UnitPrice: 3000}},
+			InitialPaid: 3000,
 		}))
 		// Clients : persistés uniquement en base (mode mémoire : non stockés).
 		custA := ""

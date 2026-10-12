@@ -63,6 +63,7 @@ func TestMemoire_QuotaCommandesFenetreEtAnnulations(t *testing.T) {
 			CustomerName:  fmt.Sprintf("Client %d", i),
 			CustomerPhone: fmt.Sprintf("+225 07 00 00 %02d", i),
 			Items:         []order.CreateOrderItemInput{{ItemLabel: "Chemise", Quantity: 1, UnitPrice: 1000}},
+			InitialPaid:   1000,
 		})
 	}
 

@@ -41,9 +41,13 @@ function mapBackendOrder(d: any): Order {
     }
   }
 
+  const payments = Array.isArray(d.payments) ? d.payments : [];
+  const lastPayment = payments[payments.length - 1];
+
   return {
     id: d.id,
     orderNumber: d.order_number,
+    customerId: d.customer_id,
     customerName: d.customer_name,
     customerPhone: d.customer_phone,
     items,
@@ -51,9 +55,13 @@ function mapBackendOrder(d: any): Order {
     paymentStatus: (d.payment_status as PaymentStatus) || 'unpaid',
     totalAmount: Number(d.total_amount) || 0,
     paidAmount: Number(d.paid_amount) || 0,
+    amountReceived: lastPayment?.amount_received != null ? Number(lastPayment.amount_received) : undefined,
+    changeGiven: lastPayment?.change_given != null ? Number(lastPayment.change_given) : undefined,
+    paymentMethod: lastPayment?.payment_method || undefined,
     receivedAt,
     dueDate,
     notes: d.notes || undefined,
+    persisted: Boolean(d.persisted),
   };
 }
 
@@ -81,17 +89,18 @@ export async function fetchOrders(token?: string): Promise<{ orders: Order[]; fr
 }
 
 /**
- * Crée une commande côté backend : numéro de ticket atomique, upsert client, lignes, paiement initial.
+ * Crée une commande côté backend : numéro de ticket atomique, choix explicite du client, lignes, paiement initial.
  * On remplace l'objet local (id/orderNumber fictifs) par la version persistée.
  */
 export async function createOrderOnBackend(
   order: Order,
-  token?: string
+  token?: string,
+  idempotencyKey?: string
 ): Promise<{ order: Order | null; synced: boolean; error?: string }> {
-  const payload = {
+  const payload: Record<string, any> = {
+    customer_id: order.customerId,
     customer_name: order.customerName,
     customer_phone: order.customerPhone,
-    // service_id nullable (migration 000008) : l'historique est figé via item_label.
     items: order.items.map((it) => ({
       service_id: '',
       item_label: it.serviceName,
@@ -99,15 +108,20 @@ export async function createOrderOnBackend(
       unit_price: it.unitPrice,
     })),
     initial_paid: order.paidAmount,
-    payment_method: order.paymentStatus === 'unpaid' ? undefined : 'cash',
+    amount_received: order.amountReceived != null ? order.amountReceived : undefined,
+    payment_method: order.paymentMethod || 'cash',
     due_date: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString(),
     notes: order.notes,
   };
 
   try {
+    const headers = getAuthHeader(token);
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
     const res = await fetch('/api/v1/orders', {
       method: 'POST',
-      headers: getAuthHeader(token),
+      headers,
       body: JSON.stringify(payload),
     });
     if (res.ok) {
@@ -149,17 +163,35 @@ export async function addOrderPaymentOnBackend(
   orderId: string,
   amount: number,
   method: string,
-  token?: string
-): Promise<boolean> {
+  token?: string,
+  amountReceived?: number,
+  idempotencyKey?: string
+): Promise<{ ok: boolean; order?: Order; error?: string }> {
   try {
+    const headers = getAuthHeader(token);
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    const payload: Record<string, any> = {
+      amount,
+      payment_method: method,
+    };
+    if (amountReceived != null) {
+      payload.amount_received = amountReceived;
+    }
     const res = await fetch(`/api/v1/orders/${orderId}/payments`, {
       method: 'POST',
-      headers: getAuthHeader(token),
-      body: JSON.stringify({ amount, payment_method: method }),
+      headers,
+      body: JSON.stringify(payload),
     });
-    return res.ok;
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, order: mapBackendOrder(data) };
+    }
+    const errData = await res.json().catch(() => ({}));
+    return { ok: false, error: errData.error || `Erreur paiement HTTP ${res.status}` };
   } catch (err: any) {
     console.warn('[OrdersApi] Échec POST payments:', err.message);
-    return false;
+    return { ok: false, error: err.message || 'Erreur réseau vers /payments' };
   }
 }

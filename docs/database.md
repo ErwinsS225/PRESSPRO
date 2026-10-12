@@ -43,7 +43,7 @@ Le schéma utilise des identifiants **UUID v4** pour garantir l'unicité globale
 | `phone` | VARCHAR(50) | NOT NULL | Numéro WhatsApp / GSM |
 | `address` | TEXT | - | Quartier / Résidence à Abidjan |
 
-> **Contrainte d'intégrité unique** : `UNIQUE(tenant_id, phone)` : un même client ne peut pas être dupliqué deux fois avec le même numéro dans un même pressing, mais deux pressings distincts peuvent avoir le même numéro client dans leurs bases respectives sans collision.
+> **Depuis la migration 000018** : téléphone obligatoire, mais plusieurs personnes peuvent partager un numéro dans un même pressing. Un index non unique `(tenant_id, phone)` remplace l’unicité historique. L’identité repose sur `id` ; aucun upsert/fusion par téléphone. La clé unique `(tenant_id, id)` permet une FK composite depuis `orders(tenant_id, customer_id)`, en complément des FK simples. La migration valide les données existantes et échoue sans les modifier si elles sont incohérentes. Son down refuse les numéros partagés au lieu de supprimer des clients. Déployer avec le nouveau backend, jamais avec l’ancien upsert. Voir [le rapport du lot clients](depot-lot1-clients.md).
 
 ---
 
@@ -138,3 +138,17 @@ Les migrations sont stockées dans `backend/migrations/` :
   `down.sql` repose la société pour rejouer une démonstration.
 
 Lors du lancement via Docker Compose, le script `.up.sql` est automatiquement exécuté par le conteneur PostgreSQL si la base est vierge (`/docker-entrypoint-initdb.d`).
+
+
+---
+
+## 7. Migration 000019 — Finances, Monnaie et Idempotence
+
+- Table `payments` : ajout des colonnes `amount_received NUMERIC(12, 2)` et `change_given NUMERIC(12, 2)`.
+  - Intégrité vérifiée : `amount_received >= amount` et `change_given >= 0`.
+  - Traçabilité complète du mode d'encaissement et de l'opérateur de caisse (`received_by`).
+- Table `order_mutations` :
+  - Clé composite unique `(tenant_id, operation, mutation_key)`.
+  - Stockage de l'empreinte `request_hash` (SHA-256) et de la réponse sérialisée JSONB.
+  - Garantit l'idempotence des dépôts et des règlements de caisse, évitant tout encaissement ou ticket en double lors des micro-coupures réseau.
+- Rétro-compatibilité : les commandes et paiements historiques sans monnaie conservent des colonnes `NULL` valides.

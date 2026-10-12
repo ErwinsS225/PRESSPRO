@@ -149,19 +149,53 @@ Liste les commandes appartenant strictement au `tenant_id` authentifié.
 
 ### `POST /api/v1/orders`
 Enregistre un nouveau dépôt de linge.
+- **En-têtes requis** : `Authorization: Bearer <token>`, optionnel `Idempotency-Key: <chaine>` (rejeu sûr sans double écriture)
+- **Corps de requête (JSON)** :
+```json
+{
+  "customer_id": "c13822e8-d0eb-4966-a31b-87ac08addda8",
+  "items": [
+    { "service_id": "srv-1", "item_label": "Chemise classique", "quantity": 3, "unit_price": 1000 },
+    { "service_id": "srv-2", "item_label": "Pantalon costume", "quantity": 2, "unit_price": 1500 }
+  ],
+  "initial_paid": 6000,
+  "amount_received": 10000,
+  "payment_method": "cash",
+  "due_date": "2026-10-14T17:00:00Z",
+  "notes": "Amidon léger sur cols"
+}
+```
+- **Règles financières strictes** :
+  - **Paiement intégral obligatoire au dépôt** : `initial_paid` (ou `amount_received`) doit couvrir la totalité de la commande (6 000 FCFA dans l'exemple). Tout dépôt partiel ou non soldé est refusé `400 Bad Request`.
+  - **Somme remise & monnaie à rendre** : si le client remet un montant supérieur (`amount_received: 10000`), le serveur enregistre le paiement exactement à hauteur de la dette (6 000 FCFA), calcule la monnaie rendue (`change_given: 4000`), et ne crée aucun crédit ni dette résiduelle.
+  - **Restitution subordonnée au solde nul** : le passage au statut `delivered` (via `PATCH /api/v1/orders/{id}/status`) est strictement refusé `409 Conflict` tant que `remaining_due > 0`.
+- **Code HTTP** : `201 Created`
+- **Génération automatique** : Numéro séquentiel au format `CMD-2026-XXX`.
+
+
+**Identité client (migration 000018, lot clients)** :
+- `customer_id` seul permet de choisir une fiche du tenant authentifié ; le serveur relit ses coordonnées. Les anciennes coordonnées éventuellement envoyées avec cet ID ne modifient pas la fiche.
+- `new_customer` est une création explicite, atomique avec le dépôt, utilisant le contrat clients (prénom, nom, téléphone et coordonnées facultatives). Téléphone obligatoire ; numéro partagé permis, sans fusion.
+- Ces deux choix sont exclusifs. Un objet structuré mélangé à `customer_name/customer_phone` est refusé 400.
+- L’ancien couple `customer_name/customer_phone` reste accepté uniquement si aucune fiche du tenant ne correspond exactement au téléphone après trim. Sinon : 409 avec `code: customer_selection_required`, sans modification de fiche ni dépôt créé. Aucune normalisation internationale de numéro n’est présumée.
+- Client inconnu, ID malformé ou client intertenant : 404 identique. Téléphone absent ou longueur hors schéma : 400.
+- La recherche existante `GET /api/v1/customers?q=...` permet d’afficher les correspondances ; le formulaire complet d’avertissement reste à implémenter.
+- En mode mémoire, un ID client non vérifiable est refusé ; ce mode ne constitue pas une persistance durable.
+
+**Lot financier à venir** : paiement intégral au dépôt, calcul de monnaie et restitution à solde nul sont approuvés mais ne sont pas encore appliqués par ce lot. Ne pas déployer ce chantier comme une caisse terminée.
+
 - **En-tête requis** : `Authorization: Bearer <token>`
 - **Corps de requête (JSON)** :
 ```json
 {
-  "customer_name": "Kouassi Jean-Marc",
-  "customer_phone": "+225 07 48 12 90 11",
+  "new_customer": {"first_name": "Jean-Marc", "last_name": "Kouassi", "phone": "+225 07 48 12 90 11"},
   "items": [
     { "service_id": "srv-1", "item_label": "Chemise classique", "quantity": 3, "unit_price": 1000 },
     { "service_id": "srv-2", "item_label": "Pantalon costume", "quantity": 2, "unit_price": 1500 }
   ],
   "initial_paid": 6000,
   "payment_method": "wave",
-  "due_date": "Demain à 17:00",
+  "due_date": "2026-10-14T17:00:00Z",
   "notes": "Amidon léger sur cols"
 }
 ```
