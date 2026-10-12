@@ -16,8 +16,8 @@ import (
 //
 //	TEST_DATABASE_URL="postgres://..." go test -tags=integration ./internal/billing/...
 //
-// Il vérifie que : (1) la grille expose les tarifs de la table plans (PRO 45 000,
-// BUSINESS 75 000 XOF, sans changement) ; (2) l'abonnement porte sa date de création ;
+// Il vérifie que : (1) la grille expose les tarifs de la table plans (PRO 10 000,
+// BUSINESS 25 000 XOF, tarifs corrigés en phase 8) ; (2) l'abonnement porte sa date de création ;
 // (3) la fenêtre de commandes est ancrée sur l'essai puis sur la création, et son
 // tarif affiché est celui de la formule souscrite (et non celui de l'essai).
 func TestIntegration_CatalogueEtFenetre_DepuisLaBase(t *testing.T) {
@@ -52,7 +52,7 @@ func TestIntegration_CatalogueEtFenetre_DepuisLaBase(t *testing.T) {
 			t.Errorf("%s : droits absents", p.Code)
 		}
 	}
-	for code, attendu := range map[string]float64{billing.PlanFree: 0, billing.PlanPro: 45000, billing.PlanBusiness: 75000} {
+	for code, attendu := range map[string]float64{billing.PlanFree: 0, billing.PlanPro: 10000, billing.PlanBusiness: 25000} {
 		if got, ok := prix[code]; !ok || got != attendu {
 			t.Errorf("tarif %s : attendu %.0f XOF, obtenu %v (présent=%v)", code, attendu, got, ok)
 		}
@@ -99,7 +99,7 @@ func TestIntegration_CatalogueEtFenetre_DepuisLaBase(t *testing.T) {
 		t.Errorf("tarif pendant l'essai : attendu 0 (formule FREE souscrite), obtenu %v", resp.PriceMonthlyXOF)
 	}
 
-	// Souscription PRO : la fenêtre reste ancrée sur l'essai, le tarif passe à 45 000.
+	// Souscription PRO : la fenêtre reste ancrée sur l'essai, le tarif passe à 10 000.
 	if _, err := db.Pool.Exec(ctx,
 		`UPDATE subscriptions SET plan_id = (SELECT id FROM plans WHERE code = 'PRO'),
 		        status = 'ACTIVE', trial_started_at = NULL, trial_ends_at = NULL
@@ -110,8 +110,8 @@ func TestIntegration_CatalogueEtFenetre_DepuisLaBase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("droits en formule PRO: %v", err)
 	}
-	if resp.PriceMonthlyXOF == nil || *resp.PriceMonthlyXOF != 45000 {
-		t.Errorf("tarif PRO : attendu 45000, obtenu %v", resp.PriceMonthlyXOF)
+	if resp.PriceMonthlyXOF == nil || *resp.PriceMonthlyXOF != 10000 {
+		t.Errorf("tarif PRO : attendu 10000, obtenu %v", resp.PriceMonthlyXOF)
 	}
 	if resp.OrdersPeriod == nil {
 		t.Fatal("fenêtre absente en formule PRO")

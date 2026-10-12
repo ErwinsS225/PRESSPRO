@@ -308,6 +308,8 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						// Retrait définitif d'un établissement (et de ses données) :
 						// sert à nettoyer les entreprises de démonstration.
 						adminRouter.Delete("/tenants/{id}", SuperAdminDeleteTenant(deps.Billing))
+						// Tarif d'une formule payante : journalisé, réservé à l'éditeur.
+						adminRouter.Patch("/plans/{code}/price", SuperAdminSetPlanPrice(deps.Billing))
 					})
 				}
 			})

@@ -12,6 +12,9 @@ type Store interface {
 	ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error)
 	// ListPlans retourne les formules actives (tarif en base), sans droits.
 	ListPlans(ctx context.Context) ([]PlanCatalogue, error)
+	// SetPlanPrice modifie le tarif d'une formule dans une transaction où l'acteur et le
+	// motif sont positionnés pour le trigger de journalisation (plan_price_history).
+	SetPlanPrice(ctx context.Context, planCode string, priceXOF float64, actorUserID, reason string) error
 	SetPlan(ctx context.Context, tenantID, planCode, status, actorUserID, reason string) error
 	StartTrial(ctx context.Context, tenantID string, trialEndsAt time.Time) error
 	// ExpireTrial fait passer un essai terminé (now >= trial_ends_at) vers FREE/ACTIVE

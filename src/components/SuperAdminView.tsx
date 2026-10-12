@@ -220,7 +220,8 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
         : t.plan_code.toUpperCase() === 'PRO'
           ? 'default'
           : 'secondary',
-    billing: `${formatXOF(t.price_monthly_xof)} / mois`,
+    billing:
+      t.price_monthly_xof === null ? 'Tarif non communiqué' : `${formatXOF(t.price_monthly_xof)} / mois`,
     status: subscriptionLabel(t.status),
     statusVariant: t.active ? 'success-light' : 'destructive-light',
     statusDetail: t.trial_ends_at
@@ -314,7 +315,9 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
           </div>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="font-mono text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 tabular-nums">
-              {stats ? formatXOF(stats.monthly_recurring_mrr_xof).replace(' FCFA', '') : '—'}
+              {stats && stats.monthly_recurring_mrr_xof !== null
+                ? formatXOF(stats.monthly_recurring_mrr_xof).replace(' FCFA', '')
+                : '—'}
             </span>
             <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 font-medium">
               FCFA / mois
@@ -442,7 +445,11 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({ currentUser, tok
           <FramePanel className="text-xs text-neutral-500 dark:text-neutral-400">
             MRR suivi :{' '}
             <span className="font-mono font-medium text-neutral-900 tabular-nums dark:text-neutral-100">
-              {stats ? formatXOF(stats.monthly_recurring_mrr_xof) : '—'}
+              {stats
+                ? stats.monthly_recurring_mrr_xof === null
+                  ? 'Tarif non communiqué'
+                  : formatXOF(stats.monthly_recurring_mrr_xof)
+                : '—'}
             </span>{' '}
             · forme d&apos;essai équivalente au niveau BUSINESS pendant 7 jours.
           </FramePanel>

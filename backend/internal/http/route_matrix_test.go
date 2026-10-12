@@ -143,6 +143,7 @@ var matriceRoutes = []entreeMatrice{
 	{methode: "GET", modele: "/api/v1/admin/tenants", roles: rolesAdmin},
 	{methode: "PATCH", modele: "/api/v1/admin/tenants/{id}/status", roles: rolesAdmin},
 	{methode: "DELETE", modele: "/api/v1/admin/tenants/{id}", roles: rolesAdmin},
+	{methode: "PATCH", modele: "/api/v1/admin/plans/{code}/price", roles: rolesAdmin},
 }
 
 // environnement assemble le routeur complet et expose les opérations de test.
@@ -330,7 +331,7 @@ func premierIdentifiant(corps string) string {
 func exemple(modele string) string {
 	const factice = "00000000-0000-4000-8000-000000000000"
 	chemin := modele
-	for _, p := range []string{"{id}", "{tenantID}", "{orderID}"} {
+	for _, p := range []string{"{id}", "{tenantID}", "{orderID}", "{code}"} {
 		chemin = strings.ReplaceAll(chemin, p, factice)
 	}
 	return chemin

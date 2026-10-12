@@ -352,10 +352,12 @@ func (s *dbStore) PlatformStats(ctx context.Context) (*PlatformStats, error) {
 				FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
 				WHERE sub.status = 'ACTIVE'
 			), 0)`)
+	var mrr float64
 	if err := row.Scan(&stats.TotalPressings, &stats.TotalUsers,
-		&stats.ActiveSubscriptions, &stats.TrialingCount, &stats.MRR); err != nil {
+		&stats.ActiveSubscriptions, &stats.TrialingCount, &mrr); err != nil {
 		return nil, err
 	}
+	stats.MRR = &mrr
 
 	rows, err := s.database.QueryContext(ctx,
 		`SELECT status, COUNT(*) FROM subscriptions GROUP BY status`)
@@ -391,6 +393,32 @@ func (s *dbStore) PlatformStats(ctx context.Context) (*PlatformStats, error) {
 	return stats, rows.Err()
 }
 
+// SetPlanPrice modifie le tarif d'une formule. L'acteur et le motif sont passés au
+// trigger par set_config(..., is_local = true), donc limités à cette transaction.
+// Retourne ErrPlanInconnu si aucune formule ne porte ce code.
+func (s *dbStore) SetPlanPrice(ctx context.Context, planCode string, priceXOF float64, actorUserID, reason string) error {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx,
+		`SELECT set_config('presspro.actor_user_id', $1, true), set_config('presspro.price_reason', $2, true)`,
+		actorUserID, reason); err != nil {
+		return fmt.Errorf("contexte de journalisation: %w", err)
+	}
+	tag, err := tx.Exec(ctx,
+		`UPDATE plans SET price_monthly_xof = $2 WHERE code = $1`, planCode, priceXOF)
+	if err != nil {
+		return fmt.Errorf("modification du tarif: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrPlanInconnu
+	}
+	return tx.Commit(ctx)
+}
+
 // ListTenantOverviews retourne l'annuaire des pressings, abonnement et compte
 // propriétaire compris (aucune donnée métier interne : ni clients ni commandes).
 func (s *dbStore) ListTenantOverviews(ctx context.Context) ([]TenantOverview, error) {
@@ -418,11 +446,13 @@ func (s *dbStore) ListTenantOverviews(ctx context.Context) ([]TenantOverview, er
 	for rows.Next() {
 		var o TenantOverview
 		var status string
+		var prix float64
 		if err := rows.Scan(&o.TenantID, &o.Name, &o.Slug, &o.City, &o.Phone,
-			&o.OwnerEmail, &o.PlanCode, &o.PlanName, &o.PriceMonthlyXOF,
+			&o.OwnerEmail, &o.PlanCode, &o.PlanName, &prix,
 			&status, &o.TrialEndsAt, &o.CreatedAt); err != nil {
 			return nil, err
 		}
+		o.PriceMonthlyXOF = &prix
 		o.Status = status
 		o.Actif = !strings.EqualFold(status, StatusSuspended)
 		out = append(out, o)
