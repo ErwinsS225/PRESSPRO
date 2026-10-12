@@ -84,6 +84,11 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	// Garde-fou quota mensuel : essai dépassé = FREE plafonné à 50 commandes.
 	if h.quota != nil {
 		if err := h.quota.CheckOrdersCreation(r.Context(), tenantID); err != nil {
+			if !billing.IsRefusMetier(err) {
+				// Panne de lecture (compteur, abonnement) : 500 générique, sans détail SQL.
+				httperr.Internal(w, h.logger, "order", err, "impossible de vérifier votre formule d'abonnement")
+				return
+			}
 			httperr.ErrorWithExtra(w, http.StatusPaymentRequired, err.Error(), map[string]string{
 				"upgrade_required": "true",
 			})

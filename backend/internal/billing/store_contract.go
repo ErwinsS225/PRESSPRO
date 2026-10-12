@@ -12,6 +12,10 @@ type Store interface {
 	ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error)
 	SetPlan(ctx context.Context, tenantID, planCode, status, actorUserID, reason string) error
 	StartTrial(ctx context.Context, tenantID string, trialEndsAt time.Time) error
+	// ExpireTrial fait passer un essai terminé (now >= trial_ends_at) vers FREE/ACTIVE
+	// dans une transaction verrouillée, avec un seul événement « trial_expired ».
+	// Retourne false, sans erreur, si aucune transition n'est due.
+	ExpireTrial(ctx context.Context, tenantID string, now time.Time, actorUserID string) (bool, error)
 
 	// Espace SuperAdmin (éditeur) : indicateurs consolidés et annuaire réel.
 	PlatformStats(ctx context.Context) (*PlatformStats, error)

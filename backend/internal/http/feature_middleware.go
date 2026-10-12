@@ -28,7 +28,14 @@ func RequireFeature(svc *billing.Service, featureKey string) func(http.Handler) 
 			}
 			tenantID := auth.GetTenantIDFromContext(r.Context())
 			ok, err := svc.IsEnabled(r.Context(), tenantID, featureKey)
-			if err != nil || !ok {
+			if err != nil {
+				// Droits illisibles : refus technique (500), jamais un 402 trompeur.
+				log.Printf("[http] droit %s illisible pour le tenant %s: %v", featureKey, tenantID, err)
+				httperr.Error(w, http.StatusInternalServerError,
+					"impossible de vérifier votre formule d'abonnement")
+				return
+			}
+			if !ok {
 				w.WriteHeader(http.StatusPaymentRequired)
 				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error":            "fonctionnalité non incluse dans votre formule",
@@ -85,7 +92,13 @@ func RequireFeatureQuota(svc *billing.Service, featureKey string) func(http.Hand
 			}
 
 			if err := svc.CheckLimit(r.Context(), tenantID, featureKey, current); err != nil {
-				// Message métier du moteur de facturation (jamais technique).
+				if !billing.IsRefusMetier(err) {
+					log.Printf("[http] quota %s: vérification impossible pour le tenant %s: %v", featureKey, tenantID, err)
+					httperr.Error(w, http.StatusInternalServerError,
+						"impossible de vérifier votre formule d'abonnement")
+					return
+				}
+				// Refus métier du moteur de facturation (message compréhensible).
 				w.WriteHeader(http.StatusPaymentRequired)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"error":            err.Error(),

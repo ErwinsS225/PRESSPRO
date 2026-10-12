@@ -2,8 +2,12 @@ package billing
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"pressing-os/backend/internal/database"
 	"pressing-os/backend/internal/pgutil"
@@ -128,7 +132,12 @@ func (s *dbStore) GetSubscription(ctx context.Context, tenantID string) (*Subscr
 		FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
 		WHERE sub.tenant_id = $1`, tenantID)
 	if err := row.Scan(&planCode, &status, &planName, &price, &trialStart, &trialEnd, &periodEnd); err != nil {
-		return nil, nil
+		// Absence d'abonnement : état normal (formule FREE par défaut).
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		// Toute autre erreur est une panne de lecture : jamais un état FREE silencieux.
+		return nil, fmt.Errorf("lecture de l'abonnement: %w", err)
 	}
 	return &SubscriptionRecord{
 		PlanCode: planCode, Status: status,
@@ -197,17 +206,66 @@ func (s *dbStore) StartTrial(ctx context.Context, tenantID string, trialEndsAt t
 	if err := row.Scan(&planID); err != nil {
 		return err
 	}
+	// Une seule instruction : l'événement n'est journalisé que si l'abonnement a
+	// réellement été créé. Une seconde initialisation (conflit sur tenant_id)
+	// ne crée ni essai, ni événement en double.
 	_, err := s.database.ExecContext(ctx, `
-		INSERT INTO subscriptions (tenant_id, plan_id, status, trial_started_at, trial_ends_at)
-		VALUES ($1, $2, 'TRIALING', NOW(), $3)
-		ON CONFLICT (tenant_id) DO NOTHING`, tenantID, planID, trialEndsAt)
-	if err != nil {
-		return err
-	}
-	_, err = s.database.ExecContext(ctx, `
+		WITH cree AS (
+			INSERT INTO subscriptions (tenant_id, plan_id, status, trial_started_at, trial_ends_at)
+			VALUES ($1, $2, 'TRIALING', NOW(), $3)
+			ON CONFLICT (tenant_id) DO NOTHING
+			RETURNING tenant_id
+		)
 		INSERT INTO subscription_events (tenant_id, to_plan_code, to_status, reason)
-		VALUES ($1, 'FREE', 'TRIALING', 'trial_started')`, tenantID)
+		SELECT tenant_id, 'FREE', 'TRIALING', 'trial_started' FROM cree`,
+		tenantID, planID, trialEndsAt)
 	return err
+}
+
+// ExpireTrial applique la transition d'expiration dans une transaction :
+// verrouillage de la ligne d'abonnement, contrôle de la date et du statut sous
+// verrou, puis mise à jour et événement. Deux appels concurrents ne peuvent donc
+// produire qu'une seule transition ; un abonnement payé ou déjà actif n'est jamais touché.
+func (s *dbStore) ExpireTrial(ctx context.Context, tenantID string, now time.Time, actorUserID string) (bool, error) {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var fromPlan, fromStatus string
+	var trialEnd *time.Time
+	err = tx.QueryRow(ctx, `
+		SELECT p.code, sub.status, sub.trial_ends_at
+		FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
+		WHERE sub.tenant_id = $1
+		FOR UPDATE OF sub`, tenantID).Scan(&fromPlan, &fromStatus, &trialEnd)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("verrouillage de l'abonnement: %w", err)
+	}
+	if fromStatus != StatusTrialing || trialEnd == nil || now.Before(*trialEnd) {
+		return false, nil
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE subscriptions
+		SET plan_id = (SELECT id FROM plans WHERE code = $2), status = $3, updated_at = NOW()
+		WHERE tenant_id = $1`, tenantID, PlanFree, StatusActive); err != nil {
+		return false, fmt.Errorf("transition de l'essai: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO subscription_events (tenant_id, from_plan_code, to_plan_code, from_status, to_status, reason, actor_user_id)
+		VALUES ($1, $2, $3, $4, $5, 'trial_expired', $6)`,
+		tenantID, fromPlan, PlanFree, fromStatus, StatusActive, uuidPourColonne(actorUserID)); err != nil {
+		return false, fmt.Errorf("journal de l'expiration: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // ---------- Espace SuperAdmin : indicateurs et annuaire réels ----------

@@ -3,12 +3,29 @@ package billing
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 )
 
-// GetSubscription retourne l'abonnement (DB puis mémoire).
+// GetSubscription retourne l'abonnement (DB puis mémoire). Un essai terminé est
+// fait passer à FREE/ACTIVE côté serveur au moment de la lecture : l'expiration
+// ne dépend ni d'un cron ni d'un appel du frontend à /me/entitlements.
 func (s *Service) GetSubscription(ctx context.Context, tenantID string) (*SubscriptionRecord, error) {
+	now := time.Now().UTC()
+	rec, err := s.readSubscription(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if !trialExpired(rec, now) {
+		return rec, nil
+	}
+	if _, err := s.applyTrialExpiry(ctx, tenantID, now, ""); err != nil {
+		return nil, err
+	}
+	return s.readSubscription(ctx, tenantID)
+}
+
+// readSubscription lit l'état courant sans effectuer de transition.
+func (s *Service) readSubscription(ctx context.Context, tenantID string) (*SubscriptionRecord, error) {
 	if s.store != nil {
 		rec, err := s.store.GetSubscription(ctx, tenantID)
 		if err != nil {
@@ -21,9 +38,35 @@ func (s *Service) GetSubscription(ctx context.Context, tenantID string) (*Subscr
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if rec, ok := s.subs[tenantID]; ok {
-		return rec, nil
+		// Copie sous verrou : l'appelant ne partage pas l'enregistrement mémoire.
+		c := *rec
+		return &c, nil
 	}
 	return &SubscriptionRecord{PlanCode: PlanFree, Status: StatusActive, PlanName: "Gratuit permanent"}, nil
+}
+
+// applyTrialExpiry effectue la transition d'expiration si elle est due, de façon
+// atomique (verrou de ligne en base, verrou mutex en mémoire). Retourne true
+// uniquement pour l'appel qui a effectivement fait la transition.
+func (s *Service) applyTrialExpiry(ctx context.Context, tenantID string, now time.Time, actorUserID string) (bool, error) {
+	if s.store != nil {
+		return s.store.ExpireTrial(ctx, tenantID, now, actorUserID)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.subs[tenantID]
+	if !ok || !trialExpired(r, now) {
+		return false, nil
+	}
+	r.PlanCode = PlanFree
+	r.Status = StatusActive
+	r.PlanName = "Gratuit permanent"
+	return true, nil
+}
+
+// trialExpired : même borne que OnTrial (actif si now < trial_ends_at).
+func trialExpired(rec *SubscriptionRecord, now time.Time) bool {
+	return rec != nil && rec.Status == StatusTrialing && rec.TrialEndsAt != nil && !now.Before(*rec.TrialEndsAt)
 }
 
 // EffectiveEntitlements calcule les droits effectifs + usages.
@@ -143,6 +186,8 @@ func (s *Service) IsEnabled(ctx context.Context, tenantID, featureKey string) (b
 }
 
 // CheckLimit vérifie un plafond avant création (ex: 51e commande FREE).
+// Un refus métier est retourné avec une cause (IsRefusMetier) ; une erreur de
+// lecture de l'abonnement est retournée telle quelle (erreur technique).
 func (s *Service) CheckLimit(ctx context.Context, tenantID, featureKey string, current int64) error {
 	resp, err := s.EffectiveEntitlements(ctx, tenantID)
 	if err != nil {
@@ -153,43 +198,21 @@ func (s *Service) CheckLimit(ctx context.Context, tenantID, featureKey string, c
 			continue
 		}
 		if !e.Enabled {
-			return fmt.Errorf("fonctionnalité %s non incluse dans votre formule", featureKey)
+			return &refusMetier{cause: ErrFeatureNotIncluded,
+				message: fmt.Sprintf("fonctionnalité %s non incluse dans votre formule", featureKey)}
 		}
 		if e.Limit != nil && current >= *e.Limit {
-			return fmt.Errorf("plafond atteint (%d) — passez à une formule supérieure", *e.Limit)
+			return &refusMetier{cause: ErrLimitReached,
+				message: fmt.Sprintf("plafond atteint (%d) — passez à une formule supérieure", *e.Limit)}
 		}
 		return nil
 	}
-	return fmt.Errorf("fonctionnalité inconnue : %s", featureKey)
+	return fmt.Errorf("%w : %s", ErrUnknownFeature, featureKey)
 }
 
-// ExpireTrialIfNeeded applique J7 : TRIALING dépassé -> ACTIVE/FREE sans purge.
+// ExpireTrialIfNeeded applique l'expiration de l'essai si elle est due (idempotent) :
+// TRIALING dépassé -> ACTIVE/FREE, sans purge des données. Retourne true uniquement
+// pour l'appel qui effectue la transition.
 func (s *Service) ExpireTrialIfNeeded(ctx context.Context, tenantID string, actorUserID string) (bool, error) {
-	rec, err := s.GetSubscription(ctx, tenantID)
-	if err != nil {
-		return false, err
-	}
-	if rec.Status != StatusTrialing || rec.TrialEndsAt == nil {
-		return false, nil
-	}
-	if !time.Now().UTC().After(*rec.TrialEndsAt) {
-		return false, nil
-	}
-	fromPlan := rec.PlanCode
-	if s.store != nil {
-		if err := s.store.SetPlan(ctx, tenantID, PlanFree, StatusActive, actorUserID, "trial_expired"); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if r, ok := s.subs[tenantID]; ok {
-		r.PlanCode = PlanFree
-		r.Status = StatusActive
-		r.PlanName = "Gratuit permanent"
-	}
-	_ = fromPlan
-	_ = strings.ToUpper(fromPlan)
-	return true, nil
+	return s.applyTrialExpiry(ctx, tenantID, time.Now().UTC(), actorUserID)
 }
