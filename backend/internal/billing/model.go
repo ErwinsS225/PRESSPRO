@@ -25,6 +25,9 @@ const TrialDurationDays = 7
 const (
 	FeatureOrdersCreate     = "orders.create"
 	FeatureOrdersMonthlyMax = "orders.monthly.max"
+
+	// OrdersPeriodDays : longueur de la fenêtre glissante du quota de commandes (PLAN §3.4).
+	OrdersPeriodDays        = 30
 	FeatureUsersMax         = "users.max"
 	FeaturePriceLists       = "catalog.price_lists"
 	FeatureMultiSite        = "branches.multi_site"
@@ -77,12 +80,33 @@ type Entitlement struct {
 
 // EntitlementsResponse alimente l'écran « Mon abonnement ».
 type EntitlementsResponse struct {
-	TenantID     string        `json:"tenant_id"`
-	PlanCode     string        `json:"plan_code"`
-	PlanName     string        `json:"plan_name"`
-	Status       string        `json:"status"`
-	OnTrial      bool          `json:"on_trial"`
-	TrialEndsAt  *time.Time    `json:"trial_ends_at,omitempty"`
-	DaysLeft     *int          `json:"days_left_trial,omitempty"`
-	Entitlements []Entitlement `json:"entitlements"`
+	TenantID string `json:"tenant_id"`
+	// PlanCode : formule effective (droits en vigueur ; BUSINESS pendant l'essai).
+	PlanCode string `json:"plan_code"`
+	// SubscribedPlanCode : formule réellement souscrite (FREE pendant l'essai).
+	SubscribedPlanCode string        `json:"subscribed_plan_code"`
+	PlanName           string        `json:"plan_name"`
+	Status             string        `json:"status"`
+	OnTrial            bool          `json:"on_trial"`
+	TrialEndsAt        *time.Time    `json:"trial_ends_at,omitempty"`
+	DaysLeft           *int          `json:"days_left_trial,omitempty"`
+	Entitlements       []Entitlement `json:"entitlements"`
+	// PriceMonthlyXOF : tarif mensuel de la formule, lu en base (absent en mode mémoire).
+	PriceMonthlyXOF *float64 `json:"price_monthly_xof,omitempty"`
+	// OrdersPeriod : fenêtre de 30 jours sur laquelle le quota de commandes est compté.
+	OrdersPeriod *Periode `json:"orders_period,omitempty"`
+}
+
+// Periode : intervalle semi-ouvert [start, end[ (end exclu).
+type Periode struct {
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
+}
+
+// PlanCatalogue : offre publique d'une formule (tarif et droits du plan).
+type PlanCatalogue struct {
+	Code            string        `json:"code"`
+	Name            string        `json:"name"`
+	PriceMonthlyXOF *float64      `json:"price_monthly_xof"`
+	Entitlements    []Entitlement `json:"entitlements"`
 }

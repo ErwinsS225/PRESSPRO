@@ -27,7 +27,6 @@ type VerifyTicketResponse struct {
 	PaidAmount    float64            `json:"paid_amount"`
 	RemainingDue  float64            `json:"remaining_due"`
 	DueDate       string             `json:"due_date"`
-	CustomerName  string             `json:"customer_name"`
 	Items         []VerifyTicketItem `json:"items"`
 }
 
@@ -81,7 +80,6 @@ func (h *Handler) VerifyTicket(w http.ResponseWriter, r *http.Request) {
 		PaidAmount:    ord.PaidAmount,
 		RemainingDue:  ord.RemainingDue,
 		DueDate:       ord.DueDate,
-		CustomerName:  ord.CustomerName,
 		Items:         items,
 	})
 }

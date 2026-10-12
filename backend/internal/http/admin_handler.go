@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -53,6 +54,10 @@ func SuperAdminDeleteTenant(svc *billing.Service) http.HandlerFunc {
 			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement manquant")
 			return
 		}
+		if !looksLikeUUID(tenantID) {
+			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement invalide")
+			return
+		}
 
 		if err := svc.DeleteTenant(r.Context(), tenantID); err != nil {
 			if err == billing.ErrTenantNotFound {
@@ -80,6 +85,10 @@ func SuperAdminSetTenantStatus(svc *billing.Service) http.HandlerFunc {
 		tenantID := chi.URLParam(r, "id")
 		if strings.TrimSpace(tenantID) == "" {
 			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement manquant")
+			return
+		}
+		if !looksLikeUUID(tenantID) {
+			httperr.Error(w, http.StatusBadRequest, "identifiant d'établissement invalide")
 			return
 		}
 
@@ -110,6 +119,63 @@ func SuperAdminSetTenantStatus(svc *billing.Service) http.HandlerFunc {
 		httperr.WriteJSON(w, http.StatusOK, map[string]interface{}{
 			"tenant_id": tenantID,
 			"status":    strings.ToUpper(req.Status),
+		})
+	}
+}
+
+// SuperAdminSetPlanPrice gère PATCH /api/v1/admin/plans/{code}/price : modification du
+// tarif mensuel d'une formule payante, réservée à l'éditeur. Chaque changement est
+// journalisé (acteur, motif, ancien et nouveau prix). Codes de réponse : 200 avec la
+// formule ; 400 pour un montant, une formule ou un motif invalide ; 404 si la formule
+// est inconnue ; 503 en mode mémoire, où aucun tarif n'est stocké.
+func SuperAdminSetPlanPrice(svc *billing.Service) http.HandlerFunc {
+	type payload struct {
+		PriceMonthlyXOF *float64 `json:"price_monthly_xof"`
+		Reason          string   `json:"reason"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := strings.ToUpper(strings.TrimSpace(chi.URLParam(r, "code")))
+		if code == "" {
+			httperr.Error(w, http.StatusBadRequest, "code de formule manquant")
+			return
+		}
+
+		var req payload
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httperr.Error(w, http.StatusBadRequest, "corps de requête JSON invalide")
+			return
+		}
+		if req.PriceMonthlyXOF == nil {
+			httperr.Error(w, http.StatusBadRequest, "price_monthly_xof est requis")
+			return
+		}
+
+		actor := ""
+		if claims := auth.GetUserFromContext(r.Context()); claims != nil {
+			actor = claims.UserID
+		}
+
+		err := svc.SetPlanPrice(r.Context(), code, *req.PriceMonthlyXOF, actor, req.Reason)
+		switch {
+		case err == nil:
+		case errors.Is(err, billing.ErrPrixInvalide):
+			httperr.Error(w, http.StatusBadRequest, err.Error())
+			return
+		case errors.Is(err, billing.ErrPlanInconnu):
+			httperr.Error(w, http.StatusNotFound, "formule introuvable")
+			return
+		case errors.Is(err, billing.ErrCataloguePrixIndisponible):
+			httperr.Error(w, http.StatusServiceUnavailable, err.Error())
+			return
+		default:
+			httperr.Internal(w, log.Default(), "admin", err, "impossible de modifier le tarif de la formule")
+			return
+		}
+
+		log.Printf("[admin] Tarif de la formule %s modifié : %.0f FCFA", code, *req.PriceMonthlyXOF)
+		httperr.WriteJSON(w, http.StatusOK, map[string]interface{}{
+			"code":              code,
+			"price_monthly_xof": *req.PriceMonthlyXOF,
 		})
 	}
 }

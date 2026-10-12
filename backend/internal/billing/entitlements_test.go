@@ -4,11 +4,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"pressing-os/backend/internal/billing"
 )
 
-// compteurFixe simule les consommations mesurées (commandes du mois, comptes,
+// compteurFixe simule les consommations mesurées (commandes de la fenêtre, comptes,
 // grilles, établissements) pour éprouver les plafonds sans PostgreSQL.
 type compteurFixe struct {
 	commandes    int64
@@ -17,7 +18,7 @@ type compteurFixe struct {
 	etablissemts int64
 }
 
-func (c compteurFixe) CountMonthlyOrders(context.Context, string) (int64, error) {
+func (c compteurFixe) CountOrdersInPeriod(context.Context, string, time.Time) (int64, error) {
 	return c.commandes, nil
 }
 func (c compteurFixe) CountUsers(context.Context, string) (int64, error) { return c.comptes, nil }

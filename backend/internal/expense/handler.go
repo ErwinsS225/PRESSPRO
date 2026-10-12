@@ -30,7 +30,7 @@ func ecrireJSON(w http.ResponseWriter, statut int, corps interface{}) {
 func claimsDuPressing(w http.ResponseWriter, r *http.Request) *auth.UserClaims {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return nil
 	}
 	return claims

@@ -20,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service, logger: log.Default()}
 }
 
-// Me traite GET /api/me/entitlements (menus/boutons du frontend).
+// Me traite GET /api/v1/me/entitlements (menus/boutons du frontend).
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	tenantID := auth.GetTenantIDFromContext(r.Context())
@@ -38,4 +38,18 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// Catalogue traite GET /api/v1/billing/plans : formules, tarifs (base) et droits.
+// Route authentifiée mais sans contrôle d'abonnement : la grille tarifaire doit
+// rester lisible même lorsque l'abonnement est expiré.
+func (h *Handler) Catalogue(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	plans, err := h.service.Catalogue(r.Context())
+	if err != nil {
+		httperr.Internal(w, h.logger, "billing", err, "impossible de lire la grille tarifaire")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"plans": plans})
 }

@@ -7,12 +7,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"pressing-os/backend/internal/billing"
 )
 
 // Service gère les opérations métier sur les commandes de linge
 // Garantit l'isolation multi-tenant des données et la sécurité d'accès concurrent
 type Service struct {
 	mu           sync.RWMutex
+	creation     sync.Mutex        // sérialise les créations en mémoire (contrôle du plafond + insertion)
 	orders       map[string]*Order // clé: order_id
 	tenantSeqNum map[string]int    // clé: tenant_id -> séquenceur de ticket
 	store        *dbStore          // nil = mode mémoire ; non-nil = persistance PostgreSQL
@@ -23,6 +26,16 @@ type Service struct {
 	// toujours hors du chemin critique : une panne du hook n'empêche jamais la
 	// réponse HTTP.
 	hookStatut func(ctx context.Context, tenantID, orderID, statut string)
+
+	// quota applique le plafond de commandes du plan. Il est contrôlé par le
+	// service (et non par le handler HTTP) pour que tout chemin de création soit
+	// couvert. Facultatif : nil = aucun plafond (tests, outils internes).
+	quota *billing.QuotaGuard
+}
+
+// SetQuotaGuard branche le garde-fou du plafond de commandes (au démarrage).
+func (s *Service) SetQuotaGuard(guard *billing.QuotaGuard) {
+	s.quota = guard
 }
 
 // SetHookStatut branche le récepteur des transitions de statut (facultatif).
@@ -143,11 +156,27 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 
 	if s.store != nil {
 		s.logger.Printf("[order] Délégation création à persistance PostgreSQL, tenant=%s", tenantID)
-		return s.store.CreateOrder(ctx, tenantID, req)
+		return s.store.creerCommande(ctx, tenantID, req, s.quota)
 	}
 
 	// Validation et initialisation du tenant hors du verrou principal pour réduire le temps de blocage
 	s.validateTenantExistence(tenantID)
+
+	// Plafond de commandes (mode mémoire). Le contrôle se fait hors du verrou des
+	// maps (s.mu) : le compteur d'usage relit les commandes via ce service et
+	// prendrait sinon un verrou déjà tenu. L'atomicité check/insertion est assurée
+	// par s.creation, qui sérialise les créations ; un refus ne consomme aucun numéro.
+	s.creation.Lock()
+	defer s.creation.Unlock()
+	if s.quota != nil {
+		plafond, err := s.quota.PlafondCommandes(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.quota.VerifierCommande(ctx, tenantID, plafond); err != nil {
+			return nil, err
+		}
+	}
 
 	// Verrouillage exclusif seulement pour la mise à jour des maps partagées
 	s.mu.Lock()
@@ -216,6 +245,22 @@ func (s *Service) CreateOrder(ctx context.Context, tenantID string, req CreateOr
 	s.orders[orderID] = order
 	s.logger.Printf("[order] Commande créée: %s (%s), total=%.2f, tenant=%s", orderID, orderNumber, totalAmount, tenantID)
 	return order, nil
+}
+
+// DatesCommandesNonAnnulees retourne la date de création des commandes non annulées
+// du pressing (mode mémoire). Alimente le compteur de quota du mode dégradé.
+// Ne doit pas être appelée depuis un chemin qui tient déjà s.mu.
+func (s *Service) DatesCommandesNonAnnulees(_ context.Context, tenantID string) ([]time.Time, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var dates []time.Time
+	for _, ord := range s.orders {
+		if ord.TenantID != tenantID || ord.Status == StatusCancelled {
+			continue
+		}
+		dates = append(dates, ord.CreatedAt)
+	}
+	return dates, nil
 }
 
 // GetOrders liste les commandes en filtrant obligatoirement par tenant_id

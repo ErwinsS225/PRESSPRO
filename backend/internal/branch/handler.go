@@ -30,7 +30,7 @@ func ecrireJSON(w http.ResponseWriter, statut int, corps interface{}) {
 func (h *Handler) ListBranches(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 	branches, err := h.service.GetBranches(r.Context(), claims.TenantID)
@@ -50,7 +50,7 @@ func (h *Handler) ListBranches(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *Handler) CreateBranch(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateBranch(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *Handler) UpdateBranch(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListMemberBranches(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 	membre := chi.URLParam(r, "id")
@@ -114,7 +114,7 @@ func (h *Handler) ListMemberBranches(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateMemberBranches(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		ecrireJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentification de tenant requise"})
+		ecrireJSON(w, http.StatusForbidden, map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
 

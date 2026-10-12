@@ -28,6 +28,10 @@ type Store interface {
 type Service struct {
 	store Store
 
+	// verifier contrôle l'appartenance d'un compte au pressing (mode mémoire).
+	// Sans vérificateur, le mode mémoire refuse les opérations sur les comptes.
+	verifier VerificateurMembre
+
 	mu           sync.RWMutex
 	memoire      map[string][]*Branch
 	affectations map[string]map[string]map[string]bool // tenant -> compte -> établissement

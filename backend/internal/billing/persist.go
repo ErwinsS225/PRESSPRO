@@ -2,8 +2,12 @@ package billing
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"pressing-os/backend/internal/database"
 	"pressing-os/backend/internal/pgutil"
@@ -74,12 +78,55 @@ type dbCounters struct {
 	database *database.Store
 }
 
-func (c *dbCounters) CountMonthlyOrders(ctx context.Context, tenantID string) (int64, error) {
+// requeteFenetre : ancre de la fenêtre glissante de commandes. Priorité au début
+// d'essai, sinon à la création de l'abonnement, sinon à la création de
+// l'établissement (tenants.created_at est NOT NULL, donc toujours défini).
+// La fenêtre est ouverte par tranches de OrdersPeriodDays jours depuis cette
+// ancre : elle se renouvelle sans job, et un changement de formule ne la remet
+// pas à zéro (l'ancre ne dépend pas du plan).
+const requeteFenetre = `
+	SELECT COALESCE(s.trial_started_at, s.created_at, t.created_at) AS ancre
+	FROM tenants t
+	LEFT JOIN subscriptions s ON s.tenant_id = t.id
+	WHERE t.id = $1`
+
+// requeteCompteFenetre compte les commandes de la fenêtre courante, hors annulées.
+// $1 = tenant, $2 = instant de calcul. L'index idx_orders_tenant_created (migration
+// 000016) couvre le filtre par établissement et par date.
+var requeteCompteFenetre = fmt.Sprintf(`
+	WITH ancre AS (%s),
+	bornes AS (
+		SELECT ancre.ancre + make_interval(days => %d * GREATEST(0,
+			FLOOR(EXTRACT(EPOCH FROM ($2::timestamptz - ancre.ancre)) / (%d * 86400))::int)) AS debut
+		FROM ancre
+	)
+	SELECT COUNT(*) FROM orders o, bornes
+	WHERE o.tenant_id = $1
+	  AND o.status <> 'cancelled'
+	  AND o.created_at >= bornes.debut
+	  AND o.created_at < bornes.debut + make_interval(days => %d)`,
+	requeteFenetre, OrdersPeriodDays, OrdersPeriodDays, OrdersPeriodDays)
+
+// CountOrdersInPeriod compte la consommation de la fenêtre courante (hors transaction).
+func (c *dbCounters) CountOrdersInPeriod(ctx context.Context, tenantID string, now time.Time) (int64, error) {
+	if !pgutil.IsUUID(tenantID) {
+		return 0, nil
+	}
 	var n int64
-	row := c.database.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM orders WHERE tenant_id = $1 AND date_trunc('month', created_at) = date_trunc('month', NOW())`,
-		tenantID)
-	if err := row.Scan(&n); err != nil {
+	if err := c.database.QueryRowContext(ctx, requeteCompteFenetre, tenantID, now).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// CountOrdersInPeriodTx compte dans la transaction de création, après le verrou
+// de l'établissement : la lecture voit alors les commandes déjà validées.
+func (c *dbCounters) CountOrdersInPeriodTx(ctx context.Context, tx pgx.Tx, tenantID string, now time.Time) (int64, error) {
+	if !pgutil.IsUUID(tenantID) {
+		return 0, nil
+	}
+	var n int64
+	if err := tx.QueryRow(ctx, requeteCompteFenetre, tenantID, now).Scan(&n); err != nil {
 		return 0, err
 	}
 	return n, nil
@@ -121,20 +168,49 @@ func (s *dbStore) GetSubscription(ctx context.Context, tenantID string) (*Subscr
 		price                      float64
 		trialStart, trialEnd       *time.Time
 		periodEnd                  *time.Time
+		createdAt                  time.Time
 	)
 	row := s.database.QueryRowContext(ctx, `
 		SELECT p.code, sub.status, p.name, p.price_monthly_xof,
-		       sub.trial_started_at, sub.trial_ends_at, sub.current_period_end
+		       sub.trial_started_at, sub.trial_ends_at, sub.current_period_end, sub.created_at
 		FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
 		WHERE sub.tenant_id = $1`, tenantID)
-	if err := row.Scan(&planCode, &status, &planName, &price, &trialStart, &trialEnd, &periodEnd); err != nil {
-		return nil, nil
+	if err := row.Scan(&planCode, &status, &planName, &price, &trialStart, &trialEnd, &periodEnd, &createdAt); err != nil {
+		// Absence d'abonnement : état normal (formule FREE par défaut). L'ancre de la
+		// fenêtre de commandes reste la date de création de l'établissement, comme dans
+		// requeteFenetre (COALESCE(..., t.created_at)).
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.gratuitSansAbonnement(ctx, tenantID)
+		}
+		// Toute autre erreur est une panne de lecture : jamais un état FREE silencieux.
+		return nil, fmt.Errorf("lecture de l'abonnement: %w", err)
 	}
 	return &SubscriptionRecord{
 		PlanCode: planCode, Status: status,
 		TrialStartedAt: trialStart, TrialEndsAt: trialEnd,
-		PlanName: planName, PriceMonthly: price,
+		PlanName: planName, PriceMonthly: price, CreatedAt: createdAt,
 	}, nil
+}
+
+// ListPlans lit les formules actives et leur tarif mensuel (source : table plans).
+func (s *dbStore) ListPlans(ctx context.Context) ([]PlanCatalogue, error) {
+	rows, err := s.database.QueryContext(ctx,
+		`SELECT code, name, price_monthly_xof FROM plans WHERE is_active ORDER BY price_monthly_xof, code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PlanCatalogue
+	for rows.Next() {
+		var p PlanCatalogue
+		var prix float64
+		if err := rows.Scan(&p.Code, &p.Name, &prix); err != nil {
+			return nil, err
+		}
+		p.PriceMonthlyXOF = &prix
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (s *dbStore) ListEntitlements(ctx context.Context, planCode string) ([]Entitlement, error) {
@@ -197,17 +273,66 @@ func (s *dbStore) StartTrial(ctx context.Context, tenantID string, trialEndsAt t
 	if err := row.Scan(&planID); err != nil {
 		return err
 	}
+	// Une seule instruction : l'événement n'est journalisé que si l'abonnement a
+	// réellement été créé. Une seconde initialisation (conflit sur tenant_id)
+	// ne crée ni essai, ni événement en double.
 	_, err := s.database.ExecContext(ctx, `
-		INSERT INTO subscriptions (tenant_id, plan_id, status, trial_started_at, trial_ends_at)
-		VALUES ($1, $2, 'TRIALING', NOW(), $3)
-		ON CONFLICT (tenant_id) DO NOTHING`, tenantID, planID, trialEndsAt)
-	if err != nil {
-		return err
-	}
-	_, err = s.database.ExecContext(ctx, `
+		WITH cree AS (
+			INSERT INTO subscriptions (tenant_id, plan_id, status, trial_started_at, trial_ends_at)
+			VALUES ($1, $2, 'TRIALING', NOW(), $3)
+			ON CONFLICT (tenant_id) DO NOTHING
+			RETURNING tenant_id
+		)
 		INSERT INTO subscription_events (tenant_id, to_plan_code, to_status, reason)
-		VALUES ($1, 'FREE', 'TRIALING', 'trial_started')`, tenantID)
+		SELECT tenant_id, 'FREE', 'TRIALING', 'trial_started' FROM cree`,
+		tenantID, planID, trialEndsAt)
 	return err
+}
+
+// ExpireTrial applique la transition d'expiration dans une transaction :
+// verrouillage de la ligne d'abonnement, contrôle de la date et du statut sous
+// verrou, puis mise à jour et événement. Deux appels concurrents ne peuvent donc
+// produire qu'une seule transition ; un abonnement payé ou déjà actif n'est jamais touché.
+func (s *dbStore) ExpireTrial(ctx context.Context, tenantID string, now time.Time, actorUserID string) (bool, error) {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var fromPlan, fromStatus string
+	var trialEnd *time.Time
+	err = tx.QueryRow(ctx, `
+		SELECT p.code, sub.status, sub.trial_ends_at
+		FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
+		WHERE sub.tenant_id = $1
+		FOR UPDATE OF sub`, tenantID).Scan(&fromPlan, &fromStatus, &trialEnd)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("verrouillage de l'abonnement: %w", err)
+	}
+	if fromStatus != StatusTrialing || trialEnd == nil || now.Before(*trialEnd) {
+		return false, nil
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE subscriptions
+		SET plan_id = (SELECT id FROM plans WHERE code = $2), status = $3, updated_at = NOW()
+		WHERE tenant_id = $1`, tenantID, PlanFree, StatusActive); err != nil {
+		return false, fmt.Errorf("transition de l'essai: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO subscription_events (tenant_id, from_plan_code, to_plan_code, from_status, to_status, reason, actor_user_id)
+		VALUES ($1, $2, $3, $4, $5, 'trial_expired', $6)`,
+		tenantID, fromPlan, PlanFree, fromStatus, StatusActive, uuidPourColonne(actorUserID)); err != nil {
+		return false, fmt.Errorf("journal de l'expiration: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // ---------- Espace SuperAdmin : indicateurs et annuaire réels ----------
@@ -227,10 +352,12 @@ func (s *dbStore) PlatformStats(ctx context.Context) (*PlatformStats, error) {
 				FROM subscriptions sub JOIN plans p ON p.id = sub.plan_id
 				WHERE sub.status = 'ACTIVE'
 			), 0)`)
+	var mrr float64
 	if err := row.Scan(&stats.TotalPressings, &stats.TotalUsers,
-		&stats.ActiveSubscriptions, &stats.TrialingCount, &stats.MRR); err != nil {
+		&stats.ActiveSubscriptions, &stats.TrialingCount, &mrr); err != nil {
 		return nil, err
 	}
+	stats.MRR = &mrr
 
 	rows, err := s.database.QueryContext(ctx,
 		`SELECT status, COUNT(*) FROM subscriptions GROUP BY status`)
@@ -266,6 +393,32 @@ func (s *dbStore) PlatformStats(ctx context.Context) (*PlatformStats, error) {
 	return stats, rows.Err()
 }
 
+// SetPlanPrice modifie le tarif d'une formule. L'acteur et le motif sont passés au
+// trigger par set_config(..., is_local = true), donc limités à cette transaction.
+// Retourne ErrPlanInconnu si aucune formule ne porte ce code.
+func (s *dbStore) SetPlanPrice(ctx context.Context, planCode string, priceXOF float64, actorUserID, reason string) error {
+	tx, err := s.database.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx,
+		`SELECT set_config('presspro.actor_user_id', $1, true), set_config('presspro.price_reason', $2, true)`,
+		actorUserID, reason); err != nil {
+		return fmt.Errorf("contexte de journalisation: %w", err)
+	}
+	tag, err := tx.Exec(ctx,
+		`UPDATE plans SET price_monthly_xof = $2 WHERE code = $1`, planCode, priceXOF)
+	if err != nil {
+		return fmt.Errorf("modification du tarif: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrPlanInconnu
+	}
+	return tx.Commit(ctx)
+}
+
 // ListTenantOverviews retourne l'annuaire des pressings, abonnement et compte
 // propriétaire compris (aucune donnée métier interne : ni clients ni commandes).
 func (s *dbStore) ListTenantOverviews(ctx context.Context) ([]TenantOverview, error) {
@@ -293,11 +446,13 @@ func (s *dbStore) ListTenantOverviews(ctx context.Context) ([]TenantOverview, er
 	for rows.Next() {
 		var o TenantOverview
 		var status string
+		var prix float64
 		if err := rows.Scan(&o.TenantID, &o.Name, &o.Slug, &o.City, &o.Phone,
-			&o.OwnerEmail, &o.PlanCode, &o.PlanName, &o.PriceMonthlyXOF,
+			&o.OwnerEmail, &o.PlanCode, &o.PlanName, &prix,
 			&status, &o.TrialEndsAt, &o.CreatedAt); err != nil {
 			return nil, err
 		}
+		o.PriceMonthlyXOF = &prix
 		o.Status = status
 		o.Actif = !strings.EqualFold(status, StatusSuspended)
 		out = append(out, o)
@@ -344,4 +499,19 @@ func (s *dbStore) SetSubscriptionStatus(ctx context.Context, tenantID, status, a
 	}
 
 	return tx.Commit(ctx)
+}
+
+// gratuitSansAbonnement : état FREE d'un établissement sans ligne d'abonnement, ancré
+// sur la date de création de l'établissement. Retourne nil si l'établissement est
+// inconnu (le service applique alors son repli FREE sans ancre).
+func (s *dbStore) gratuitSansAbonnement(ctx context.Context, tenantID string) (*SubscriptionRecord, error) {
+	var creation time.Time
+	err := s.database.QueryRowContext(ctx, `SELECT created_at FROM tenants WHERE id = $1`, tenantID).Scan(&creation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lecture de l'établissement: %w", err)
+	}
+	return &SubscriptionRecord{PlanCode: PlanFree, Status: StatusActive, PlanName: "Gratuit permanent", CreatedAt: creation}, nil
 }

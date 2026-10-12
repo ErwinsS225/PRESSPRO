@@ -13,13 +13,14 @@ import (
 // (espace SuperAdmin / éditeur SaaS). Toutes les valeurs proviennent des données
 // réelles : abonnements persistés en base, ou mémoire en mode dégradé.
 type PlatformStats struct {
-	TotalPressings      int64            `json:"total_registered_pressings"`
-	TotalUsers          int64            `json:"total_users"`
-	ActiveSubscriptions int64            `json:"active_subscriptions"`
-	TrialingCount       int64            `json:"trialing_subscriptions"`
-	MRR                 float64          `json:"monthly_recurring_mrr_xof"`
-	ByStatus            map[string]int64 `json:"subscriptions_by_status"`
-	ByPlan              map[string]int64 `json:"subscriptions_by_plan"`
+	TotalPressings      int64 `json:"total_registered_pressings"`
+	TotalUsers          int64 `json:"total_users"`
+	ActiveSubscriptions int64 `json:"active_subscriptions"`
+	TrialingCount       int64 `json:"trialing_subscriptions"`
+	// MRR est null en mode mémoire : aucun tarif n'y est stocké, donc aucun MRR réel.
+	MRR      *float64         `json:"monthly_recurring_mrr_xof"`
+	ByStatus map[string]int64 `json:"subscriptions_by_status"`
+	ByPlan   map[string]int64 `json:"subscriptions_by_plan"`
 	// DataSource indique l'origine des chiffres : "postgresql" (données
 	// persistées) ou "memoire" (mode démonstration, base non connectée).
 	DataSource string `json:"data_source"`
@@ -27,15 +28,16 @@ type PlatformStats struct {
 
 // TenantOverview décrit un établissement pour l'annuaire de l'éditeur.
 type TenantOverview struct {
-	TenantID        string     `json:"tenant_id"`
-	Name            string     `json:"name"`
-	Slug            string     `json:"slug"`
-	City            string     `json:"city"`
-	Phone           string     `json:"phone"`
-	OwnerEmail      string     `json:"owner_email"`
-	PlanCode        string     `json:"plan_code"`
-	PlanName        string     `json:"plan_name"`
-	PriceMonthlyXOF float64    `json:"price_monthly_xof"`
+	TenantID   string `json:"tenant_id"`
+	Name       string `json:"name"`
+	Slug       string `json:"slug"`
+	City       string `json:"city"`
+	Phone      string `json:"phone"`
+	OwnerEmail string `json:"owner_email"`
+	PlanCode   string `json:"plan_code"`
+	PlanName   string `json:"plan_name"`
+	// PriceMonthlyXOF est null en mode mémoire (tarif inconnu, jamais 0 inventé).
+	PriceMonthlyXOF *float64   `json:"price_monthly_xof"`
 	Status          string     `json:"status"`
 	TrialEndsAt     *time.Time `json:"trial_ends_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -105,7 +107,6 @@ func (s *Service) AdminStats(ctx context.Context) (*PlatformStats, error) {
 		switch strings.ToUpper(rec.Status) {
 		case StatusActive:
 			stats.ActiveSubscriptions++
-			stats.MRR += rec.PriceMonthly
 		case StatusTrialing:
 			stats.TrialingCount++
 		}

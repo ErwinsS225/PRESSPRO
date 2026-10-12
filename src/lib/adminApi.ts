@@ -11,7 +11,8 @@ export interface PlatformStats {
   total_users: number;
   active_subscriptions: number;
   trialing_subscriptions: number;
-  monthly_recurring_mrr_xof: number;
+  /** null hors base de données : aucun tarif n'est stocké, donc aucun MRR réel. */
+  monthly_recurring_mrr_xof: number | null;
   subscriptions_by_status: Record<string, number>;
   subscriptions_by_plan: Record<string, number>;
   /** "postgresql" (données persistées) ou "memoire" (mode démonstration). */
@@ -27,7 +28,8 @@ export interface TenantOverview {
   owner_email: string;
   plan_code: string;
   plan_name: string;
-  price_monthly_xof: number;
+  /** null hors base de données (tarif inconnu) : ne jamais afficher 0 à la place. */
+  price_monthly_xof: number | null;
   status: string;
   trial_ends_at?: string;
   created_at: string;

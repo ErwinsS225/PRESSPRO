@@ -93,6 +93,30 @@ describe('SuperAdminView', () => {
     expect(screen.getAllByText('Abidjan (Cocody)').length).toBeGreaterThan(0);
   });
 
+  it("n'affiche jamais un tarif inventé quand l'API ne le connaît pas (mode mémoire)", async () => {
+    // En mode mémoire, aucun tarif n'est stocké : l'API renvoie null, pas 0.
+    const statsSansTarif = { ...STATS, monthly_recurring_mrr_xof: null };
+    const tenantsSansTarif = TENANTS.map((t) => ({ ...t, price_monthly_xof: null }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const body = url.includes('/admin/stats')
+          ? statsSansTarif
+          : { tenants: tenantsSansTarif, total: tenantsSansTarif.length };
+        return { ok: true, status: 200, json: async () => body } as Response;
+      })
+    );
+    render(<SuperAdminView currentUser={superadmin} token="jeton-superadmin" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Pressing Ivoire Cocody')).toBeInTheDocument();
+    });
+    // Un tarif par établissement (2) et le MRR suivi : aucun montant inventé.
+    expect(screen.getAllByText('Tarif non communiqué').length).toBe(3);
+    expect(screen.queryByText('45 000')).not.toBeInTheDocument();
+    expect(screen.queryByText('0 FCFA / mois')).not.toBeInTheDocument();
+  });
+
   it('supprime un établissement seulement après confirmation explicite', async () => {
     const appels: Array<{ url: string; method?: string }> = [];
     vi.stubGlobal(

@@ -161,8 +161,16 @@ func TestRouterEndpoints(t *testing.T) {
 	if recVerify.Code != http.StatusOK {
 		t.Fatalf("attendu 200 sur GET /api/v1/public/verify, obtenu %d", recVerify.Code)
 	}
+	// Vérification publique : aucune donnée personnelle du client (pas de nom).
+	var brut map[string]interface{}
+	if err := json.Unmarshal(recVerify.Body.Bytes(), &brut); err != nil {
+		t.Fatalf("réponse de vérification illisible: %v", err)
+	}
+	if _, present := brut["customer_name"]; present {
+		t.Errorf("la vérification publique ne doit pas exposer customer_name")
+	}
 	var verifyResp order.VerifyTicketResponse
-	if err := json.NewDecoder(recVerify.Body).Decode(&verifyResp); err != nil {
+	if err := json.Unmarshal(recVerify.Body.Bytes(), &verifyResp); err != nil {
 		t.Fatalf("réponse de vérification illisible: %v", err)
 	}
 	if !verifyResp.Valid || verifyResp.OrderID != createdOrder.ID {
@@ -186,7 +194,7 @@ type fixedCounter struct {
 	branches   int64
 }
 
-func (f fixedCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
+func (f fixedCounter) CountOrdersInPeriod(_ context.Context, _ string, _ time.Time) (int64, error) {
 	return f.orders, nil
 }
 func (f fixedCounter) CountUsers(_ context.Context, _ string) (int64, error) {

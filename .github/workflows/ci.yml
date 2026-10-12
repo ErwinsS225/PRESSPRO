@@ -66,7 +66,7 @@ jobs:
           done
 
       - name: Tests d'intégration (PostgreSQL réel)
-        run: go test -tags=integration -v ./internal/catalog/... ./internal/auth/... ./internal/report/...
+        run: go test -tags=integration -v ./internal/catalog/... ./internal/auth/... ./internal/report/... ./internal/billing/... ./internal/order/... ./internal/http/...
 
       - name: Couverture des correctifs (index, quota, appartenance, éditeur)
         run: >

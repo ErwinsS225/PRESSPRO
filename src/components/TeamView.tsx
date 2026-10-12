@@ -126,8 +126,15 @@ export const TeamView: React.FC<TeamViewProps> = ({ currentUser, token, showToas
     await load();
   };
 
-  const modifiable = (member: TeamMember) =>
-    member.id !== currentUser.id && member.role !== 'owner' && member.role !== 'superadmin';
+  /**
+   * Règle alignée sur le backend : seul un propriétaire peut verrouiller ou
+   * réactiver un compte propriétaire. Un gérant voit ces lignes protégées.
+   */
+  const modifiable = (member: TeamMember) => {
+    if (member.id === currentUser.id || member.role === 'superadmin') return false;
+    if (member.role === 'owner') return currentUser.role === 'owner';
+    return true;
+  };
 
   /** Ouvre le sélecteur d'établissements d'un employé et charge son affectation. */
   const ouvrirAffectation = async (member: TeamMember) => {

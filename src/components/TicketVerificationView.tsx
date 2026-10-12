@@ -25,7 +25,6 @@ interface VerifyApiResponse {
   paid_amount: number;
   remaining_due: number;
   due_date: string;
-  customer_name: string;
   items: VerifyApiItem[];
 }
 
@@ -47,7 +46,8 @@ export const TicketVerificationView: React.FC<TicketVerificationViewProps> = ({ 
         const mapped: Order = {
           id: data.order_id,
           orderNumber: data.order_number,
-          customerName: data.customer_name,
+          // Vérification publique : le nom du client n'est pas exposé.
+          customerName: '',
           customerPhone: '',
           items: (data.items || []).map((it, idx) => ({
             id: `verify-${idx}`,

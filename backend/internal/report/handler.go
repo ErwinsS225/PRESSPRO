@@ -34,7 +34,7 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -64,7 +64,7 @@ func (h *Handler) Export(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}

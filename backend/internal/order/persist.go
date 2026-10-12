@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"pressing-os/backend/internal/billing"
 	"pressing-os/backend/internal/database"
 )
 
@@ -178,11 +179,25 @@ func resolveBranchTx(ctx context.Context, tx pgx.Tx, tenantID, requested string)
 	return primaryBranchTx(ctx, tx, tenantID)
 }
 
-// CreateOrder persiste un dépôt de linge dans une transaction unique :
+// creerCommande persiste un dépôt de linge dans une transaction unique :
 // numéro atomique → client → établissement → commande → lignes → paiement initial.
-func (st *dbStore) CreateOrder(ctx context.Context, tenantID string, req CreateOrderRequest) (*Order, error) {
+//
+// Le plafond de commandes du plan est lu avant la transaction (aucune connexion
+// supplémentaire pendant le verrou), puis contrôlé DANS la transaction après le
+// verrou propre à l'établissement : deux créations concurrentes ne peuvent pas
+// dépasser le plafond, et un échec (rollback) ne consomme aucune place.
+func (st *dbStore) creerCommande(ctx context.Context, tenantID string, req CreateOrderRequest, quota *billing.QuotaGuard) (*Order, error) {
 	if len(req.Items) == 0 {
 		return nil, ErrEmptyOrderItems
+	}
+
+	var plafond billing.PlafondCommandes
+	if quota != nil {
+		p, err := quota.PlafondCommandes(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		plafond = p
 	}
 
 	tx, err := st.database.Pool().Begin(ctx)
@@ -190,6 +205,12 @@ func (st *dbStore) CreateOrder(ctx context.Context, tenantID string, req CreateO
 		return nil, fmt.Errorf("ouverture de transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	if quota != nil {
+		if err := quota.VerifierCommandeTx(ctx, tx, tenantID, plafond); err != nil {
+			return nil, err
+		}
+	}
 
 	orderNumber, err := nextOrderNumberTx(ctx, tx, tenantID)
 	if err != nil {

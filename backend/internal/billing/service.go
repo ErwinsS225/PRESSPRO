@@ -69,7 +69,9 @@ func defaultMatrix() map[string]map[string]policyRow {
 
 // UsageCounter fournit les consommations réelles (quotas).
 type UsageCounter interface {
-	CountMonthlyOrders(ctx context.Context, tenantID string) (int64, error)
+	// CountOrdersInPeriod compte les commandes non annulées de la fenêtre glissante
+	// de OrdersPeriodDays jours ouverte à l'instant now (voir requeteCompteFenetre).
+	CountOrdersInPeriod(ctx context.Context, tenantID string, now time.Time) (int64, error)
 	CountUsers(ctx context.Context, tenantID string) (int64, error)
 	// CountPriceLists alimente le plafond de la fonctionnalité « grilles
 	// tarifaires » (1 en formule gratuite, 3 en PRO, 10 en BUSINESS).
@@ -82,7 +84,7 @@ type UsageCounter interface {
 // memoryCounter : zéro usage (mode dégradé).
 type memoryCounter struct{}
 
-func (memoryCounter) CountMonthlyOrders(_ context.Context, _ string) (int64, error) {
+func (memoryCounter) CountOrdersInPeriod(_ context.Context, _ string, _ time.Time) (int64, error) {
 	return 0, nil
 }
 func (memoryCounter) CountPriceLists(_ context.Context, _ string) (int64, error) {
@@ -105,6 +107,8 @@ type SubscriptionRecord struct {
 	TrialEndsAt    *time.Time
 	PlanName       string
 	PriceMonthly   float64
+	// CreatedAt : création de l'abonnement (ancre de la fenêtre si pas d'essai).
+	CreatedAt time.Time
 }
 
 // Service calcule les droits effectifs (moteur centralisé).

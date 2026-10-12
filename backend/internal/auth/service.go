@@ -459,3 +459,38 @@ func (s *Service) RegisterTenant(ctx context.Context, req RegisterTenantRequest)
 		Tenant: tenant,
 	}, nil
 }
+
+// CompterUtilisateursActifs retourne le nombre de comptes actifs du pressing
+// (mode mémoire ; le mode PostgreSQL utilise sa propre requête de comptage).
+func (s *Service) CompterUtilisateursActifs(ctx context.Context, tenantID string) (int64, error) {
+	users, err := s.GetUsersByTenant(ctx, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	for _, u := range users {
+		if u.Status == "active" {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// UtilisateurDansTenant indique si le compte appartient au pressing donné. Sert de
+// vérificateur d'appartenance au module établissements en mode mémoire (fail-closed
+// côté appelant : un compte inconnu ou d'un autre pressing renvoie false).
+func (s *Service) UtilisateurDansTenant(ctx context.Context, tenantID, userID string) (bool, error) {
+	if tenantID == "" || userID == "" {
+		return false, nil
+	}
+	users, err := s.GetUsersByTenant(ctx, tenantID)
+	if err != nil {
+		return false, err
+	}
+	for _, u := range users {
+		if u.ID == userID {
+			return true, nil
+		}
+	}
+	return false, nil
+}

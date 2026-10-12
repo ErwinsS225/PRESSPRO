@@ -197,7 +197,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -225,7 +225,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -234,6 +234,14 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "format de requête JSON invalide"})
+		return
+	}
+
+	// Un compte propriétaire ne peut être créé que par un propriétaire : un gérant
+	// ne doit pas pouvoir s'octroyer ni octroyer les droits de propriétaire.
+	if req.Role == RoleOwner && claims.Role != RoleOwner {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "seul le propriétaire peut créer un compte propriétaire"})
 		return
 	}
 
@@ -262,7 +270,7 @@ func (h *Handler) SetUserStatus(w http.ResponseWriter, r *http.Request) {
 
 	claims := GetUserFromContext(r.Context())
 	if claims == nil || claims.TenantID == "" {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "authentification de tenant requise"})
 		return
 	}
@@ -283,6 +291,21 @@ func (h *Handler) SetUserStatus(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "vous ne pouvez pas modifier le statut de votre propre compte"})
 		return
+	}
+
+	// Seul le propriétaire peut désactiver, verrouiller ou réactiver un compte propriétaire.
+	if claims.Role != RoleOwner {
+		cible, err := h.roleDuCompte(r.Context(), claims.TenantID, userID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "impossible de vérifier le compte visé"})
+			return
+		}
+		if cible == RoleOwner {
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "seul le propriétaire peut modifier le statut d'un compte propriétaire"})
+			return
+		}
 	}
 
 	user, err := h.service.SetUserStatus(r.Context(), claims.TenantID, userID, req.Status)
@@ -339,4 +362,19 @@ func WithUserClaims(ctx context.Context, claims *UserClaims) context.Context {
 		ctx = context.WithValue(ctx, TenantContextKey, claims.TenantID)
 	}
 	return ctx
+}
+
+// roleDuCompte retourne le rôle d'un compte du pressing, ou "" s'il est introuvable
+// (le service répondra alors 404 à la mise à jour).
+func (h *Handler) roleDuCompte(ctx context.Context, tenantID, userID string) (string, error) {
+	users, err := h.service.GetUsersByTenant(ctx, tenantID)
+	if err != nil {
+		return "", err
+	}
+	for _, u := range users {
+		if u.ID == userID {
+			return u.Role, nil
+		}
+	}
+	return "", nil
 }

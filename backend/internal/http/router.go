@@ -295,6 +295,7 @@ func NewRouter(deps ServerDependencies) http.Handler {
 				// Droits effectifs du pressing (moteur d'abonnement centralisé).
 				if deps.BillingHandler != nil {
 					protected.Get("/me/entitlements", deps.BillingHandler.Me)
+					protected.Get("/billing/plans", deps.BillingHandler.Catalogue)
 				}
 
 				// Espace SuperAdmin (éditeur SaaS) : données réelles de la plateforme.
@@ -307,6 +308,8 @@ func NewRouter(deps ServerDependencies) http.Handler {
 						// Retrait définitif d'un établissement (et de ses données) :
 						// sert à nettoyer les entreprises de démonstration.
 						adminRouter.Delete("/tenants/{id}", SuperAdminDeleteTenant(deps.Billing))
+						// Tarif d'une formule payante : journalisé, réservé à l'éditeur.
+						adminRouter.Patch("/plans/{code}/price", SuperAdminSetPlanPrice(deps.Billing))
 					})
 				}
 			})

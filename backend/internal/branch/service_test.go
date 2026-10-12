@@ -10,9 +10,54 @@ import (
 
 const tenant = "a0000000-0000-0000-0000-000000000001"
 
+// service : pressing en mémoire avec un vérificateur d'appartenance permissif
+// (tout compte non vide appartient au pressing). Les cas de refus sont testés à part.
 func service(t *testing.T) *branch.Service {
 	t.Helper()
-	return branch.NewService()
+	svc := branch.NewService()
+	svc.SetMemberVerifier(func(_ context.Context, _, userID string) (bool, error) {
+		return userID != "", nil
+	})
+	return svc
+}
+
+// TestAffectation_CompteInconnuRefuse : en mode mémoire, un compte inconnu du
+// pressing (ou sans vérificateur) ne peut ni être consulté ni être affecté.
+func TestAffectation_CompteInconnuRefuse(t *testing.T) {
+	ctx := context.Background()
+	const inconnu = "user-autre-pressing-999"
+
+	// Vérificateur qui rejette le compte : refus sur lecture et écriture.
+	svc := branch.NewService()
+	svc.SetMemberVerifier(func(_ context.Context, _, userID string) (bool, error) {
+		return userID != inconnu, nil
+	})
+	principal, err := svc.GetBranches(ctx, tenant)
+	if err != nil || len(principal) == 0 {
+		t.Fatalf("établissement principal attendu: %v", err)
+	}
+	if _, err := svc.GetMemberBranches(ctx, tenant, inconnu); !errors.Is(err, branch.ErrMemberNotFound) {
+		t.Errorf("lecture d'un compte inconnu : attendu ErrMemberNotFound, obtenu %v", err)
+	}
+	if _, err := svc.SetMemberBranches(ctx, tenant, inconnu, []string{principal[0].ID}); !errors.Is(err, branch.ErrMemberNotFound) {
+		t.Errorf("affectation d'un compte inconnu : attendu ErrMemberNotFound, obtenu %v", err)
+	}
+
+	// Sans vérificateur : fail-closed, aucun compte n'est accepté.
+	sansVerif := branch.NewService()
+	if _, err := sansVerif.GetMemberBranches(ctx, tenant, "user-caissier-001"); !errors.Is(err, branch.ErrMemberNotFound) {
+		t.Errorf("sans vérificateur : attendu ErrMemberNotFound, obtenu %v", err)
+	}
+
+	// Erreur du vérificateur : elle remonte, sans affectation.
+	erreur := errors.New("base indisponible")
+	defaillant := branch.NewService()
+	defaillant.SetMemberVerifier(func(_ context.Context, _, _ string) (bool, error) {
+		return false, erreur
+	})
+	if _, err := defaillant.SetMemberBranches(ctx, tenant, "user-caissier-001", []string{principal[0].ID}); !errors.Is(err, erreur) {
+		t.Errorf("erreur du vérificateur : attendu %v, obtenu %v", erreur, err)
+	}
 }
 
 // TestGetBranches_PrincipalSeed : un pressing possède toujours au moins son
