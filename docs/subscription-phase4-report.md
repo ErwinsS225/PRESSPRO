@@ -103,7 +103,16 @@ identifiant étranger ; les données de l'établissement cible sont inchangées 
 - **R-P4-6 — `POST /users` accepte le rôle propriétaire pour un gérant** (RBAC : propriétaire, gérant, superadmin ; rôles autorisés : propriétaire, gérant, caissier, opérateur). Décision (a) en attente.
 - **Risque hérité de la phase 0 : `ForcePlanForTest`** est exporté depuis du code non-test (`billing/testing_hook.go`). Non modifié ici ; à déplacer dans un fichier de test ou à retirer quand les tests utiliseront la base.
 
-**Décisions à obtenir du propriétaire (aucun changement de comportement effectué sans réponse) :**
+**Décisions du propriétaire (réponses reçues après ce rapport ; toutes au choix recommandé) :**
+
+| Sujet | Décision | Mise en œuvre |
+|---|---|---|
+| D6 — suppression d'une dépense après rétrogradation | **Blocage conservé** (`DELETE /expenses/{id}` = 402 en FREE). Règle à inscrire dans le PLAN : la rétrogradation ne supprime ni ne rend modifiables les données ; elle bloque les créations au-delà du plafond et les fonctionnalités payantes. | Aucun changement de code. Règle à reprendre dans la mise à jour du PLAN (phase 8). |
+| R-P4-2 et R-P4-3 — mode dégradé | **Correction en phase 5** : vérification d'appartenance du compte cible avant écriture des affectations ; compteurs mémoire des plafonds. | Phase 5. Tests mémoire à rendre exécutables (sauts supprimés). |
+| Vitrine publique (`customer_name`) | **Retirer `customer_name`** de la réponse publique (ne garder que statut, total, dates et lignes sans PII). | Phase 5, avec vérification du frontend qui affiche le ticket public. |
+| Rôle gérant | **Réservé au propriétaire** : création d'un compte propriétaire et verrouillage d'un compte propriétaire. Le gérant garde caissiers et opérateurs. | Phase 5 : restriction RBAC dans `POST /users` et `PATCH /users/{id}/status`, avec tests négatifs de rôles. |
+
+**Décisions à obtenir du propriétaire (historique, remplacées par les réponses ci-dessus) :**
 
 1. **D6 — suppression d'une dépense après rétrogradation.** Observé : `DELETE /expenses/{id}` répond **402** pour un établissement FREE. Le PLAN (§3.3) interdit la suppression de données et ne bloque que les nouvelles créations au-delà du plafond : ce blocage va donc au-delà du PLAN. Option A : autoriser la suppression. Option B : conserver le blocage (données protégées). Recommandation : B, avec une règle explicite dans le PLAN.
 2. **Risques R-P4-2 et R-P4-3 (mode dégradé).** Option A : corriger en phase 5 (petit correctif, sans changement pour la production avec base). Option B : accepter et documenter.
